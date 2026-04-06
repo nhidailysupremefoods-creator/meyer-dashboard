@@ -1,50 +1,28 @@
 name: Bootstrap
+
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/bootstrap.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Debug download
+
+      - name: Decode and extract project
         run: |
-          URL="https://gist.githubusercontent.com/nhidailysupremefoods-creator/7f5b1ad5dcb56a28d247c6344f1e2e35/raw/1a46a24b5c5fc3f9b991dbadf2c88fb3026dc81c/project.tar.gz.b64"
-          TMPFILE=$(mktemp)
-          curl -sL "$URL" -o "$TMPFILE"
-          SIZE=$(wc -c < "$TMPFILE")
-          echo "=== RAW SIZE: $SIZE bytes ==="
-          echo "=== FIRST 80 chars ==="
-          head -c 80 "$TMPFILE"
-          echo ""
-          echo "=== LAST 40 chars ==="
-          tail -c 40 "$TMPFILE"
-          echo ""
-          echo "=== NEWLINE COUNT ==="
-          echo "Newlines: $(tr -cd '\n' < "$TMPFILE" | wc -c)"
-          echo "CR count: $(tr -cd '\r' < "$TMPFILE" | wc -c)"
-          echo "=== AFTER TR STRIP: size ==="
-          STRIPPED=$(mktemp)
-          cat "$TMPFILE" | tr -d '\n\r' > "$STRIPPED"
-          SSIZE=$(wc -c < "$STRIPPED")
-          echo "Stripped size: $SSIZE bytes"
-          echo "=== DECODE TEST ==="
-          DECODED=$(mktemp)
-          cat "$STRIPPED" | base64 --decode --ignore-garbage > "$DECODED" 2>&1 && echo "DECODE OK" || echo "DECODE FAILED"
-          DSIZE=$(wc -c < "$DECODED")
-          echo "Decoded size: $DSIZE bytes"
-          echo "=== GZIP TEST ==="
-          gzip -t "$DECODED" && echo "GZIP VALID" || echo "GZIP INVALID"
-          echo "=== FIRST 20 HEX OF DECODED ==="
-          head -c 20 "$DECODED" | od -A x -t x1z | head -3
-      - name: Extract project files
+          cat ./project.b64 | tr -d '\n' | base64 --decode | tar -xz
+          find . -not -path './.git/*' -type f | sort | head -80
+
+      - name: Commit extracted files
         run: |
-          curl -sL "https://gist.githubusercontent.com/nhidailysupremefoods-creator/7f5b1ad5dcb56a28d247c6344f1e2e35/raw/1a46a24b5c5fc3f9b991dbadf2c88fb3026dc81c/project.tar.gz.b64" | tr -d '\n\r' | base64 --decode --ignore-garbage | tar -xz
-      - name: Commit files
-        run: |
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "chore: bootstrap project files from archive"
+          git diff --staged --quiet || git commit -m "Bootstrap: extract Next.js project files"
           git push
