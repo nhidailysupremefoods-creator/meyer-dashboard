@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Extract project files
         run: |
-          curl -sL "https://gist.githubusercontent.com/nhidailysupremefoods-creator/7f5b1ad5dcb56a28d247c6344f1e2e35/raw/1a46a24b5c5fc3f9b991dbadf2c88fb3026dc81c/project.tar.gz.b64" | base64 -d | tar -xz
+          curl -sL "https://gist.githubusercontent.com/nhidailysupremefoods-creator/7f5b1ad5dcb56a28d247c6344f1e2e35/raw/1a46a24b5c5fc3f9b991dbadf2c88fb3026dc81c/project.tar.gz.b64" | tr -d '\n\r' | base64 --decode --ignore-garbage | tar -xz
       - name: Commit files
         run: |
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
