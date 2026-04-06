@@ -1,0 +1,20 @@
+name: Bootstrap
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/bootstrap.yml']
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract project files
+        run: |
+          curl -sL "https://gist.githubusercontent.com/nhidailysupremefoods-creator/7f5b1ad5dcb56a28d247c6344f1e2e35/raw/project.tar.gz.b64" | base64 -d | tar -xz
+      - name: Commit files
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: bootstrap project files from archive"
+          git push
