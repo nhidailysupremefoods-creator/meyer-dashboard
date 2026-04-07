@@ -5,6 +5,10 @@
 
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || '';
 
+if (!APPS_SCRIPT_URL) {
+  throw new Error('APPS_SCRIPT_URL environment variable is not set');
+}
+
 export interface AppsScriptResponse {
   [key: string]: any;
   success?: boolean;
@@ -17,9 +21,6 @@ export interface AppsScriptResponse {
  * Apps Script doGet routes this to the appropriate handler.
  */
 export async function callAppsScriptApi(params: Record<string, string>): Promise<AppsScriptResponse> {
-  if (!APPS_SCRIPT_URL) {
-    throw new Error('APPS_SCRIPT_URL environment variable is not set');
-  }
   const url = new URL(APPS_SCRIPT_URL);
 
   // Add all parameters as URL query params
@@ -48,7 +49,7 @@ export async function callAppsScriptApi(params: Record<string, string>): Promise
 
     const data = await res.json();
     return data;
-  } catch (err) {
+  } catch (err: any) {
     if (err.name === 'AbortError') {
       throw new Error('Apps Script API request timeout (30s)');
     }
@@ -60,17 +61,20 @@ export async function callAppsScriptApi(params: Record<string, string>): Promise
 
 /**
  * Call Apps Script public functions via GET with action parameter.
+ * Routes through doGet which handles:
+ * - action=login with email, pw params
+ * - action=register with email, name, pw params
+ * - action=request_reset with email param
+ * - action=confirm_reset with email, code, pw params
  */
 export async function callAppsScriptPublic(
-  action,
-  payload
-) {
-  if (!APPS_SCRIPT_URL) {
-    throw new Error('APPS_SCRIPT_URL environment variable is not set');
-  }
+  action: string,
+  payload: Record<string, string>
+): Promise<AppsScriptResponse> {
   const url = new URL(APPS_SCRIPT_URL);
   url.searchParams.set('action', action);
 
+  // Add payload as URL params
   Object.entries(payload).forEach(([key, value]) => {
     if (value !== null && value !== undefined) {
       url.searchParams.set(key, String(value));
@@ -78,22 +82,25 @@ export async function callAppsScriptPublic(
   });
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
   try {
     const res = await fetch(url.toString(), {
-      method: 'GET',
+      method: 'GET', // Apps Script doGet handles all public actions via GET
       redirect: 'follow',
       signal: controller.signal,
-      headers: { 'Accept': 'application/json' },
+      headers: {
+        'Accept': 'application/json',
+      },
     });
 
     if (!res.ok) {
       throw new Error(`Apps Script public API error: HTTP ${res.status}`);
     }
 
-    return await res.json();
-  } catch (err) {
+    const data = await res.json();
+    return data;
+  } catch (err: any) {
     if (err.name === 'AbortError') {
       throw new Error('Apps Script public API request timeout (30s)');
     }
@@ -105,18 +112,28 @@ export async function callAppsScriptPublic(
 
 /**
  * Helper to extract token from request (header or query param).
+ * Checks: Authorization header (Bearer), x-auth-token header, or token query param.
  */
-export function extractToken(headers, searchParams) {
+export function extractToken(
+  headers: Record<string, string | string[] | undefined>,
+  searchParams?: URLSearchParams
+): string | null {
+  // Check Authorization header (Bearer token)
   const auth = headers.authorization || headers.Authorization;
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
     return auth.slice(7);
   }
+
+  // Check x-auth-token header
   const tokenHeader = headers['x-auth-token'] || headers['X-Auth-Token'];
   if (typeof tokenHeader === 'string') {
     return tokenHeader;
   }
-  if (searchParams && searchParams.has('token')) {
+
+  // Check query param
+  if (searchParams?.has('token')) {
     return searchParams.get('token');
   }
+
   return null;
 }
