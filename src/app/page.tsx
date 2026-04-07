@@ -14,14 +14,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Check if already logged in
-  useEffect(() => {
-    const token = api.getToken();
-    if (token) {
-      router.push('/dashboard');
-    }
-  }, [router]);
-
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginCode, setLoginCode] = useState('');
@@ -32,11 +24,18 @@ export default function LoginPage() {
   const [registerFirma, setRegisterFirma] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
 
-  // Password reset state (2-step)
+  // Reset state
   const [resetStep, setResetStep] = useState<'email' | 'confirm'>('email');
   const [resetEmail, setResetEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [resetPassword, setResetPassword] = useState('');
+
+  useEffect(() => {
+    const data = api.getAuthData();
+    if (data && data.token) {
+      router.push('/dashboard');
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,17 +52,13 @@ export default function LoginPage() {
       const response = await api.login(payload);
 
       if (response.success && response.token) {
-        setSuccess('Login erfolgreich!');
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 500);
+        api.setAuthData(response);
+        router.push('/dashboard');
       } else {
         setError(response.error || 'Login fehlgeschlagen');
       }
     } catch (err: any) {
-      setError(
-        err.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.'
-      );
+      setError(err.message || 'Ein Fehler ist aufgetreten.');
     } finally {
       setIsLoading(false);
     }
@@ -85,17 +80,24 @@ export default function LoginPage() {
 
       const response = await api.register(payload);
 
-      if (response.ok || response.success) {
-        setSuccess('Registrierung erfolgreich! Ein Administrator wird Ihre Anfrage überprüfen.');
-        setTimeout(() => {
-          setView('login');
-          setRegisterEmail('');
-          setRegisterName('');
-          setRegisterFirma('');
-          setRegisterPassword('');
-        }, 2000);
+      if (response.success) {
+        setSuccess('Registrierung erfolgreich! Bitte warten Sie auf die Freischaltung.');
+        setView('login');
+        setRegisterEmail('');
+        setRegisterName('');
+        setRegisterFirma('');
+        setRegisterPassword('');
       } else {
         setError(response.error || 'Registrierung fehlgeschlagen');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Ein Fehler ist aufgetreten.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRequestReset = async (e: React.strierung fehlgeschlagen');
       }
     } catch (err: any) {
       setError(err.message || 'Ein Fehler ist aufgetreten.');
@@ -162,48 +164,36 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };dth: 52, height: 52, borderRadius: 12,
-            background: 'var(--copper)', margin: '0 auto 1rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'Manrope, sans-serif', fontWeight: 800,
-            fontSize: '1rem', color: 'var(--navy)', letterSpacing: '0.05em',
-          }}>MD</div>
-          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: 'var(--offwhite)', marginBottom: '0.25rem' }}>
-            Meyer Decision
-          </h1>
-          <p style={{ color: 'var(--copper)', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600 }}>
-            Steuerungs-Dashboard
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #0f1d35 0%, #1a365d 50%, #2b6cb0 100%)'}}>
+      {/* Background decorative elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl -z-10" style={{background: 'rgba(43, 108, 176, 0.1)'}} />
+      <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full blur-3xl -z-10" style={{background: 'rgba(26, 54, 93, 0.1)'}} />
+
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Meyer Decision</h1>
+          <p className="text-lg" style={{color: 'var(--accent-light)'}}>Steuerungs-Dashboard</p>
+          <p className="text-gray-300 text-sm mt-2">
+            Finanzielle Steuerung für Handwerksbetriebe
           </p>
         </div>
 
         {/* Card */}
-        <div style={{
-          background: 'var(--navy-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '0.875rem',
-          padding: '2rem',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        }}>
+        <div className="card rounded-2xl shadow-2xl p-8">
           {/* Error Alert */}
           {error && (
-            <div style={{
-              marginBottom: '1rem', padding: '0.75rem 1rem',
-              background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8,
-              fontSize: '0.875rem',
-            }}>
+            <div className="mb-4 p-4 text-sm rounded-lg border" style={{background: 'rgb(254, 242, 242)', color: 'var(--danger)', borderColor: 'rgb(254, 205, 211)'}}>
               {error}
             </div>
           )}
 
           {/* Success Alert */}
           {success && (
-            <div style={{
-              marginBottom: '1rem', padding: '0.75rem 1rem',
-              background: 'rgba(16,185,129,0.1)', color: '#10b981',
-              border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8,
-              fontSize: '0.875rem',
-            }}>
+            <div className="mb-4 p-4 text-sm rounded-lg border" style={{background: 'rgb(240, 253, 244)', color: 'var(--success)', borderColor: 'rgb(187, 247, 208)'}}>
               {success}
             </div>
           )}
@@ -248,7 +238,7 @@ export default function LoginPage() {
               </button>
 
               {/* Links */}
-              <div className="space-y2 text-sm text-center">
+              <div className="space-y-2 text-sm text-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -256,12 +246,12 @@ export default function LoginPage() {
                     setError(null);
                     setSuccess(null);
                   }}
-                  style={{display: 'block', width: '100%', fontWeight: 600, color: 'var(--copper)', background: 'none', border: 'none', fontSize: '0.875rem'}}
+                  className="block w-full font-medium" style={{color: 'var(--accent)'}}
                 >
                   Passwort vergessen?
                 </button>
-                <div style={{paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)'}}>
-                  <p style={{marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Noch nicht registriert?</p>
+                <div className="pt-2" style={{borderTop: '1px solid var(--border-color)'}}>
+                  <p className="mb-2" style={{color: 'var(--text-secondary)'}}>Noch nicht registriert?</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -269,7 +259,7 @@ export default function LoginPage() {
                       setError(null);
                       setSuccess(null);
                     }}
-                    style={{fontWeight: 600, color: 'var(--copper)', background: 'none', border: 'none', fontSize: '0.875rem'}}
+                    className="font-medium" style={{color: 'var(--accent)'}}
                   >
                     Neu registrieren
                   </button>
@@ -289,29 +279,187 @@ export default function LoginPage() {
                   type="email"
                   value={registerEmail}
                   onChange={(e) => setRegisterEmail(e.target.value)}
-                  placeholder="ihreA�����������(������������������ɕ�եɕ�(��������������������ͅ��������1�������(������������������(��������������𽑥��((�����������������(����������������񱅉��������9���􉉱����ѕ�еʹ����е����մ����Ȉ�(������������������Y�����������ȁ9���(����������������𽱅����(��������������������(�����������������������ѕ�Ј(������������������م�Ք��ɕ���ѕ�9����(��������������������
-������졔�����͕�I����ѕ�9������хɝ�йم�Ք��(������������������������������5���5��ѕɵ����(������������������ɕ�եɕ�(��������������������ͅ��������1�������(������������������(��������������𽑥��((�����������������(����������������񱅉��������9���􉉱����ѕ�еʹ����е����մ����Ȉ�(�������������������ɵ�(����������������𽱅����(��������������������(�����������������������ѕ�Ј(������������������م�Ք��ɕ���ѕ��ɵ��(��������������������
-������졔�����͕�I����ѕ��ɵ����хɝ�йم�Ք��(������������������������������5��ѕɵ������ �(������������������ɕ�եɕ�(��������������������ͅ��������1�������(������������������(��������������𽑥��((�����������������(����������������񱅉��������9���􉉱����ѕ�еʹ����е����մ����Ȉ�(������������������A���ݽ�Ё������(����������������𽱅����(��������������������(���������������������������ݽɐ�(������������������م�Ք��ɕ���ѕ�A���ݽɑ�(��������������������
-������졔�����͕�I����ѕ�A���ݽɐ���хɝ�йم�Ք��(�����������������������������������������������(������������������ɕ�եɕ�(��������������������ͅ��������1�������(������������������(������������������������9����ѕ�е�́�дĈ���屔��퍽���耝مȠ��ѕ�е͕������䤝���(������������������5�����ѕ�̀��i������(�������������������(��������������𽑥��((���������������؁��屔����������耜����ɕ������ɑ��I������ఁ�����ɽչ�耝ɝ�����ذ�����ذ���ज����ɑ��耜����ͽ����ɝ�����ذ�����ذ��Ȥ����(���������������������屔��홽��M��耜����ɕ���������耝مȠ��ѕ�е͕������䤝���(������������������%�ɔ�I�����ɥ��չ��ݥɐ�ٽ��������������Ʌѽȁ�����и(�������������������(��������������𽑥��((�����������������ѽ�(����������������������Չ��Ј(������������������ͅ��������1�������(���������������������9����Ѹ��ɥ����ܵ�ձ��(���������������(�������������������1����������]�ɐ�ٕɅɉ��ѕи����耝I�����ɥ��չ����͕������(�����������������ѽ��((�����������������ѽ�(�����������������������ѽ��(������������������
-�����젤�����(������������������͕�Y��ܠ���������(������������������͕��ɽȡ�ձ���(������������������͕�MՍ���̡�ձ���(������������������͕�I����ѕ����������(������������������͕�I����ѕ�9��������(������������������͕�I����ѕ��ɵ������(������������������͕�I����ѕ�A���ݽɐ�����(������������������(������������������屔���ݥ�Ѡ耜�����������M��耜�����ɕ��������]����������������耝مȠ�������Ȥ��������ɽչ�耝���������ɑ��耝�������(���������������(�����������������@�i��񍬁�մ�1����(�����������������ѽ��(������������𽙽ɴ�(������������((����������켨�A���ݽɐ�I�͕ЁY��܀���(�����������٥�܀���ɕ͕М�����(�������������ɴ(����������������MՉ�����ɕ͕�Mѕ����􀝕��������������I��Օ��I�͕Ѐ聡�����
-����ɵI�͕��(�������������������9�����������Ј(�������������(���������������ɕ͕�Mѕ����􀝕���������(������������������(���������������������(��������������������񱅉��������9���􉉱����ѕ�еʹ����е����մ����Ȉ�(�����������������������5�����ɕ�͔(��������������������𽱅����(������������������������(��������������������������􉕵����(����������������������م�Ք��ɕ͕������(������������������������
-������졔�����͕�I�͕��������хɝ�йم�Ք��(���������������������������������􉥡ɕ����������(����������������������ɕ�եɕ�(������������������������ͅ��������1�������(����������������������(����������������������������9����ѕ�е�́�дĈ���屔��퍽���耝مȠ��ѕ�е͕������䤝���(����������������������M����ɡ��ѕ��������I�͕е
-������ȁ�5���(�����������������������(������������������𽑥��((���������������������ѽ�(��������������������������Չ��Ј(����������������������ͅ��������1�������(�������������������������9����Ѹ��ɥ����ܵ�ձ��(�������������������(�����������������������1����������]�ɐ���͕���и����耝I�͕е
-��������ɑ�ɸ��(���������������������ѽ��(������������������(����������������耠(������������������(���������������������(��������������������񱅉��������9���􉉱����ѕ�еʹ����е����մ����Ȉ�(����������������������I�͕е
-���(��������������������𽱅����(������������������������(���������������������������ѕ�Ј(����������������������م�Ք��ɕ͕�
-����(������������������������
-������졔�����͕�I�͕�
-������хɝ�йم�Ք��(�����������������������������������������(����������������������ɕ�եɕ�(������������������������ͅ��������1�������(����������������������(������������������𽑥��((���������������������(��������������������񱅉��������9���􉉱����ѕ�еʹ����е����մ����Ȉ�(����������������������9�Օȁi՝���͍���(��������������������𽱅����(������������������������(�������������������������������ݽɐ�(����������������������م�Ք��ɕ͕�A���ݽɑ�(������������������������
-������졔�����͕�I�͕�A���ݽɐ���хɝ�йم�Ք��(����������������������������������������������������\]Z\�Y�\�X�Y^�\��Y[��B�ς��]�����]ۂ�\OH��X�Z]��\�X�Y^�\��Y[��B��\�Ә[YOH���\�[X\�H�Y�[�����\��Y[���	��\��p��\������	�\���ܝ0��\���B�؝]ۏ��ς�
-_B���]ۂ�\OH��]ۈ��ې�X��^�
-HO��]�Y]�	���[��N�]�\�]�\
-	�[XZ[	�N�]\��܊�[
-N�]�X��\���[
-N�]�\�][XZ[
-	��N�]�\�]��J	��N�]�\�]\���ܙ
-	��N_B��[O^���Y�	�L	I��۝�^�N�	��
-�\�[I��۝�ZY��
-���܎�	ݘ\�KX��\�I��X��ܛ�[��	ۛۙI��ܙ\��	ۛۙI�_B���8���\�����[H��[��؝]ۏ��ٛܛO��
-_B��]�����ʈ���\�
-��B�]��[O^��^[Yێ�	��[�\��X\��[���	�K�\�[I���܎�	ݘ\�K]^\�X�ۙ\�JI��۝�^�N�	���\�[I�_O���Y^Y\�X�\�[ۈ�X�0���]Y\�[���Q\���\�������]����]����]���
-NB
+                  placeholder="ihre@email.com"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Vollständiger Name
+                </label>
+                <input
+                  type="text"
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  placeholder="Max Mustermann"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Firma
+                </label>
+                <input
+                  type="text"
+                  value={registerFirma}
+                  onChange={(e) => setRegisterFirma(e.target.value)}
+                  placeholder="Mustermann GmbH"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Passwort wählen
+                </label>
+                <input
+                  type="password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  disabled={isLoading}
+                />
+                <p className="text-xs mt-1" style={{color: 'var(--text-secondary)'}}>
+                  Mindestens 8 Zeichen
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg border" style={{background: 'rgb(239, 246, 255)', borderColor: 'rgb(191, 219, 254)'}}>
+                <p className="text-xs" style={{color: 'var(--text-secondary)'}}>
+                  Ihre Registrierung wird von einem Administrator geprüft.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="btn-primary w-full"
+              >
+                {isLoading ? 'Wird verarbeitet...' : 'Registrierung absenden'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setView('login');
+                  setError(null);
+                  setSuccess(null);
+                  setRegisterEmail('');
+                  setRegisterName('');
+                  setRegisterFirma('');
+                  setRegisterPassword('');
+                }}
+                className="w-full text-sm font-medium" style={{color: 'var(--accent)'}}
+              >
+                ← Zurück zum Login
+              </button>
+            </form>
+          )}
+
+          {/* Password Reset View */}
+          {view === 'reset' && (
+            <form
+              onSubmit={resetStep === 'email' ? handleRequestReset : handleConfirmReset}
+              className="space-y-4"
+            >
+              {resetStep === 'email' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      E-Mail-Adresse
+                    </label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="ihre@email.com"
+                      required
+                      disabled={isLoading}
+                    />
+                    <p className="text-xs mt-1" style={{color: 'var(--text-secondary)'}}>
+                      Sie erhalten einen Reset-Code per E-Mail
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="btn-primary w-full"
+                  >
+                    {isLoading ? 'Wird gesendet...' : 'Reset-Code anfordern'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Reset-Code
+                    </label>
+                    <input
+                      type="text"
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value)}
+                      placeholder="000000"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Neuer Zugangscode
+                    </label>
+                    <input
+                      type="password"
+                      value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="btn-primary w-full"
+                  >
+                    {isLoading ? 'Wird geändert...' : 'Passwort ändern'}
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setView('login');
+                  setResetStep('email');
+                  setError(null);
+                  setSuccess(null);
+                  setResetEmail('');
+                  setResetCode('');
+                  setResetPassword('');
+                }}
+                className="w-full text-sm font-medium" style={{color: 'var(--accent)'}}
+              >
+                ← Zurück zum Login
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-8 text-gray-400 text-sm">
+          <p>Meyer Decision GmbH</p>
+          <p className="mt-1">Steuerungs-Dashboard v6</p>
+        </div>
+      </div>
+    </div>
+  );
+}
