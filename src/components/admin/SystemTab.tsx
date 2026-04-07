@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { useAdmin } from '@/hooks/useAdmin';
 import { HealthCheckResponse } from '@/types';
 
+const S = {
+  card: { background: 'var(--navy-card)', border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden' } as React.CSSProperties,
+  sectionTitle: { padding: '0.875rem 1rem', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-color)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', fontFamily: 'Manrope, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+  row: { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: '1px solid rgba(176,138,106,0.1)' },
+};
+
 interface SystemTabProps {
   onUpdate: () => Promise<void>;
 }
@@ -27,25 +33,13 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
   };
 
   const handleClearCache = async () => {
-    if (!window.confirm('Möchten Sie den Cache wirklich löschen?')) {
-      return;
-    }
-
+    if (!window.confirm('Möchten Sie den Cache wirklich löschen?')) return;
     setClearing(true);
     try {
       const success = await clearCache();
       if (success) {
-        setMessages({
-          ...messages,
-          cache: 'Cache geleert ✓',
-        });
-        setTimeout(() => {
-          setMessages((prev) => {
-            const next = { ...prev };
-            delete next.cache;
-            return next;
-          });
-        }, 3000);
+        setMessages((m) => ({ ...m, cache: 'Cache geleert ✓' }));
+        setTimeout(() => setMessages((m) => { const n = { ...m }; delete n.cache; return n; }), 3000);
         await loadHealth();
       }
     } finally {
@@ -54,25 +48,13 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
   };
 
   const handleRebuild = async () => {
-    if (!window.confirm('Möchten Sie die Advisory-Tabelle wirklich neu aufbauen?')) {
-      return;
-    }
-
+    if (!window.confirm('Möchten Sie die Advisory-Tabelle wirklich neu aufbauen?')) return;
     setRebuilding(true);
     try {
       const success = await triggerRebuild();
       if (success) {
-        setMessages({
-          ...messages,
-          rebuild: 'Rebuild in Bearbeitung... ✓',
-        });
-        setTimeout(() => {
-          setMessages((prev) => {
-            const next = { ...prev };
-            delete next.rebuild;
-            return next;
-          });
-        }, 5000);
+        setMessages((m) => ({ ...m, rebuild: 'Rebuild in Bearbeitung... ✓' }));
+        setTimeout(() => setMessages((m) => { const n = { ...m }; delete n.rebuild; return n; }), 5000);
         await loadHealth();
         await onUpdate();
       }
@@ -81,184 +63,123 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
     }
   };
 
-  // Load health on mount
-  useEffect(() => {
-    loadHealth();
-  }, []);
+  useEffect(() => { loadHealth(); }, []);
 
-  const getStatusIcon = (status: string) => {
-    if (status === 'OK' || status === 'healthy') {
-      return (
-        <span className="text-green-500 font-bold text-lg">●</span>
-      );
-    } else if (status === 'WARN' || status === 'warning') {
-      return (
-        <span className="text-yellow-500 font-bold text-lg">●</span>
-      );
-    } else {
-      return (
-        <span className="text-red-500 font-bold text-lg">●</span>
-      );
-    }
+  const getStatusDot = (status: string) => {
+    if (status === 'OK' || status === 'healthy') return '#10b981';
+    if (status === 'WARN' || status === 'warning') return '#F59E0B';
+    return '#ef4444';
   };
 
+  const healthChecks = health?.status ? [
+    { key: 'bigquery',        label: 'BigQuery-Verbindung',  value: health.status.bigquery,         dot: getStatusDot(health.status.bigquery) },
+    { key: 'finance_table',   label: 'Finance-Tabelle',      value: health.status.finance_table,    dot: getStatusDot(health.status.finance_table) },
+    { key: 'reporting_views', label: 'Reporting-Views',      value: health.status.reporting_views,  dot: getStatusDot(health.status.reporting_views) },
+    { key: 'cache',           label: 'Cache',                value: health.status.cache,            dot: getStatusDot(health.status.cache) },
+    { key: 'customers',       label: 'Aktive Mandanten',     value: health.status.customers,        dot: '#60A5FA' },
+    { key: 'version',         label: 'Dashboard-Version',   value: health.status.dashboard_version, dot: '#A78BFA' },
+  ] : [];
+
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <p className="text-red-800">{error}</p>
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6 }}>
+          {error}
         </div>
       )}
 
       {/* Health Check */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">System-Health</h3>
+      <div style={S.card}>
+        <div style={S.sectionTitle}>
+          <span>System-Health</span>
           <button
             onClick={loadHealth}
             disabled={healthLoading || loading}
-            className="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium bg-gray-200 text-gray-900 hover:bg-gray-300 disabled:bg-gray-400"
+            style={{ padding: '0.25rem 0.65rem', background: 'rgba(176,138,106,0.1)', border: '1px solid rgba(176,138,106,0.25)', borderRadius: 6, color: 'var(--copper)', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'Manrope, sans-serif', opacity: (healthLoading || loading) ? 0.6 : 1 }}
           >
-            <span className={`mr-2 ${healthLoading ? 'animate-spin' : ''}`}>↻</span>
-            Aktualisieren
+            {healthLoading ? '↻ Laden…' : '↻ Aktualisieren'}
           </button>
         </div>
 
         {healthLoading && !health ? (
-          <div className="p-6 text-center text-gray-500">
-            Health Check lädt...
+          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+            Health Check lädt…
           </div>
-        ) : health?.status ? (
-          <div className="p-6 space-y-4">
-            {/* BigQuery Connection */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                {getStatusIcon(health.status.bigquery)}
+        ) : healthChecks.length > 0 ? (
+          <div>
+            {healthChecks.map((check, i) => (
+              <div key={check.key} style={{ ...S.row, borderBottom: i < healthChecks.length - 1 ? '1px solid rgba(176,138,106,0.1)' : 'none' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: check.dot, flexShrink: 0, display: 'inline-block' }} />
                 <div>
-                  <p className="font-medium text-gray-900">BigQuery-Verbindung</p>
-                  <p className="text-sm text-gray-600">{health.status.bigquery}</p>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--offwhite)' }}>{check.label}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 1 }}>{check.value || '–'}</div>
                 </div>
               </div>
-            </div>
-
-            {/* Finance Table */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                {getStatusIcon(health.status.finance_table)}
-                <div>
-                  <p className="font-medium text-gray-900">Finance-Tabelle</p>
-                  <p className="text-sm text-gray-600">{health.status.finance_table}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Reporting Views */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                {getStatusIcon(health.status.reporting_views)}
-                <div>
-                  <p className="font-medium text-gray-900">Reporting-Views</p>
-                  <p className="text-sm text-gray-600">{health.status.reporting_views}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Cache */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                {getStatusIcon(health.status.cache)}
-                <div>
-                  <p className="font-medium text-gray-900">Cache</p>
-                  <p className="text-sm text-gray-600">{health.status.cache}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Active Customers */}
-            <div className="flex items-center justify-between py-3 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <span className="text-blue-500 font-bold text-lg">●</span>
-                <div>
-                  <p className="font-medium text-gray-900">Aktive Mandanten</p>
-                  <p className="text-sm text-gray-600">{health.status.customers}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Dashboard Version */}
-            <div className="flex items-center justify-between py-3">
-              <div className="flex items-center space-x-3">
-                <span className="text-purple-500 font-bold text-lg">●</span>
-                <div>
-                  <p className="font-medium text-gray-900">Dashboard-Version</p>
-                  <p className="text-sm text-gray-600">{health.status.dashboard_version}</p>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         ) : (
-          <div className="p-6 text-center text-gray-500">
+          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
             Keine Health-Daten verfügbar
           </div>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Clear Cache Card */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Cache leeren</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Löscht alle gecachten Daten und zwingt ein erneutes Laden aus der Datenbank.
-          </p>
-          {messages.cache ? (
-            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-800 font-semibold">
-              {messages.cache}
-            </div>
-          ) : (
-            <button
-              onClick={handleClearCache}
-              disabled={clearing || loading}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md disabled:bg-gray-400"
-            >
-              {clearing ? 'Wird gelöscht...' : 'Cache leeren'}
-            </button>
-          )}
+      {/* Action Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
+        {/* Clear Cache */}
+        <div style={S.card}>
+          <div style={{ ...S.sectionTitle, display: 'block' }}>Cache leeren</div>
+          <div style={{ padding: '1rem' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.875rem' }}>
+              Löscht alle gecachten Daten und zwingt ein erneutes Laden aus der Datenbank.
+            </p>
+            {messages.cache ? (
+              <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 6, color: '#10b981', fontWeight: 600, fontSize: '0.85rem' }}>
+                {messages.cache}
+              </div>
+            ) : (
+              <button
+                onClick={handleClearCache}
+                disabled={clearing || loading}
+                style={{ width: '100%', padding: '0.5rem', background: 'rgba(245,158,11,0.12)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.85rem', opacity: (clearing || loading) ? 0.6 : 1, fontFamily: 'Manrope, sans-serif' }}
+              >
+                {clearing ? 'Wird geleert…' : 'Cache leeren'}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Rebuild Advisory Card */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Advisory neu aufbauen
-          </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Erstellt die finance_monthly_base Tabelle aus den rohen Daten neu.
-          </p>
-          {messages.rebuild ? (
-            <div className="p-3 bg-green-50 border border-green-200 rounded text-green-800 font-semibold">
-              {messages.rebuild}
-            </div>
-          ) : (
-            <button
-              onClick={handleRebuild}
-              disabled={rebuilding || loading}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:bg-gray-400"
-            >
-              {rebuilding ? 'Wird aufgebaut...' : 'Advisory Rebuild'}
-            </button>
-          )}
+        {/* Advisory Rebuild */}
+        <div style={S.card}>
+          <div style={{ ...S.sectionTitle, display: 'block' }}>Advisory neu aufbauen</div>
+          <div style={{ padding: '1rem' }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.875rem' }}>
+              Erstellt die finance_monthly_base Tabelle aus den rohen Daten neu.
+            </p>
+            {messages.rebuild ? (
+              <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 6, color: '#10b981', fontWeight: 600, fontSize: '0.85rem' }}>
+                {messages.rebuild}
+              </div>
+            ) : (
+              <button
+                onClick={handleRebuild}
+                disabled={rebuilding || loading}
+                style={{ width: '100%', padding: '0.5rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.85rem', opacity: (rebuilding || loading) ? 0.6 : 1, fontFamily: 'Manrope, sans-serif' }}
+              >
+                {rebuilding ? 'Wird aufgebaut…' : 'Advisory Rebuild'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-sm font-semibold text-blue-900 mb-2">
-          Hinweise
-        </h3>
-        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+      {/* Info Box */}
+      <div style={{ background: 'rgba(176,138,106,0.06)', border: '1px solid rgba(176,138,106,0.2)', borderRadius: 10, padding: '1rem' }}>
+        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Hinweise</div>
+        <ul style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', paddingLeft: '1rem', margin: 0 }}>
           <li>Cache-Leerung kann einige Sekunden dauern</li>
-          <li>Advisory-Rebuild sollte nur bei Problemen durchgeführt werden</li>
-          <li>Health Check wird automatisch alle 5 Minuten aktualisiert</li>
+          <li style={{ marginTop: '0.25rem' }}>Advisory-Rebuild sollte nur bei Problemen durchgeführt werden</li>
+          <li style={{ marginTop: '0.25rem' }}>Health Check wird automatisch alle 5 Minuten aktualisiert</li>
         </ul>
       </div>
     </div>
