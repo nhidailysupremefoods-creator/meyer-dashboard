@@ -53,7 +53,11 @@ export async function POST(req: NextRequest) {
       code: access_code,
     });
 
-    // Return response as-is from Apps Script
+    // Normalize response: Apps Script returns {ok: true} but frontend expects {success: true}
+    if (result.ok !== undefined && result.success === undefined) {
+      result.success = result.ok;
+    }
+
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('Login error:', err);
