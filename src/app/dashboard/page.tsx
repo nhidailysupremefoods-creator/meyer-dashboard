@@ -52,7 +52,7 @@ export default function DashboardPage() {
         const response = await api.fetchPeriods(selectedCustomer);
         if (response.success && response.periods) {
           setPeriods(response.periods);
-          if (response.industrySegment || (response as any).industry_segment) {
+          if ((response as any).industrySegment || (response as any).industry_segment) {
             setIndustrySegment(
               (response as any).industry_segment ||
                 (response as any).industrySegment ||
