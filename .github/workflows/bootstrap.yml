@@ -13,17 +13,7 @@ jobs:
       - name: Fix and decode project
         run: |
           echo "File size: $(wc -c < ./project.b64)"
-          python3 << 'PYEOF'
-s = open('./project.b64').read().strip()
-print('len:', len(s))
-print('pos 45395-45410:', repr(s[45395:45410]))
-if len(s) == 48592 and s[45399] == 'E' and s[45400] == 'I':
-    s = s[:45399] + 'I' + 'E' + s[45401:]
-    open('./project.b64', 'w').write(s)
-    print('Fixed swap at 45399-45400')
-else:
-    print('No fix applied')
-PYEOF
+          python3 -c "s=open('./project.b64').read().strip(); ok=len(s)==48592 and s[45399]=='E' and s[45400]=='I'; fixed=s[:45399]+'IE'+s[45401:] if ok else s; open('./project.b64','w').write(fixed); print('Fix applied:',ok,'chars:',repr(fixed[45396:45403]))"
           cat ./project.b64 | tr -d '\r\n\t ' | base64 --decode > /tmp/proj.tar.gz
           echo "MD5: $(md5sum /tmp/proj.tar.gz)"
           tar -xzf /tmp/proj.tar.gz
