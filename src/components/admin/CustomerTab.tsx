@@ -4,12 +4,19 @@ import { useState } from 'react';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Customer } from '@/types';
 
+const S = {
+  card: { background: 'var(--navy-card)', border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden' } as React.CSSProperties,
+  th: { padding: '0.75rem 1rem', textAlign: 'left' as const, fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-color)' },
+  td: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--offwhite)', borderBottom: '1px solid rgba(176,138,106,0.1)' },
+  tdSec: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text-secondary)', borderBottom: '1px solid rgba(176,138,106,0.1)' },
+};
+
 const INDUSTRY_OPTIONS = [
   { value: 'B2B_CONTRACTING', label: 'B2B Contracting' },
   { value: 'INDUSTRIESERVICE', label: 'Industrieservice' },
-  { value: 'TECHN_WARTUNG', label: 'Technische Wartung' },
-  { value: 'HANDWERK', label: 'Handwerk' },
-  { value: 'SONSTIGE', label: 'Sonstige' },
+  { value: 'TECHN_WARTUNG',    label: 'Technische Wartung' },
+  { value: 'HANDWERK',         label: 'Handwerk' },
+  { value: 'SONSTIGE',         label: 'Sonstige' },
 ];
 
 interface CustomerTabProps {
@@ -22,126 +29,82 @@ export default function CustomerTab({ customers, onUpdate }: CustomerTabProps) {
   const [saving, setSaving] = useState<string | null>(null);
   const [editingIndustry, setEditingIndustry] = useState<Record<string, string>>({});
 
-  const handleIndustryChange = (customerId: string, value: string) => {
-    setEditingIndustry({
-      ...editingIndustry,
-      [customerId]: value,
-    });
-  };
-
   const handleSave = async (customerId: string) => {
     const newIndustry = editingIndustry[customerId];
     if (!newIndustry) return;
-
     setSaving(customerId);
     try {
-      const success = await updateCustomer(customerId, {
-        industry_segment: newIndustry,
-      });
-
+      const success = await updateCustomer(customerId, { industry_segment: newIndustry });
       if (success) {
-        setEditingIndustry({
-          ...editingIndustry,
-          [customerId]: '',
-        });
+        setEditingIndustry({ ...editingIndustry, [customerId]: '' });
         await onUpdate();
       }
-    } finally {
-      setSaving(null);
-    }
+    } finally { setSaving(null); }
   };
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div style={S.card}>
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-          <p className="text-red-800">{error}</p>
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem' }}>
+          {error}
         </div>
       )}
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Mandanten-ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Abonnementtyp
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Branche
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Aktion
-              </th>
+              <th style={S.th}>Mandanten-ID</th>
+              <th style={S.th}>Name</th>
+              <th style={S.th}>Abo-Typ</th>
+              <th style={S.th}>Branche</th>
+              <th style={S.th}>Status</th>
+              <th style={S.th}>Aktion</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {customers.map((customer) => (
-              <tr key={customer.customer_id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {customer.customer_id}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {customer.name || customer.display_name || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {customer.subscription_type || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+          <tbody>
+            {customers.map((c) => (
+              <tr key={c.customer_id}>
+                <td style={S.td}><strong>{c.customer_id}</strong></td>
+                <td style={S.tdSec}>{c.name || c.display_name || '–'}</td>
+                <td style={S.tdSec}>{c.subscription_type || '–'}</td>
+                <td style={{ ...S.td, paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
                   <select
-                    value={editingIndustry[customer.customer_id] || customer.industry_segment || ''}
-                    onChange={(e) => handleIndustryChange(customer.customer_id, e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    value={editingIndustry[c.customer_id] || c.industry_segment || ''}
+                    onChange={(e) => setEditingIndustry({ ...editingIndustry, [c.customer_id]: e.target.value })}
+                    style={{ width: '100%', padding: '0.375rem 0.625rem', fontSize: '0.8rem', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', borderRadius: 6, color: 'var(--offwhite)' }}
                   >
                     <option value="">-- Auswählen --</option>
-                    {INDUSTRY_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
+                    {INDUSTRY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      customer.is_active
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {customer.is_active ? 'Aktiv' : 'Inaktiv'}
+                <td style={S.td}>
+                  <span style={{
+                    display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
+                    background: c.is_active ? 'rgba(16,185,129,0.15)' : 'rgba(156,163,175,0.15)',
+                    color: c.is_active ? '#10b981' : '#9CA3AF',
+                    border: `1px solid ${c.is_active ? 'rgba(16,185,129,0.3)' : 'rgba(156,163,175,0.3)'}`,
+                  }}>
+                    {c.is_active ? 'Aktiv' : 'Inaktiv'}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {editingIndustry[customer.customer_id] &&
-                  editingIndustry[customer.customer_id] !== customer.industry_segment ? (
+                <td style={S.td}>
+                  {editingIndustry[c.customer_id] && editingIndustry[c.customer_id] !== c.industry_segment ? (
                     <button
-                      onClick={() => handleSave(customer.customer_id)}
-                      disabled={saving === customer.customer_id || loading}
-                      className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
+                      onClick={() => handleSave(c.customer_id)}
+                      disabled={saving === c.customer_id || loading}
+                      style={{ padding: '0.35rem 0.85rem', background: 'var(--copper)', color: 'var(--navy)', borderRadius: 6, border: 'none', fontWeight: 600, fontSize: '0.8rem', opacity: saving === c.customer_id ? 0.6 : 1 }}
                     >
-                      {saving === customer.customer_id ? 'Speichern...' : 'Speichern'}
+                      {saving === c.customer_id ? 'Speichern…' : 'Speichern'}
                     </button>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
+                  ) : <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>–</span>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
       {customers.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
           Keine Mandanten vorhanden
         </div>
       )}
