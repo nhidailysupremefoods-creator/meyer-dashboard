@@ -90,7 +90,8 @@ export function useAuth(): UseAuthReturn {
     email: authData?.email || '',
     customers: authData?.customers || [],
     token: authData?.token || null,
-    loading,
+    // loading is true both during API calls AND while reading from sessionStorage on mount
+    loading: loading || !mounted,
     error,
     login,
     logout,
