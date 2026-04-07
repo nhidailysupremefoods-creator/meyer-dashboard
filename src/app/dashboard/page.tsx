@@ -13,8 +13,8 @@ type PageNum = 1 | 2 | 3 | 4;
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
-  3: 'Liquiditätsstabilität',
-  4: 'Maßnahmen & Benchmarks',
+  3: 'Liquidit\u00e4tsstabilit\u00e4t',
+  4: 'Ma\u00dfnahmen & Benchmarks',
 };
 
 export default function DashboardPage() {
@@ -75,15 +75,19 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
-        if (response.success && response.periods) {
-          setPeriods(response.periods);
-          if ((response as any).industrySegment || (response as any).industry_segment) {
-            setIndustrySegment(
-              (response as any).industry_segment || (response as any).industrySegment || ''
-            );
-          }
-          if (response.periods.length > 0) {
-            setSelectedPeriod(response.periods[0].period);
+        // Accept both {success: true, periods: [...]} and {periods: [...]} formats
+        const periodsArr = response.periods || (response as any).rows || [];
+        if (periodsArr.length > 0) {
+          // Normalize period format: support {period, label} and {month_id, month_label_short}
+          const normalized = periodsArr.map((p: any) => ({
+            period: p.period || p.month_id || '',
+            label: p.label || p.month_label_short || p.month_label || p.month_id || '',
+          })).filter((p: any) => p.period !== '');
+          setPeriods(normalized);
+          const seg = (response as any).industry_segment || (response as any).industrySegment;
+          if (seg) setIndustrySegment(seg);
+          if (normalized.length > 0) {
+            setSelectedPeriod(normalized[0].period);
           }
         }
       } catch {
@@ -349,9 +353,9 @@ export default function DashboardPage() {
           style={{ color: 'var(--text-secondary)' }}
         >
           <div className="text-4xl mb-4">📊</div>
-          <p className="font-medium">Keine Daten verfügbar</p>
+          <p className="font-medium">Keine Daten verf\u00fcgbar</p>
           <p className="text-sm mt-2">
-            Für {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden
+            F\u00fcr {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden
           </p>
           <button
             onClick={() =>
@@ -367,7 +371,7 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p>Bitte Mandant und Periode auswählen</p>
+          <p>Bitte Mandant und Periode ausw\u00e4hlen</p>
         </div>
       )}
     </div>
