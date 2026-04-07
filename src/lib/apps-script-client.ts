@@ -47,7 +47,12 @@ export async function callAppsScriptApi(params: Record<string, string>): Promise
       throw new Error(`Apps Script API error: HTTP ${res.status}`);
     }
 
-    const data = await res.json();
+    // Read as text first to detect HTML responses (e.g. Google login redirect)
+    const text = await res.text();
+    if (text.trimStart().startsWith('<')) {
+      throw new Error('Apps Script returned HTML (possible auth redirect or deployment issue)');
+    }
+    const data = JSON.parse(text);
     return data;
   } catch (err: any) {
     if (err.name === 'AbortError') {
