@@ -10,15 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode and extract project
+      - name: Fix and decode project
         run: |
           echo "File size: $(wc -c < ./project.b64)"
-          echo "First 40 chars: $(head -c 40 ./project.b64)"
-          echo "---"
+          python3 << 'PYEOF'
+s = open('./project.b64').read().strip()
+print('len:', len(s))
+print('pos 45395-45410:', repr(s[45395:45410]))
+if len(s) == 48592 and s[45399] == 'E' and s[45400] == 'I':
+    s = s[:45399] + 'I' + 'E' + s[45401:]
+    open('./project.b64', 'w').write(s)
+    print('Fixed swap at 45399-45400')
+else:
+    print('No fix applied')
+PYEOF
           cat ./project.b64 | tr -d '\r\n\t ' | base64 --decode > /tmp/proj.tar.gz
-          echo "Decoded size: $(wc -c < /tmp/proj.tar.gz)"
           echo "MD5: $(md5sum /tmp/proj.tar.gz)"
-          echo "Type: $(file /tmp/proj.tar.gz)"
           tar -xzf /tmp/proj.tar.gz
           find . -not -path './.git/*' -type f | sort | head -80
       - name: Commit extracted files
