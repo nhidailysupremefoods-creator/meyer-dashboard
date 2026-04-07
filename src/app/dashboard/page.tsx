@@ -49,7 +49,9 @@ export default function DashboardPage() {
         // Admin or GLOBAL user: customers[] is empty, fetch full list from API
         const tok = api.getToken();
         if (tok) {
-          fetch('/api/dashboard/customers?action=customers&token=' + tok)
+          fetch('/api/dashboard/customers?action=customers', {
+              headers: { 'Authorization': `Bearer ${tok}` },
+            })
             .then((r) => r.json())
             .then((d) => {
               if (d.customers && Array.isArray(d.customers) && d.customers.length > 0) {
