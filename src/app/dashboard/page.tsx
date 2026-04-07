@@ -31,7 +31,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Initialize auth ───────────────────────────────────────────────────────
+  // ── Initialize auth ────────────────────────────────────────────────────
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
@@ -66,7 +66,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ── Load periods when customer changes ────────────────────────────────────
+  // ── Load periods when customer changes ─────────────────────────────────
   useEffect(() => {
     if (!selectedCustomer) return;
 
@@ -96,7 +96,7 @@ export default function DashboardPage() {
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ── Load page data when page / period changes ─────────────────────────────
+  // ── Load page data when page / period changes ──────────────────────────
   const loadPageData = useCallback(
     async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
@@ -242,7 +242,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Error Alert ─────────────────────────────────────────────────────── */}
+      {/* ── Error Alert ─────────────────────────────────────────────────── */}
       {error && (
         <div
           className="p-4 rounded-xl border text-sm flex items-start gap-3"
@@ -266,7 +266,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Page Tabs ───────────────────────────────────────────────────────── */}
+      {/* ── Page Tabs ───────────────────────────────────────────────────── */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([1, 2, 3, 4] as PageNum[]).map((num) => (
           <button
@@ -293,7 +293,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Page Content ────────────────────────────────────────────────────── */}
+      {/* ── Page Content ────────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
@@ -333,12 +333,12 @@ export default function DashboardPage() {
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
               style={{
                 backgroundColor: 'var(--background)',
-                border: '1px solid var(--border-color) ',
+                border: '1px solid var(--border-color)',
                 color: 'var(--text-secondary)',
               }}
               title="Daten aktualisieren"
             >
-              �� Aktualisieren
+              ↻ Aktualisieren
             </button>
           </div>
           {renderPage()}
@@ -348,8 +348,8 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <div className="text-4xl mb-4">📎</div>
-          <p className="font-medium">Keine Daten verfügbar</r>
+          <div className="text-4xl mb-4">📊</div>
+          <p className="font-medium">Keine Daten verfügbar</p>
           <p className="text-sm mt-2">
             Für {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden
           </p>
