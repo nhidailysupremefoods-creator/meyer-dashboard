@@ -4,6 +4,14 @@ import { useState } from 'react';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Registration } from '@/types';
 
+const S = {
+  card: { background: 'var(--navy-card)', border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden' } as React.CSSProperties,
+  sectionHeader: { padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-color)', fontSize: '0.8rem', fontWeight: 700, color: 'var(--offwhite)', fontFamily: 'Manrope, sans-serif' } as React.CSSProperties,
+  th: { padding: '0.75rem 1rem', textAlign: 'left' as const, fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-color)' },
+  td: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--offwhite)', borderBottom: '1px solid rgba(176,138,106,0.1)' },
+  tdSec: { padding: '0.875rem 1rem', fontSize: '0.875rem', color: 'var(--text-secondary)', borderBottom: '1px solid rgba(176,138,106,0.1)' },
+};
+
 interface RegistrationTabProps {
   registrations: Registration[];
   onUpdate: () => Promise<void>;
@@ -19,16 +27,9 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
     try {
       const success = await approveRegistration(email);
       if (success) {
-        setStatusMessage({
-          ...statusMessage,
-          [email]: 'Genehmigt ✓',
-        });
+        setStatusMessage({ ...statusMessage, [email]: 'Genehmigt ✓' });
         setTimeout(() => {
-          setStatusMessage((prev) => {
-            const next = { ...prev };
-            delete next[email];
-            return next;
-          });
+          setStatusMessage((prev) => { const next = { ...prev }; delete next[email]; return next; });
         }, 2000);
         await onUpdate();
       }
@@ -38,24 +39,14 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
   };
 
   const handleReject = async (email: string) => {
-    if (!window.confirm(`Möchten Sie die Registrierung für ${email} ablehnen?`)) {
-      return;
-    }
-
+    if (!window.confirm(`Möchten Sie die Registrierung für ${email} ablehnen?`)) return;
     setProcessing(email);
     try {
       const success = await rejectRegistration(email);
       if (success) {
-        setStatusMessage({
-          ...statusMessage,
-          [email]: 'Abgelehnt ✓',
-        });
+        setStatusMessage({ ...statusMessage, [email]: 'Abgelehnt ✓' });
         setTimeout(() => {
-          setStatusMessage((prev) => {
-            const next = { ...prev };
-            delete next[email];
-            return next;
-          });
+          setStatusMessage((prev) => { const next = { ...prev }; delete next[email]; return next; });
         }, 2000);
         await onUpdate();
       }
@@ -65,107 +56,79 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
   };
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { bg: string; text: string; label: string }> = {
-      pending: {
-        bg: 'bg-yellow-100',
-        text: 'text-yellow-800',
-        label: 'Ausstehend',
-      },
-      approved: {
-        bg: 'bg-green-100',
-        text: 'text-green-800',
-        label: 'Genehmigt',
-      },
-      rejected: {
-        bg: 'bg-red-100',
-        text: 'text-red-800',
-        label: 'Abgelehnt',
-      },
+    const styles: Record<string, { bg: string; color: string; border: string; label: string }> = {
+      pending:  { bg: 'rgba(245,158,11,0.15)',  color: '#F59E0B', border: 'rgba(245,158,11,0.3)',  label: 'Ausstehend' },
+      approved: { bg: 'rgba(16,185,129,0.15)',   color: '#10b981', border: 'rgba(16,185,129,0.3)',  label: 'Genehmigt' },
+      rejected: { bg: 'rgba(239,68,68,0.15)',    color: '#ef4444', border: 'rgba(239,68,68,0.3)',   label: 'Abgelehnt' },
     };
-    const style = statusMap[status] || statusMap.pending;
+    const s = styles[status] || styles.pending;
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${style.bg} ${style.text}`}>
-        {style.label}
+      <span style={{ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
+        {s.label}
       </span>
     );
   };
 
   const pendingRegistrations = registrations.filter((r) => r.status === 'pending');
+  const processedRegistrations = registrations.filter((r) => r.status !== 'pending');
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-          <p className="text-red-800">{error}</p>
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6 }}>
+          {error}
         </div>
       )}
 
-      {pendingRegistrations.length === 0 && registrations.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-lg">Keine Registrierungen vorhanden</p>
+      {registrations.length === 0 ? (
+        <div style={{ ...S.card, textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+          Keine Registrierungen vorhanden
         </div>
       ) : (
         <>
           {pendingRegistrations.length > 0 && (
-            <div className="border-b border-gray-200">
-              <div className="px-6 py-4 bg-yellow-50 border-b border-yellow-200">
-                <h3 className="font-semibold text-yellow-900">
-                  Ausstehende Registrierungen ({pendingRegistrations.length})
-                </h3>
+            <div style={S.card}>
+              <div style={{ ...S.sectionHeader, borderLeft: '3px solid #F59E0B' }}>
+                Ausstehende Registrierungen ({pendingRegistrations.length})
               </div>
-
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        E-Mail
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Angefordert
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Aktionen
-                      </th>
+                      <th style={S.th}>E-Mail</th>
+                      <th style={S.th}>Status</th>
+                      <th style={S.th}>Angefordert</th>
+                      <th style={S.th}>Aktionen</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody>
                     {pendingRegistrations.map((reg) => (
-                      <tr key={reg.email} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {reg.email}
+                      <tr key={reg.email}>
+                        <td style={S.td}><strong style={{ fontWeight: 500 }}>{reg.email}</strong></td>
+                        <td style={S.td}>{getStatusBadge(reg.status)}</td>
+                        <td style={S.tdSec}>
+                          {reg.requested_at ? new Date(reg.requested_at).toLocaleDateString('de-DE') : '–'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(reg.status)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {reg.requested_at
-                            ? new Date(reg.requested_at).toLocaleDateString('de-DE')
-                            : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        <td style={{ ...S.td, paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
                           {statusMessage[reg.email] ? (
-                            <span className="text-green-600 font-semibold">
-                              {statusMessage[reg.email]}
-                            </span>
+                            <span style={{ color: '#10b981', fontWeight: 600, fontSize: '0.85rem' }}>{statusMessage[reg.email]}</span>
                           ) : (
-                            <>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button
                                 onClick={() => handleApprove(reg.email)}
                                 disabled={processing === reg.email || loading}
-                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400"
+                                style={{ padding: '0.3rem 0.75rem', background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: processing === reg.email ? 0.6 : 1 }}
                               >
                                 ✓ Genehmigen
                               </button>
                               <button
                                 onClick={() => handleReject(reg.email)}
                                 disabled={processing === reg.email || loading}
-                                className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-400"
+                                style={{ padding: '0.3rem 0.75rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: processing === reg.email ? 0.6 : 1 }}
                               >
                                 ✕ Ablehnen
                               </button>
-                            </>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -176,47 +139,28 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
             </div>
           )}
 
-          {registrations.filter((r) => r.status !== 'pending').length > 0 && (
-            <div className="border-t border-gray-200">
-              <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900">
-                  Verarbeitete Registrierungen
-                </h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+          {processedRegistrations.length > 0 && (
+            <div style={S.card}>
+              <div style={S.sectionHeader}>Verarbeitete Registrierungen</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        E-Mail
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Angefordert
-                      </th>
+                      <th style={S.th}>E-Mail</th>
+                      <th style={S.th}>Status</th>
+                      <th style={S.th}>Angefordert</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {registrations
-                      .filter((r) => r.status !== 'pending')
-                      .map((reg) => (
-                        <tr key={reg.email} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {reg.email}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {getStatusBadge(reg.status)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                            {reg.requested_at
-                              ? new Date(reg.requested_at).toLocaleDateString('de-DE')
-                              : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                  <tbody>
+                    {processedRegistrations.map((reg) => (
+                      <tr key={reg.email}>
+                        <td style={S.td}><strong style={{ fontWeight: 500 }}>{reg.email}</strong></td>
+                        <td style={S.td}>{getStatusBadge(reg.status)}</td>
+                        <td style={S.tdSec}>
+                          {reg.requested_at ? new Date(reg.requested_at).toLocaleDateString('de-DE') : '–'}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
