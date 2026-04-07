@@ -1,24 +1,26 @@
 name: Bootstrap
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Decode and extract project
         run: |
-          cat ./project.b64 | tr -d '\n' | base64 --decode | tar -xz
+          echo "File size: $(wc -c < ./project.b64)"
+          echo "First 40 chars: $(head -c 40 ./project.b64)"
+          echo "---"
+          cat ./project.b64 | tr -d '\r\n\t ' | base64 --decode > /tmp/proj.tar.gz
+          echo "Decoded size: $(wc -c < /tmp/proj.tar.gz)"
+          echo "MD5: $(md5sum /tmp/proj.tar.gz)"
+          echo "Type: $(file /tmp/proj.tar.gz)"
+          tar -xzf /tmp/proj.tar.gz
           find . -not -path './.git/*' -type f | sort | head -80
-
       - name: Commit extracted files
         run: |
           git config user.name "github-actions[bot]"
