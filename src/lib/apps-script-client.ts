@@ -50,6 +50,21 @@ export async function callAppsScriptApi(params: Record<string, string>): Promise
     // Read as text first to detect HTML responses (e.g. Google login redirect)
     const text = await res.text();
     if (text.trimStart().startsWith('<')) {
+      // Google Apps Script may return a meta-refresh HTML page for server-side clients.
+      // Node.js fetch only follows HTTP 301/302 redirects, not HTML meta-refresh.
+      // Extract the redirect URL and follow it manually.
+      const metaMatch = text.match(/content=["']\d+;\s*url=([^"']+)/i);
+      if (metaMatch) {
+        const redirectUrl = metaMatch[1].replace(/&amp;/g, '&');
+        const res2 = await fetch(redirectUrl, {
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' },
+        });
+        const text2 = await res2.text();
+        if (!text2.trimStart().startsWith('<')) {
+          return JSON.parse(text2);
+        }
+      }
       throw new Error('Apps Script returned HTML (possible auth redirect or deployment issue)');
     }
     const data = JSON.parse(text);
