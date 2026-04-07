@@ -158,8 +158,10 @@ async function fetchPeriods(customer: string): Promise<PeriodsResponse> {
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const params = new URLSearchParams({ token, customer });
-  const res = await fetch(`/api/dashboard/periods?${params}`);
+  const params = new URLSearchParams({ customer });
+  const res = await fetch(`/api/dashboard/periods?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   return handleResponse(res);
 }
@@ -176,8 +178,10 @@ async function fetchPageData(
   if (!token) throw new APIError('Nicht eingeloggt');
 
   const action = `page${pageNum}`;
-  const params = new URLSearchParams({ token, customer, period, action });
-  const res = await fetch(`/api/dashboard/${action}?${params}`);
+  const params = new URLSearchParams({ customer, period, action });
+  const res = await fetch(`/api/dashboard/${action}?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   return handleResponse(res);
 }
