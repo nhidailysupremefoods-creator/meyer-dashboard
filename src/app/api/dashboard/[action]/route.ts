@@ -8,6 +8,47 @@ const CUSTOMER_FALLBACK = [
   { customer_id: 'WEBER_HAUSTECHNIK', customer_name: 'Weber Haustechnik', is_active: true },
 ];
 
+/** German short month names */
+const DE_MONTHS = ['Jan','Feb','M\u00e4r','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+/**
+ * Generate fallback periods: last N months ending at today.
+ * Returns array of {period: "YYYY_MM", label: "Mmm YY"} sorted newest first.
+ */
+function generateFallbackPeriods(count = 14): Array<{period: string; label: string}> {
+  const now = new Date();
+  const results: Array<{period: string; label: string}> = [];
+  for (let i = 1; i <= count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth(); // 0-indexed
+    const mm = String(m + 1).padStart(2, '0');
+    results.push({
+      period: `${y}_${mm}`,
+      label: `${DE_MONTHS[m]} ${String(y).slice(2)}`,
+    });
+  }
+  return results;
+}
+
+/**
+ * Transform Apps Script periods response to PeriodsResponse format.
+ * Apps Script returns: {customer, periods: [{month_id, month_label_short, period_date}]}
+ * Dashboard expects:   {success: true, periods: [{period, label}]}
+ */
+function transformPeriodsResponse(raw: any): { success: true; periods: Array<{period: string; label: string}>; industry_segment?: string } {
+  const rawPeriods: any[] = raw.periods || raw.rows || [];
+  const mapped = rawPeriods.map((p: any) => ({
+    period: p.period || p.month_id || p.period_id || '',
+    label: p.label || p.month_label || p.month_label_short || p.period_label || p.period || p.month_id || '',
+  })).filter((p: any) => p.period !== '');
+  return {
+    success: true,
+    periods: mapped,
+    ...(raw.industry_segment ? { industry_segment: raw.industry_segment } : {}),
+  };
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { action: string } }
@@ -30,6 +71,7 @@ export async function GET(
     if (customer) { params_obj.customer = customer; }
     if (period) { params_obj.period = period; }
 
+    // ── customers: fallback to hardcoded list if Apps Script unavailable ──
     if (action === 'customers') {
       try {
         const result = await callAppsScriptApi(params_obj);
@@ -45,6 +87,28 @@ export async function GET(
       } catch (err: any) {
         console.warn('[customers] Fallback due to error:', err.message);
         return NextResponse.json({ customers: CUSTOMER_FALLBACK });
+      }
+    }
+
+    // ── periods: transform response format + fallback if Apps Script fails ──
+    if (action === 'periods') {
+      try {
+        const result = await callAppsScriptApi(params_obj);
+        // Apps Script may return {error: "..."} without success
+        if (result.error && !result.periods) {
+          console.warn('[periods] Apps Script returned error:', result.error);
+          return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
+        }
+        const transformed = transformPeriodsResponse(result);
+        // If no periods returned, use fallback
+        if (transformed.periods.length === 0) {
+          console.warn('[periods] No periods from Apps Script, using fallback');
+          return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
+        }
+        return NextResponse.json(transformed);
+      } catch (err: any) {
+        console.warn('[periods] Fallback due to error:', err.message);
+        return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
       }
     }
 
