@@ -4,6 +4,12 @@ import { useState, useMemo } from 'react';
 import { useAdmin } from '@/hooks/useAdmin';
 import { Customer, Release } from '@/types';
 
+const S = {
+  card: { background: 'var(--navy-card)', border: '1px solid var(--border-color)', borderRadius: 10, overflow: 'hidden' } as React.CSSProperties,
+  sel: { padding: '0.375rem 0.625rem', fontSize: '0.85rem', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-color)', borderRadius: 6, color: 'var(--offwhite)', minWidth: 200 } as React.CSSProperties,
+  label: { fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: '0.35rem', display: 'block' },
+};
+
 interface ReleaseTabProps {
   customers: Customer[];
   releases: Release[];
@@ -12,19 +18,15 @@ interface ReleaseTabProps {
 
 export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTabProps) {
   const { toggleRelease, unreleaseAll, loading, error } = useAdmin();
-  const [selectedCustomer, setSelectedCustomer] = useState<string>(
-    customers[0]?.customer_id || ''
-  );
+  const [selectedCustomer, setSelectedCustomer] = useState<string>(customers[0]?.customer_id || '');
   const [toggling, setToggling] = useState<string | null>(null);
 
   const getMonthKey = (month: string) => month.replace(/_/g, '-');
 
-  // Get releases for selected customer
   const customerReleases = useMemo(() => {
     return releases.filter((r) => r.customer_id === selectedCustomer);
   }, [releases, selectedCustomer]);
 
-  // Build calendar grid for last 12 months + current + next 3
   const months = useMemo(() => {
     const today = new Date();
     const result = [];
@@ -41,9 +43,7 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
     const set = new Set<string>();
     customerReleases.forEach((r) => {
       const key = getMonthKey(r.report_month);
-      if (r.is_released) {
-        set.add(key);
-      }
+      if (r.is_released) set.add(key);
     });
     return set;
   }, [customerReleases]);
@@ -53,7 +53,6 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
   const handleToggle = async (month: string) => {
     const key = getMonthKey(month);
     const isCurrentlyReleased = releasedSet.has(key);
-
     setToggling(month);
     try {
       await toggleRelease(selectedCustomer, month.replace(/-/g, '_'), !isCurrentlyReleased);
@@ -64,10 +63,7 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
   };
 
   const handleUnreleaseAll = async () => {
-    if (!window.confirm('Möchten Sie alle Monate für diesen Mandanten sperren?')) {
-      return;
-    }
-
+    if (!window.confirm('Möchten Sie alle Monate für diesen Mandanten sperren?')) return;
     try {
       await unreleaseAll(selectedCustomer);
       await onUpdate();
@@ -77,73 +73,74 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
   };
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div style={S.card}>
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-          <p className="text-red-800">{error}</p>
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem' }}>
+          {error}
         </div>
       )}
 
       {/* Customer Selector */}
-      <div className="px-6 py-4 border-b border-gray-200">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Mandant
-        </label>
-        <select
-          value={selectedCustomer}
-          onChange={(e) => setSelectedCustomer(e.target.value)}
-          className="block w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-        >
-          {customers.map((customer) => (
-            <option key={customer.customer_id} value={customer.customer_id}>
-              {customer.name || customer.display_name || customer.customer_id}
-            </option>
-          ))}
-        </select>
+      <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'flex-end', gap: '1.5rem', flexWrap: 'wrap' }}>
+        <div>
+          <label style={S.label}>Mandant</label>
+          <select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)} style={S.sel}>
+            {customers.map((c) => (
+              <option key={c.customer_id} value={c.customer_id}>
+                {c.name || c.display_name || c.customer_id}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Counter and Actions */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold text-gray-900">{releasedCount}</span> von{' '}
-            <span className="font-semibold text-gray-900">{months.length}</span> Monate
-            freigegeben
-          </p>
-        </div>
+      {/* Counter + Actions */}
+      <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.1)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          <span style={{ color: 'var(--offwhite)', fontWeight: 600 }}>{releasedCount}</span>
+          {' '}von{' '}
+          <span style={{ color: 'var(--offwhite)', fontWeight: 600 }}>{months.length}</span>
+          {' '}Monate freigegeben
+        </span>
         <button
           onClick={handleUnreleaseAll}
           disabled={loading || releasedCount === 0}
-          className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:bg-gray-400"
+          style={{ padding: '0.35rem 0.85rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: (loading || releasedCount === 0) ? 0.5 : 1 }}
         >
           Alle sperren
         </button>
       </div>
 
       {/* Calendar Grid */}
-      <div className="p-6">
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+      <div style={{ padding: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '0.5rem' }}>
           {months.map((month) => {
             const key = getMonthKey(month);
             const isReleased = releasedSet.has(key);
             const [year, monthNum] = month.split('-');
-            const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1).toLocaleDateString(
-              'de-DE',
-              { month: 'short', year: '2-digit' }
-            );
+            const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
+              .toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
 
             return (
               <button
                 key={month}
                 onClick={() => handleToggle(month)}
                 disabled={toggling === month || loading}
-                className={`p-3 rounded-md border-2 font-medium text-sm transition-colors ${
-                  isReleased
-                    ? 'border-green-500 bg-green-50 text-green-900 hover:bg-green-100'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                style={{
+                  padding: '0.5rem 0.375rem',
+                  borderRadius: 6,
+                  border: isReleased ? '2px solid rgba(16,185,129,0.6)' : '2px solid var(--border-color)',
+                  background: isReleased ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)',
+                  color: isReleased ? '#10b981' : 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  opacity: (toggling === month || loading) ? 0.5 : 1,
+                  cursor: (toggling === month || loading) ? 'not-allowed' : 'pointer',
+                  fontFamily: 'Manrope, sans-serif',
+                  textAlign: 'center',
+                }}
               >
-                {toggling === month ? '...' : monthName}
+                {toggling === month ? '…' : monthName}
               </button>
             );
           })}
@@ -151,7 +148,7 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
       </div>
 
       {customers.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
           Keine Mandanten vorhanden
         </div>
       )}
