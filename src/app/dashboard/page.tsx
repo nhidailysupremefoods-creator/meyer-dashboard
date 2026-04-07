@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [periods, setPeriods] = useState<Array<{ period: string; label: string }>>([]);
   const [industrySegment, setIndustrySegment] = useState<string>('');
+  const [customerList, setCustomerList] = useState<Array<{ customer_id: string; customer_name: string; is_active: boolean }>>([]);
 
   // Store full API response per page (not just response.data)
   const [pageData, setPageData] = useState<Record<PageNum, any>>({} as any);
@@ -36,7 +37,31 @@ export default function DashboardPage() {
     if (data) {
       setAuthData(data);
       if (data.customers && data.customers.length > 0) {
+        // Non-admin: customers list comes from login response (customer IDs)
+        const list = data.customers.map((id: string) => ({
+          customer_id: id,
+          customer_name: id.replace(/_/g, ' '),
+          is_active: true,
+        }));
+        setCustomerList(list);
         setSelectedCustomer(data.customers[0]);
+      } else {
+        // Admin or GLOBAL user: customers[] is empty, fetch full list from API
+        const tok = api.getToken();
+        if (tok) {
+          fetch('/api/dashboard/customers?action=customers&token=' + tok)
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.customers && Array.isArray(d.customers) && d.customers.length > 0) {
+                const active = d.customers.filter((c: any) => c.is_active !== false);
+                setCustomerList(active);
+                if (active.length > 0) {
+                  setSelectedCustomer(active[0].customer_id);
+                }
+              }
+            })
+            .catch(() => {});
+        }
       }
     }
   }, []);
@@ -54,9 +79,7 @@ export default function DashboardPage() {
           setPeriods(response.periods);
           if ((response as any).industrySegment || (response as any).industry_segment) {
             setIndustrySegment(
-              (response as any).industry_segment ||
-                (response as any).industrySegment ||
-                ''
+              (response as any).industry_segment || (response as any).industrySegment || ''
             );
           }
           if (response.periods.length > 0) {
@@ -152,11 +175,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* ── Controls Bar ─────────────────────────────────────────────────── */}
+      {/* ── Controls Bar ──────────────────────────────────────────────────── */}
       <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         {/* Customer Selector */}
         <div className="flex-1 w-full">
-          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
+          <label
+            className="block text-xs font-medium uppercase tracking-wide mb-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Mandant
           </label>
           <select
@@ -164,9 +190,9 @@ export default function DashboardPage() {
             onChange={(e) => setSelectedCustomer(e.target.value)}
             className="w-full"
           >
-            {authData.customers.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {customerList.map((c) => (
+              <option key={c.customer_id} value={c.customer_id}>
+                {c.customer_name}
               </option>
             ))}
           </select>
@@ -174,7 +200,10 @@ export default function DashboardPage() {
 
         {/* Period Selector */}
         <div className="flex-1 w-full">
-          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
+          <label
+            className="block text-xs font-medium uppercase tracking-wide mb-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Berichtsperiode
           </label>
           <select
@@ -194,7 +223,10 @@ export default function DashboardPage() {
         {/* Industry Segment badge */}
         {industrySegment && (
           <div className="flex-shrink-0">
-            <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
+            <div
+              className="text-xs font-medium uppercase tracking-wide mb-2"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               Branche
             </div>
             <span
@@ -210,7 +242,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Error Alert ───────────────────────────────────────────────────── */}
+      {/* ── Error Alert ─────────────────────────────────────────────────────── */}
       {error && (
         <div
           className="p-4 rounded-xl border text-sm flex items-start gap-3"
@@ -234,7 +266,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Page Tabs ─────────────────────────────────────────────────────── */}
+      {/* ── Page Tabs ───────────────────────────────────────────────────────── */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([1, 2, 3, 4] as PageNum[]).map((num) => (
           <button
@@ -261,7 +293,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Page Content ─────────────────────────────────────────────────── */}
+      {/* ── Page Content ────────────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
@@ -301,15 +333,14 @@ export default function DashboardPage() {
               className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
               style={{
                 backgroundColor: 'var(--background)',
-                border: '1px solid var(--border-color)',
+                border: '1px solid var(--border-color) ',
                 color: 'var(--text-secondary)',
               }}
               title="Daten aktualisieren"
             >
-              ↻ Aktualisieren
+              �� Aktualisieren
             </button>
           </div>
-
           {renderPage()}
         </div>
       ) : !loading && selectedCustomer && selectedPeriod ? (
@@ -317,8 +348,8 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <div className="text-4xl mb-4">📊</div>
-          <p className="font-medium">Keine Daten verfügbar</p>
+          <div className="text-4xl mb-4">📎</div>
+          <p className="font-medium">Keine Daten verfügbar</r>
           <p className="text-sm mt-2">
             Für {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden
           </p>
