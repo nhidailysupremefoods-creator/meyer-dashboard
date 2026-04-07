@@ -14,6 +14,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Check if already logged in
+  useEffect(() => {
+    const token = api.getToken();
+    if (token) {
+      router.push('/dashboard');
+    }
+  }, [router]);
+
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginCode, setLoginCode] = useState('');
@@ -24,18 +32,11 @@ export default function LoginPage() {
   const [registerFirma, setRegisterFirma] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
 
-  // Reset state
+  // Password reset state (2-step)
   const [resetStep, setResetStep] = useState<'email' | 'confirm'>('email');
   const [resetEmail, setResetEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [resetPassword, setResetPassword] = useState('');
-
-  useEffect(() => {
-    const data = api.getAuthData();
-    if (data && data.token) {
-      router.push('/dashboard');
-    }
-  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,13 +53,17 @@ export default function LoginPage() {
       const response = await api.login(payload);
 
       if (response.success && response.token) {
-        api.setAuthData(response);
-        router.push('/dashboard');
+        setSuccess('Login erfolgreich!');
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 500);
       } else {
         setError(response.error || 'Login fehlgeschlagen');
       }
     } catch (err: any) {
-      setError(err.message || 'Ein Fehler ist aufgetreten.');
+      setError(
+        err.message || 'Ein Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -80,24 +85,17 @@ export default function LoginPage() {
 
       const response = await api.register(payload);
 
-      if (response.success) {
-        setSuccess('Registrierung erfolgreich! Bitte warten Sie auf die Freischaltung.');
-        setView('login');
-        setRegisterEmail('');
-        setRegisterName('');
-        setRegisterFirma('');
-        setRegisterPassword('');
+      if (response.ok || response.success) {
+        setSuccess('Registrierung erfolgreich! Ein Administrator wird Ihre Anfrage überprüfen.');
+        setTimeout(() => {
+          setView('login');
+          setRegisterEmail('');
+          setRegisterName('');
+          setRegisterFirma('');
+          setRegisterPassword('');
+        }, 2000);
       } else {
         setError(response.error || 'Registrierung fehlgeschlagen');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Ein Fehler ist aufgetreten.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRequestReset = async (e: React.strierung fehlgeschlagen');
       }
     } catch (err: any) {
       setError(err.message || 'Ein Fehler ist aufgetreten.');
@@ -157,7 +155,7 @@ export default function LoginPage() {
           setResetPassword('');
         }, 2000);
       } else {
-        setError(response.error || 'Zurücksetzen fehlgeschlagen');
+        setError(response.error || 'Zurøcksetzen fehlgeschlagen');
       }
     } catch (err: any) {
       setError(err.message || 'Ein Fehler ist aufgetreten.');
@@ -250,7 +248,7 @@ export default function LoginPage() {
                 >
                   Passwort vergessen?
                 </button>
-                <div className="pt-2" style={{borderTop: '1px solid var(--border-color)'}}>
+                <div className="pt-2" style={{borderTop: '1px solid var(--border-color('}}>
                   <p className="mb-2" style={{color: 'var(--text-secondary)'}}>Noch nicht registriert?</p>
                   <button
                     type="button"
