@@ -126,7 +126,7 @@ async function handleAdminRequest(
     // (Apps Script doGet/apiDispatch only uses URL parameters)
     const result = await callAppsScriptApi(params_obj);
 
-    return NextResponse.json(result);
+        return NextResponse.json({ ...result, success: true });
   } catch (err: any) {
     console.error(`Admin API error for action ${action}:`, err);
     return NextResponse.json(

@@ -110,7 +110,7 @@ export default function DashboardPage() {
       setError(null);
       try {
         const response = await api.fetchPageData(page, customer, period);
-        if (response.success || respons.data || (response as any).page) {
+        if (response.success || response.data || (response as any).page) {
           // Store the FULL response so page components can access all top-level keys
           setPageData((prev) => ({ ...prev, [page]: response }));
         } else {
