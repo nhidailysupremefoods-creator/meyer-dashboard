@@ -44,6 +44,7 @@ export const PAGES = {
   2: { id: 2, label: 'Vertragsanalyse', slug: 'contracts' },
   3: { id: 3, label: 'Liquiditätsstabilität', slug: 'liquidity' },
   4: { id: 4, label: 'Maßnahmen & Benchmarks', slug: 'measures' },
+  5: { id: 5, label: 'Gesprächsleitfaden', slug: 'advisory' },
 } as const;
 
 export const PAGE_NAMES: Record<number, string> = {
@@ -51,9 +52,10 @@ export const PAGE_NAMES: Record<number, string> = {
   2: 'Vertragsanalyse',
   3: 'Liquiditätsstabilität',
   4: 'Maßnahmen & Benchmarks',
+  5: 'Gesprächsleitfaden',
 };
 
-export const PAGES_ARRAY = [1, 2, 3, 4] as const;
+export const PAGES_ARRAY = [1, 2, 3, 4, 5] as const;
 
 // ============================================================================
 // User Roles & Permissions
@@ -244,7 +246,7 @@ export function getBenchmarkProfile(industryCode: string): string {
   return mapping[industryCode] || 'default';
 }
 
-export function isValidPage(pageId: unknown): pageId is 1 | 2 | 3 | 4 {
+export function isValidPage(pageId: unknown): pageId is 1 | 2 | 3 | 4 | 5 {
   return PAGES_ARRAY.includes(pageId as never);
 }
 
