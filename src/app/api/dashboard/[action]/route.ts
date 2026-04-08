@@ -1,126 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callAppsScriptApi, extractToken } from '@/lib/apps-script-client';
 
-const CUSTOMER_FALLBACK = [
-  { customer_id: 'INDUSTRIE_GAMMA', customer_name: 'Industrie Gamma', is_active: true },
-  { customer_id: 'MUSTERMANN_TECHNIK', customer_name: 'Mustermann Technik', is_active: true },
-  { customer_id: 'SCHMIDT_ANLAGENBAU', customer_name: 'Schmidt Anlagenbau', is_active: true },
-  { customer_id: 'WEBER_HAUSTECHNIK', customer_name: 'Weber Haustechnik', is_active: true },
-];
-
-/** German short month names */
-const DE_MONTHS = ['Jan','Feb','M\u00e4r','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
-
 /**
- * Generate fallback periods: last N months ending at today.
- * Returns array of {period: "YYYY_MM", label: "Mmm YY"} sorted newest first.
+ * GET /api/dashboard/[action]
+ * Dynamic route for dashboard data API calls.
+ *
+ * Supported actions:
+ * - periods: Get available reporting periods
+ * - page1: Get page 1 (Gesamtlage) data
+ * - page2: Get page 2 (Vertragsanalyse) data
+ * - page3: Get page 3 (LiquiditÃ¤t) data
+ * - page4: Get page 4 (MaÃnahmen) data
+ * - advisory: Get advisory report data
+ * - customers: Get list of accessible customers
+ * - save_tracker: Save measure tracker entry
+ *
+ * Query parameters:
+ * - token: Auth token (required for most actions)
+ * - customer: Customer ID (required for page1-4, advisory)
+ * - period: Period in format YYYY_MM (e.g., 2026_01)
+ *
+ * Response: Dashboard data as JSON
  */
-function generateFallbackPeriods(count = 14): Array<{period: string; label: string}> {
-  const now = new Date();
-  const results: Array<{period: string; label: string}> = [];
-  for (let i = 1; i <= count; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const y = d.getFullYear();
-    const m = d.getMonth(); // 0-indexed
-    const mm = String(m + 1).padStart(2, '0');
-    results.push({
-      period: `${y}_${mm}`,
-      label: `${DE_MONTHS[m]} ${String(y).slice(2)}`,
-    });
-  }
-  return results;
-}
-
-/**
- * Transform Apps Script periods response to PeriodsResponse format.
- * Apps Script returns: {customer, periods: [{month_id, month_label_short, period_date}]}
- * Dashboard expects:   {success: true, periods: [{period, label}]}
- */
-function transformPeriodsResponse(raw: any): { success: true; periods: Array<{period: string; label: string}>; industry_segment?: string } {
-  const rawPeriods: any[] = raw.periods || raw.rows || [];
-  const mapped = rawPeriods.map((p: any) => ({
-    period: p.period || p.month_id || p.period_id || '',
-    label: p.label || p.month_label || p.month_label_short || p.period_label || p.period || p.month_id || '',
-  })).filter((p: any) => p.period !== '');
-  return {
-    success: true,
-    periods: mapped,
-    ...(raw.industry_segment ? { industry_segment: raw.industry_segment } : {}),
-  };
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: { action: string } }
 ) {
   try {
     const { action } = params;
-    const validActions = ['periods','page1','page2','page3','page4','advisory','customers','save_tracker'];
+
+    // Valid dashboard actions from apiDispatch
+    const validActions = [
+      'periods',
+      'page1',
+      'page2',
+      'page3',
+      'page4',
+      'page5',
+      'advisory',
+      'leitfaden',
+      'customers',
+    ];
+
     if (!validActions.includes(action)) {
-      return NextResponse.json({ error: `Invalid action: ${action}` }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: `Invalid action: ${action}`,
+        },
+        { status: 400 }
+      );
     }
+
+    // Extract parameters
     const searchParams = req.nextUrl.searchParams;
     const token = extractToken(
-      Object.fromEntries(Array.from(req.headers.entries()).map(([k, v]) => [k.toLowerCase(), v])),
+      Object.fromEntries(
+        Array.from(req.headers.entries()).map(([k, v]) => [k.toLowerCase(), v])
+      ),
       searchParams
     );
     const customer = searchParams.get('customer') || '';
     const period = searchParams.get('period') || '';
-    const params_obj: Record<string, string> = { action: action };
-        if (token) { params_obj.token = token; }
-    if (customer) { params_obj.customer = customer; }
-    if (period) { params_obj.period = period; }
 
-    // ── customers: fallback to hardcoded list if Apps Script unavailable ──
-    if (action === 'customers') {
-      try {
-        const result = await callAppsScriptApi(params_obj);
-        if (
-          result.drive_error ||
-          !result.customers ||
-          (Array.isArray(result.customers) && result.customers.length === 0)
-        ) {
-          console.warn('[customers] Using fallback:', result.drive_error);
-          return NextResponse.json({ customers: CUSTOMER_FALLBACK });
-        }
-        return NextResponse.json({ ...result, success: true });
-      } catch (err: any) {
-        console.warn('[customers] Fallback due to error:', err.message);
-        return NextResponse.json({ customers: CUSTOMER_FALLBACK });
-      }
+    // Build params for Apps Script API
+    const params_obj: Record<string, string> = {
+      action: action,
+    };
+
+    if (token) {
+      params_obj.token = token;
+    }
+    if (customer) {
+      params_obj.customer = customer;
+    }
+    if (period) {
+      params_obj.period = period;
     }
 
-    // ── periods: transform response format + fallback if Apps Script fails ──
-    if (action === 'periods') {
-      try {
-        const result = await callAppsScriptApi(params_obj);
-        // Apps Script may return {error: "..."} without success
-        if (result.error && !result.periods) {
-          console.warn('[periods] Apps Script returned error:', result.error);
-          return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
-        }
-        const transformed = transformPeriodsResponse(result);
-        // If no periods returned, use fallback
-        if (transformed.periods.length === 0) {
-          console.warn('[periods] No periods from Apps Script, using fallback');
-          return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
-        }
-        return NextResponse.json(transformed);
-      } catch (err: any) {
-        console.warn('[periods] Fallback due to error:', err.message);
-        return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
-      }
-    }
-
+    // Call Apps Script
     const result = await callAppsScriptApi(params_obj);
-    return NextResponse.json({ ...result, success: true });
+
+    return NextResponse.json(result);
   } catch (err: any) {
     console.error(`Dashboard API error for action ${params.action}:`, err);
     return NextResponse.json(
-      { error: err.message || 'Dashboard API request failed' },
+      {
+        error: err.message || 'Dashboard API request failed',
+      },
       { status: 500 }
     );
   }
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // Disable caching for data endpoints
