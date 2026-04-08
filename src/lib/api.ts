@@ -68,22 +68,30 @@ function clearAuth() {
  */
 async function handleResponse(res: Response): Promise<any> {
   if (!res.ok) {
-    throw new APIError(
-      `HTTP ${res.status}: ${res.statusText}`,
-      res.status
-    );
+    // Try to read error details from response body
+    let errorMsg = `HTTP ${res.status}: ${res.statusText}`;
+    try {
+      const errData = await res.json();
+      if (errData.error) errorMsg = errData.error;
+    } catch { /* ignore parse errors */ }
+    throw new APIError(errorMsg, res.status);
   }
 
+  const text = await res.text();
+  let data: any;
   try {
-    const data = await res.json();
-    if (!data.success && data.error) {
-      throw new APIError(data.error, res.status, data);
-    }
-    return data;
-  } catch (err: any) {
-    if (err instanceof APIError) throw err;
-    throw new APIError('Ungültige API-Antwort', res.status);
+    data = JSON.parse(text);
+  } catch (parseErr: any) {
+    console.error('[handleResponse] JSON parse error:', parseErr.message, 'body:', text.slice(0, 200));
+    throw new APIError('UngÃ¼ltige API-Antwort (kein JSON)', res.status);
   }
+
+  // Only throw if there's an explicit error AND no success flag
+  if (data.error && !data.success) {
+    throw new APIError(data.error, res.status, data);
+  }
+
+  return data;
 }
 
 /**
