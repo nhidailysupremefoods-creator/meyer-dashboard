@@ -5,8 +5,8 @@
 
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || '';
 
-if (!APPS_SCRIPT_URL && typeof window === 'undefined') {
-  console.warn('APPS_SCRIPT_URL environment variable is not set â API calls will fail');
+if (!APPS_SCRIPT_URL) {
+  console.warn('APPS_SCRIPT_URL environment variable is not set');
 }
 
 export interface AppsScriptResponse {
@@ -21,9 +21,6 @@ export interface AppsScriptResponse {
  * Apps Script doGet routes this to the appropriate handler.
  */
 export async function callAppsScriptApi(params: Record<string, string>): Promise<AppsScriptResponse> {
-  if (!APPS_SCRIPT_URL) {
-    throw new Error('APPS_SCRIPT_URL not configured');
-  }
   const url = new URL(APPS_SCRIPT_URL);
 
   // Add all parameters as URL query params
@@ -50,27 +47,7 @@ export async function callAppsScriptApi(params: Record<string, string>): Promise
       throw new Error(`Apps Script API error: HTTP ${res.status}`);
     }
 
-    // Read as text first to detect HTML responses (e.g. Google login redirect)
-    const text = await res.text();
-    if (text.trimStart().startsWith('<')) {
-      // Google Apps Script may return a meta-refresh HTML page for server-side clients.
-      // Node.js fetch only follows HTTP 301/302 redirects, not HTML meta-refresh.
-      // Extract the redirect URL and follow it manually.
-      const metaMatch = text.match(/content=["']\d+;\s*url=([^"']+)/i);
-      if (metaMatch) {
-        const redirectUrl = metaMatch[1].replace(/&amp;/g, '&');
-        const res2 = await fetch(redirectUrl, {
-          signal: controller.signal,
-          headers: { 'Accept': 'application/json' },
-        });
-        const text2 = await res2.text();
-        if (!text2.trimStart().startsWith('<')) {
-          return JSON.parse(text2);
-        }
-      }
-      throw new Error('Apps Script returned HTML (possible auth redirect or deployment issue)');
-    }
-    const data = JSON.parse(text);
+    const data = await res.json();
     return data;
   } catch (err: any) {
     if (err.name === 'AbortError') {
