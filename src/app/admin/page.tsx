@@ -10,9 +10,10 @@ import RegistrationTab from '@/components/admin/RegistrationTab';
 import ReleaseTab from '@/components/admin/ReleaseTab';
 import AuditTab from '@/components/admin/AuditTab';
 import SystemTab from '@/components/admin/SystemTab';
+import LeitfadenTab from '@/components/admin/LeitfadenTab';
 import { api } from '@/lib/api';
 
-type TabType = 'customers' | 'users' | 'registrations' | 'releases' | 'audit' | 'system';
+type TabType = 'customers' | 'users' | 'registrations' | 'releases' | 'audit' | 'system' | 'leitfaden';
 
 const TABS: { id: TabType; label: string }[] = [
   { id: 'customers',     label: 'Mandanten' },
@@ -21,6 +22,7 @@ const TABS: { id: TabType; label: string }[] = [
   { id: 'releases',      label: 'Monatsfreigabe' },
   { id: 'audit',         label: 'Audit-Log' },
   { id: 'system',        label: 'System' },
+  { id: 'leitfaden',     label: 'Leitfaden' },
 ];
 
 export default function AdminPage() {
@@ -64,7 +66,7 @@ export default function AdminPage() {
             animation: 'spin 0.8s linear infinite',
             margin: '0 auto',
           }} />
-          <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Laden…</p>
+          <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Ladenâ¦</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -80,7 +82,7 @@ export default function AdminPage() {
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: '#ef4444', fontWeight: 600, marginBottom: '1rem' }}>Kein Admin-Zugriff</p>
           <button onClick={() => router.push('/')} style={{ color: 'var(--copper)', background: 'none', border: 'none', fontWeight: 600 }}>
-            Zurück zum Dashboard
+            ZurÃ¼ck zum Dashboard
           </button>
         </div>
       </div>
@@ -90,7 +92,7 @@ export default function AdminPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--navy)', display: 'flex', flexDirection: 'column' }}>
 
-      {/* ── Nav Bar (same as dashboard) ────────────────────────────────── */}
+      {/* ââ Nav Bar (same as dashboard) ââââââââââââââââââââââââââââââââââ */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
         background: 'var(--navy)',
@@ -121,7 +123,7 @@ export default function AdminPage() {
                 padding: '0.35rem 0.85rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
                 background: 'rgba(176,138,106,0.1)', color: 'var(--copper)',
                 border: '1px solid rgba(176,138,106,0.25)',
-              }}>← Dashboard</a>
+              }}>â Dashboard</a>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{email}</span>
               <button onClick={handleLogout} style={{
                 padding: '0.35rem 0.85rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
@@ -133,7 +135,7 @@ export default function AdminPage() {
         </div>
       </nav>
 
-      {/* ── Page Header ────────────────────────────────────────────────── */}
+      {/* ââ Page Header ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       <div style={{
         background: 'rgba(0,0,0,0.15)',
         borderBottom: '1px solid var(--border-color)',
@@ -149,7 +151,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* ── Error Alert ────────────────────────────────────────────────── */}
+      {/* ââ Error Alert ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       {error && (
         <div style={{ maxWidth: 1200, margin: '1rem auto', padding: '0 1.5rem', width: '100%' }}>
           <div style={{
@@ -159,13 +161,13 @@ export default function AdminPage() {
           }}>
             <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
             <button onClick={clearError} style={{ color: '#ef4444', background: 'none', border: 'none', fontWeight: 600, fontSize: '0.875rem' }}>
-              ✕
+              â
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Tab Navigation ─────────────────────────────────────────────── */}
+      {/* ââ Tab Navigation âââââââââââââââââââââââââââââââââââââââââââââââ */}
       <div style={{
         background: 'rgba(0,0,0,0.1)',
         borderBottom: '1px solid var(--border-color)',
@@ -197,7 +199,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* ── Tab Content ────────────────────────────────────────────────── */}
+      {/* ââ Tab Content ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       <div style={{ flex: 1, maxWidth: 1200, margin: '0 auto', width: '100%', padding: '1.5rem' }}>
         {activeTab === 'customers'     && <CustomerTab     customers={customers}   onUpdate={init} />}
         {activeTab === 'users'         && <UserTab         users={users} customers={customers} onUpdate={init} />}
@@ -205,6 +207,7 @@ export default function AdminPage() {
         {activeTab === 'releases'      && <ReleaseTab      customers={customers} releases={releases} onUpdate={init} />}
         {activeTab === 'audit'         && <AuditTab        audit={audit} />}
         {activeTab === 'system'        && <SystemTab       onUpdate={init} />}
+        {activeTab === 'leitfaden'     && <LeitfadenTab    customers={customers} />}
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
