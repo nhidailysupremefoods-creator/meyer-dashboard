@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     // Call Apps Script
     const result = await callAppsScriptApi(params);
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, success: true });
   } catch (err: any) {
     console.error('Tracker save error:', err);
     return NextResponse.json(

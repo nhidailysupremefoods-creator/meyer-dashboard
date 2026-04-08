@@ -67,6 +67,7 @@ export async function GET(
     const customer = searchParams.get('customer') || '';
     const period = searchParams.get('period') || '';
     const params_obj: Record<string, string> = { action: action };
+        if (token) { params_obj.token = token; }
     if (customer) { params_obj.customer = customer; }
     if (period) { params_obj.period = period; }
 
@@ -82,7 +83,7 @@ export async function GET(
           console.warn('[customers] Using fallback:', result.drive_error);
           return NextResponse.json({ customers: CUSTOMER_FALLBACK });
         }
-        return NextResponse.json(result);
+        return NextResponse.json({ ...result, success: true });
       } catch (err: any) {
         console.warn('[customers] Fallback due to error:', err.message);
         return NextResponse.json({ customers: CUSTOMER_FALLBACK });
@@ -112,7 +113,7 @@ export async function GET(
     }
 
     const result = await callAppsScriptApi(params_obj);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, success: true });
   } catch (err: any) {
     console.error(`Dashboard API error for action ${params.action}:`, err);
     return NextResponse.json(
