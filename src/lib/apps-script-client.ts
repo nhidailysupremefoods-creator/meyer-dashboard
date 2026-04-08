@@ -5,8 +5,8 @@
 
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || '';
 
-if (!APPS_SCRIPT_URL) {
-  throw new Error('APPS_SCRIPT_URL environment variable is not set');
+if (!APPS_SCRIPT_URL && typeof window === 'undefined') {
+  console.warn('APPS_SCRIPT_URL environment variable is not set â API calls will fail');
 }
 
 export interface AppsScriptResponse {
@@ -21,6 +21,9 @@ export interface AppsScriptResponse {
  * Apps Script doGet routes this to the appropriate handler.
  */
 export async function callAppsScriptApi(params: Record<string, string>): Promise<AppsScriptResponse> {
+  if (!APPS_SCRIPT_URL) {
+    throw new Error('APPS_SCRIPT_URL not configured');
+  }
   const url = new URL(APPS_SCRIPT_URL);
 
   // Add all parameters as URL query params
