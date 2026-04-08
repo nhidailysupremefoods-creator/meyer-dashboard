@@ -28,10 +28,11 @@ export default function DashboardPage() {
 
   // Store full API response per page (not just response.data)
   const [pageData, setPageData] = useState<Record<PageNum, any>>({} as any);
-  const [loading, setLoading] = useState(false);
+  const [loadingPeriods, setLoadingPeriods] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Initialize auth ────────────────────────────────────────────────────
+  // ââ Initialize auth ââââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
@@ -68,13 +69,13 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ── Load periods when customer changes ─────────────────────────────────
+  // ââ Load periods when customer changes âââââââââââââââââââââââââââââââââ
   useEffect(() => {
     if (!selectedCustomer) return;
 
     const loadPeriods = async () => {
       try {
-        setLoading(true);
+        setLoadingPeriods(true);
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
         // Accept both {success: true, periods: [...]} and {periods: [...]} formats
@@ -92,34 +93,39 @@ export default function DashboardPage() {
             setSelectedPeriod(normalized[0].period);
           }
         }
-      } catch {
+      } catch (err: any) {
+        console.error('[loadPeriods] error:', err);
         setError('Perioden konnten nicht geladen werden');
       } finally {
-        setLoading(false);
+        setLoadingPeriods(false);
       }
     };
 
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ── Load page data when page / period changes ──────────────────────────
+  // ââ Load page data when page / period changes ââââââââââââââââââââââââââ
   const loadPageData = useCallback(
     async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
-      setLoading(true);
+      setLoadingPage(true);
       setError(null);
       try {
         const response = await api.fetchPageData(page, customer, period);
-        if (response.success || response.data || (response as any).page) {
-          // Store the FULL response so page components can access all top-level keys
+        // Store any response that has meaningful data (don't require success flag)
+        if (response && typeof response === 'object' && !response.error) {
           setPageData((prev) => ({ ...prev, [page]: response }));
+        } else if (response?.error) {
+          console.error(`[loadPageData] page ${page} error response:`, response.error);
+          setError(response.error);
         } else {
-          setError((response as any).error || `Seite ${page} konnte nicht geladen werden`);
+          setPageData((prev) => ({ ...prev, [page]: response }));
         }
-      } catch {
-        setError(`Seite ${page} konnte nicht geladen werden`);
+      } catch (err: any) {
+        console.error(`[loadPageData] page ${page} exception:`, err?.message || err);
+        setError(`Seite ${page} konnte nicht geladen werden: ${err?.message || 'Unbekannter Fehler'}`);
       } finally {
-        setLoading(false);
+        setLoadingPage(false);
       }
     },
     []
@@ -181,7 +187,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* ── Controls Bar ──────────────────────────────────────────────────── */}
+      {/* ââ Controls Bar ââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         {/* Customer Selector */}
         <div className="flex-1 w-full">
@@ -248,7 +254,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Error Alert ─────────────────────────────────────────────────── */}
+      {/* ââ Error Alert âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       {error && (
         <div
           className="p-4 rounded-xl border text-sm flex items-start gap-3"
@@ -258,7 +264,7 @@ export default function DashboardPage() {
             borderColor: 'rgb(254,205,211)',
           }}
         >
-          <span className="text-lg">⚠️</span>
+          <span className="text-lg">â ï¸</span>
           <div>
             <strong>Fehler:</strong> {error}
           </div>
@@ -267,12 +273,12 @@ export default function DashboardPage() {
             className="ml-auto text-xs"
             style={{ color: 'var(--danger)' }}
           >
-            ✕
+            â
           </button>
         </div>
       )}
 
-      {/* ── Page Tabs ───────────────────────────────────────────────────── */}
+      {/* ââ Page Tabs âââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([1, 2, 3, 4] as PageNum[]).map((num) => (
           <button
@@ -299,8 +305,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Page Content ────────────────────────────────────────────────── */}
-      {loading ? (
+      {/* ââ Page Content ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {(loadingPeriods || loadingPage) ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
             <div
@@ -328,7 +334,7 @@ export default function DashboardPage() {
                   className="text-sm mt-1"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  {selectedCustomer} · {selectedPeriod.replace(/_/g, '/')}
+                  {selectedCustomer} Â· {selectedPeriod.replace(/_/g, '/')}
                 </p>
               )}
             </div>
@@ -344,17 +350,17 @@ export default function DashboardPage() {
               }}
               title="Daten aktualisieren"
             >
-              ↻ Aktualisieren
+              â» Aktualisieren
             </button>
           </div>
           {renderPage()}
         </div>
-      ) : !loading && selectedCustomer && selectedPeriod ? (
+      ) : !loadingPage && selectedCustomer && selectedPeriod ? (
         <div
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <div className="text-4xl mb-4">📊</div>
+          <div className="text-4xl mb-4">ð</div>
           <p className="font-medium">Keine Daten verf\u00fcgbar</p>
           <p className="text-sm mt-2">
             F\u00fcr {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden
