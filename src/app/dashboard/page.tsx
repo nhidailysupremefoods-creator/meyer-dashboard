@@ -7,14 +7,24 @@ import Page1Gesamtlage from '@/components/dashboard/Page1Gesamtlage';
 import Page2Vertragsanalyse from '@/components/dashboard/Page2Vertragsanalyse';
 import Page3Liquiditaet from '@/components/dashboard/Page3Liquiditaet';
 import Page4Massnahmen from '@/components/dashboard/Page4Massnahmen';
+import Page5Leitfaden from '@/components/dashboard/Page5Leitfaden';
 
-type PageNum = 1 | 2 | 3 | 4;
+type PageNum = 1 | 2 | 3 | 4 | 5;
 
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
-  3: 'Liquidit\u00e4tsstabilit\u00e4t',
-  4: 'Ma\u00dfnahmen & Benchmarks',
+  3: 'LiquiditÃ¤tsstabilitÃ¤t',
+  4: 'MaÃnahmen & Benchmarks',
+  5: 'GesprÃ¤chsleitfaden',
+};
+
+const PAGE_ICONS: Record<PageNum, string> = {
+  1: 'ð',
+  2: 'ð',
+  3: 'ð§',
+  4: 'ð¯',
+  5: 'ð',
 };
 
 export default function DashboardPage() {
@@ -24,7 +34,6 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [periods, setPeriods] = useState<Array<{ period: string; label: string }>>([]);
   const [industrySegment, setIndustrySegment] = useState<string>('');
-  const [customerList, setCustomerList] = useState<Array<{ customer_id: string; customer_name: string; is_active: boolean }>>([]);
 
   // Store full API response per page (not just response.data)
   const [pageData, setPageData] = useState<Record<PageNum, any>>({} as any);
@@ -32,44 +41,18 @@ export default function DashboardPage() {
   const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ââ Initialize auth ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ââ Initialize auth âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
       setAuthData(data);
       if (data.customers && data.customers.length > 0) {
-        // Non-admin: customers list comes from login response (customer IDs)
-        const list = data.customers.map((id: string) => ({
-          customer_id: id,
-          customer_name: id.replace(/_/g, ' '),
-          is_active: true,
-        }));
-        setCustomerList(list);
         setSelectedCustomer(data.customers[0]);
-      } else {
-        // Admin or GLOBAL user: customers[] is empty, fetch full list from API
-        const tok = api.getToken();
-        if (tok) {
-          fetch('/api/dashboard/customers?action=customers', {
-              headers: { 'Authorization': `Bearer ${tok}` },
-            })
-            .then((r) => r.json())
-            .then((d) => {
-              if (d.customers && Array.isArray(d.customers) && d.customers.length > 0) {
-                const active = d.customers.filter((c: any) => c.is_active !== false);
-                setCustomerList(active);
-                if (active.length > 0) {
-                  setSelectedCustomer(active[0].customer_id);
-                }
-              }
-            })
-            .catch(() => {});
-        }
       }
     }
   }, []);
 
-  // ââ Load periods when customer changes âââââââââââââââââââââââââââââââââ
+  // ââ Load periods when customer changes ââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     if (!selectedCustomer) return;
 
@@ -78,23 +61,16 @@ export default function DashboardPage() {
         setLoadingPeriods(true);
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
-        // Accept both {success: true, periods: [...]} and {periods: [...]} formats
-        const periodsArr = response.periods || (response as any).rows || [];
-        if (periodsArr.length > 0) {
-          // Normalize period format: support {period, label} and {month_id, month_label_short}
-          const normalized = periodsArr.map((p: any) => ({
-            period: p.period || p.month_id || '',
-            label: p.label || p.month_label_short || p.month_label || p.month_id || '',
-          })).filter((p: any) => p.period !== '');
-          setPeriods(normalized);
-          const seg = (response as any).industry_segment || (response as any).industrySegment;
-          if (seg) setIndustrySegment(seg);
-          if (normalized.length > 0) {
-            setSelectedPeriod(normalized[0].period);
+        if (response.success && response.periods) {
+          setPeriods(response.periods);
+          if ((response as any).industry_segment) {
+            setIndustrySegment((response as any).industry_segment || '');
+          }
+          if (response.periods.length > 0) {
+            setSelectedPeriod(response.periods[0].period);
           }
         }
-      } catch (err: any) {
-        console.error('[loadPeriods] error:', err);
+      } catch {
         setError('Perioden konnten nicht geladen werden');
       } finally {
         setLoadingPeriods(false);
@@ -104,26 +80,45 @@ export default function DashboardPage() {
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ââ Load page data when page / period changes ââââââââââââââââââââââââââ
+  // ââ Load page data when page / period changes âââââââââââââââââââââââââââââ
   const loadPageData = useCallback(
     async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
+      // Page 5 uses a different endpoint
+      if (page === 5) {
+        setLoadingPage(true);
+        setError(null);
+        try {
+          const token = api.getToken();
+          if (!token) throw new Error('Nicht eingeloggt');
+          const params = new URLSearchParams({ token, customer, period });
+          const res = await fetch(`/api/dashboard/advisory?${params}`);
+          const response = await res.json();
+          if (response.success || response.advisory || response.situation) {
+            setPageData((prev) => ({ ...prev, [page]: response }));
+          } else {
+            setError((response as any).error || 'Leitfaden konnte nicht geladen werden');
+          }
+        } catch {
+          setError('Leitfaden konnte nicht geladen werden');
+        } finally {
+          setLoadingPage(false);
+        }
+        return;
+      }
+
       setLoadingPage(true);
       setError(null);
       try {
         const response = await api.fetchPageData(page, customer, period);
-        // Store any response that has meaningful data (don't require success flag)
-        if (response && typeof response === 'object' && !response.error) {
+        if (response.success) {
+          // Store the FULL response so page components can access all top-level keys
           setPageData((prev) => ({ ...prev, [page]: response }));
-        } else if (response?.error) {
-          console.error(`[loadPageData] page ${page} error response:`, response.error);
-          setError(response.error);
         } else {
-          setPageData((prev) => ({ ...prev, [page]: response }));
+          setError((response as any).error || `Seite ${page} konnte nicht geladen werden`);
         }
-      } catch (err: any) {
-        console.error(`[loadPageData] page ${page} exception:`, err?.message || err);
-        setError(`Seite ${page} konnte nicht geladen werden: ${err?.message || 'Unbekannter Fehler'}`);
+      } catch {
+        setError(`Seite ${page} konnte nicht geladen werden`);
       } finally {
         setLoadingPage(false);
       }
@@ -144,6 +139,11 @@ export default function DashboardPage() {
       loadPageData(currentPage, selectedCustomer, selectedPeriod);
     }
   }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ââ PDF Export âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const handlePdfExport = () => {
+    window.print();
+  };
 
   if (!authData) {
     return (
@@ -180,6 +180,14 @@ export default function DashboardPage() {
             period={selectedPeriod}
           />
         );
+      case 5:
+        return (
+          <Page5Leitfaden
+            data={currentPageData}
+            customer={selectedCustomer}
+            period={selectedPeriod}
+          />
+        );
       default:
         return null;
     }
@@ -187,24 +195,22 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* ââ Controls Bar ââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
-      <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+      {/* ââ Controls Bar âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center print:hidden">
         {/* Customer Selector */}
         <div className="flex-1 w-full">
-          <label
-            className="block text-xs font-medium uppercase tracking-wide mb-2"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
             Mandant
           </label>
           <select
             value={selectedCustomer}
             onChange={(e) => setSelectedCustomer(e.target.value)}
             className="w-full"
+            disabled={loadingPeriods}
           >
-            {customerList.map((c) => (
-              <option key={c.customer_id} value={c.customer_id}>
-                {c.customer_name}
+            {authData.customers.map((c) => (
+              <option key={c} value={c}>
+                {c.replace(/_/g, ' ')}
               </option>
             ))}
           </select>
@@ -212,17 +218,14 @@ export default function DashboardPage() {
 
         {/* Period Selector */}
         <div className="flex-1 w-full">
-          <label
-            className="block text-xs font-medium uppercase tracking-wide mb-2"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
             Berichtsperiode
           </label>
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
             className="w-full"
-            disabled={periods.length === 0}
+            disabled={periods.length === 0 || loadingPeriods}
           >
             {periods.map((p) => (
               <option key={p.period} value={p.period}>
@@ -235,10 +238,7 @@ export default function DashboardPage() {
         {/* Industry Segment badge */}
         {industrySegment && (
           <div className="flex-shrink-0">
-            <div
-              className="text-xs font-medium uppercase tracking-wide mb-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
+            <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
               Branche
             </div>
             <span
@@ -252,16 +252,31 @@ export default function DashboardPage() {
             </span>
           </div>
         )}
+
+        {/* PDF Export Button */}
+        <div className="flex-shrink-0">
+          <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'transparent' }}>
+            Export
+          </div>
+          <button
+            onClick={handlePdfExport}
+            className="btn-secondary"
+            style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}
+            title="Als PDF exportieren"
+          >
+            PDF Export
+          </button>
+        </div>
       </div>
 
-      {/* ââ Error Alert âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* ââ Error Alert âââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       {error && (
         <div
-          className="p-4 rounded-xl border text-sm flex items-start gap-3"
+          className="p-4 rounded-xl border text-sm flex items-start gap-3 print:hidden"
           style={{
-            background: 'rgb(254,242,242)',
+            background: 'rgba(239,68,68,0.08)',
             color: 'var(--danger)',
-            borderColor: 'rgb(254,205,211)',
+            borderColor: 'rgba(239,68,68,0.25)',
           }}
         >
           <span className="text-lg">â ï¸</span>
@@ -278,9 +293,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ââ Page Tabs âââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {([1, 2, 3, 4] as PageNum[]).map((num) => (
+      {/* ââ Page Tabs âââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      <div className="flex gap-2 overflow-x-auto pb-1 print:hidden">
+        {([1, 2, 3, 4, 5] as PageNum[]).map((num) => (
           <button
             key={num}
             onClick={() => setCurrentPage(num)}
@@ -299,14 +314,14 @@ export default function DashboardPage() {
                   }
             }
           >
-            <span className="opacity-60 mr-1">{num}</span>
+            <span className="mr-1">{PAGE_ICONS[num]}</span>
             {PAGE_TITLES[num]}
           </button>
         ))}
       </div>
 
-      {/* ââ Page Content ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
-      {(loadingPeriods || loadingPage) ? (
+      {/* ââ Page Content âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {loadingPage ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
             <div
@@ -321,7 +336,7 @@ export default function DashboardPage() {
       ) : currentPageData ? (
         <div>
           {/* Section header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 print:mb-2">
             <div>
               <h2
                 className="text-2xl font-bold"
@@ -334,7 +349,7 @@ export default function DashboardPage() {
                   className="text-sm mt-1"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  {selectedCustomer} Â· {selectedPeriod.replace(/_/g, '/')}
+                  {selectedCustomer.replace(/_/g, ' ')} Â· {selectedPeriod.replace(/_/g, '/')}
                 </p>
               )}
             </div>
@@ -342,7 +357,7 @@ export default function DashboardPage() {
               onClick={() =>
                 loadPageData(currentPage, selectedCustomer, selectedPeriod)
               }
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition print:hidden"
               style={{
                 backgroundColor: 'var(--background)',
                 border: '1px solid var(--border-color)',
@@ -353,6 +368,7 @@ export default function DashboardPage() {
               â» Aktualisieren
             </button>
           </div>
+
           {renderPage()}
         </div>
       ) : !loadingPage && selectedCustomer && selectedPeriod ? (
@@ -361,9 +377,9 @@ export default function DashboardPage() {
           style={{ color: 'var(--text-secondary)' }}
         >
           <div className="text-4xl mb-4">ð</div>
-          <p className="font-medium">Keine Daten verf\u00fcgbar</p>
+          <p className="font-medium">Keine Daten verfÃ¼gbar</p>
           <p className="text-sm mt-2">
-            F\u00fcr {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden
+            FÃ¼r {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
           </p>
           <button
             onClick={() =>
@@ -379,7 +395,7 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p>Bitte Mandant und Periode ausw\u00e4hlen</p>
+          <p>Bitte Mandant und Periode auswÃ¤hlen</p>
         </div>
       )}
     </div>
