@@ -21,85 +21,62 @@ const fmtEur = (n: any) =>
 const fmtPct = (n: any) =>
   n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
-const fmtVal = (n: any) => {
-  const num = Number(n ?? 0);
-  if (Math.abs(num) < 2 && num !== 0)
-    return `${(num * 100).toFixed(1)} %`;
-  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(num);
-};
-
-function KPITile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="card text-center">
-      <div
-        className="text-xs font-medium uppercase tracking-wide mb-2"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        {label}
-      </div>
-      <div className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function BenchmarkGauge({
-  kpiLabel,
+  label,
   current,
   targetMin,
   targetMid,
   targetMax,
 }: {
-  kpiLabel: string;
+  label: string;
   current: number;
   targetMin: number;
   targetMid: number;
   targetMax: number;
 }) {
-  const max = Math.max(targetMax, current) * 1.1 || 1;
-  const currentPct = Math.min((current / max) * 100, 100);
-  const minMarker = Math.min((targetMin / max) * 100, 100);
-  const midMarker = Math.min((targetMid / max) * 100, 100);
-  const isGood = current >= targetMin;
-  const barColor = isGood ? '#10b981' : '#ef4444';
+  const range = targetMax * 1.2;
+  const pctCurrent = Math.min((current / range) * 100, 100);
+  const pctMin = (targetMin / range) * 100;
+  const pctMid = (targetMid / range) * 100;
+  const pctMax = (targetMax / range) * 100;
+  const inTarget = current >= targetMin && current <= targetMax;
+  const barColor = current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : '#E8A838';
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-medium">{kpiLabel}</span>
-        <span
-          className="text-sm font-bold"
-          style={{ color: isGood ? '#10b981' : 'var(--danger)' }}
-        >
-          {fmtVal(current)}
+    <div className="card">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+          {label}
+        </span>
+        <span className="text-sm font-bold" style={{ color: inTarget ? 'var(--success)' : barColor }}>
+          {typeof current === 'number' && current < 1 ? fmtPct(current) : `${current}`}
         </span>
       </div>
-      <div
-        className="relative h-4 rounded-full"
-        style={{ backgroundColor: 'var(--border-color)' }}
-      >
+      <div className="relative h-3 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
+        {/* Target zone */}
         <div
-          className="absolute left-0 top-0 h-4 rounded-full transition-all duration-700"
-          style={{ width: `${currentPct}%`, backgroundColor: barColor }}
+          className="absolute h-3 rounded-full"
+          style={{
+            left: `${pctMin}%`,
+            width: `${pctMax - pctMin}%`,
+            backgroundColor: 'rgba(46,139,87,0.12)',
+          }}
         />
+        {/* Current value */}
         <div
-          className="absolute top-0 bottom-0 w-0.5"
-          style={{ left: `${minMarker}%`, backgroundColor: '#f59e0b', zIndex: 1 }}
-          title={`Ziel min: ${fmtVal(targetMin)}`}
+          className="absolute h-3 rounded-full transition-all"
+          style={{ width: `${pctCurrent}%`, backgroundColor: barColor }}
         />
+        {/* Target mid marker */}
         <div
-          className="absolute top-0 bottom-0 w-0.5"
-          style={{ left: `${midMarker}%`, backgroundColor: '#22c55e', zIndex: 1 }}
-          title={`Optimal: ${fmtVal(targetMid)}`}
+          className="absolute top-0 w-0.5 h-3"
+          style={{ left: `${pctMid}%`, backgroundColor: 'var(--text-secondary)' }}
         />
       </div>
-      <div
-        className="flex justify-between text-xs mt-1"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        <span>Ziel: {fmtVal(targetMin)}</span>
-        <span>Optimal: {fmtVal(targetMid)}</span>
+      <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+        <span>Min: {targetMin < 1 ? fmtPct(targetMin) : targetMin}</span>
+        <span>Ziel: {targetMid < 1 ? fmtPct(targetMid) : targetMid}</span>
+        <span>Max: {targetMax < 1 ? fmtPct(targetMax) : targetMax}</span>
       </div>
     </div>
   );
@@ -108,383 +85,286 @@ function BenchmarkGauge({
 export default function Page4Massnahmen({ data, customer, period }: Props) {
   const portfolio = (data as any)?.portfolio || {};
   const actions: any[] = (data as any)?.actions || [];
-  const monatsfokus = (data as any)?.monatsfokus || {};
+  const monatsfokus = (data as any)?.monatsfokus || (data as any)?.fokus || {};
+  const wirkung = (data as any)?.wirkung || {};
   const benchmarks: any[] = (data as any)?.benchmarks || [];
   const tracker: any[] = (data as any)?.tracker || [];
-  const wirkung = (data as any)?.wirkung || {};
 
+  const [trackerState, setTrackerState] = useState<Record<string, boolean>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [trackerState, setTrackerState] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    tracker.forEach((t: any) => {
-      if (t.action_key) initial[t.action_key] = Boolean(t.is_realization);
-    });
-    return initial;
-  });
 
-  const handleTrackerToggle = async (
-    actionKey: string,
-    ebitPotential: number,
-    isRealization: boolean
-  ) => {
+  const isRealized = (key: string) => {
+    if (trackerState[key] !== undefined) return trackerState[key];
+    const t = tracker.find((t: any) => (t.action_key || t.contract_id) === key);
+    return t ? !!t.is_realization : false;
+  };
+
+  const handleTrackerToggle = async (actionKey: string, targetEbit: number) => {
+    const newVal = !isRealized(actionKey);
     setSavingKey(actionKey);
     try {
       await api.saveTracker({
         customer_id: customer,
         period,
         action_key: actionKey,
-        is_realization: isRealization,
-        target_ebit_eur: ebitPotential,
+        is_realization: newVal,
+        target_ebit_eur: targetEbit,
       });
-      setTrackerState((prev) => ({ ...prev, [actionKey]: isRealization }));
-    } catch {
-      // ignore
+      setTrackerState((prev) => ({ ...prev, [actionKey]: newVal }));
+    } catch (err) {
+      console.error('Tracker save failed:', err);
     } finally {
       setSavingKey(null);
     }
   };
 
-  const hasFokus =
-    monatsfokus &&
-    (monatsfokus.action_label ||
-      monatsfokus.label ||
-      monatsfokus.contract_name);
+  const totalPotential = Number(portfolio.total_ebit_potential ?? portfolio.total_impact ?? 0);
+  const focusCount = Number(portfolio.focus_count ?? 0);
+  const avgImpact = Number(portfolio.avg_impact ?? portfolio.avg_ebit_potential ?? 0);
+
+  const fokusLabel = monatsfokus.action_label || monatsfokus.contract_name || '';
+  const fokusImpact = Number(monatsfokus.impact_eur || monatsfokus.ebit_potential_eur || 0);
 
   return (
-    <div className="space-y-6">
-      {/* ── Monatsfokus ───────────────────────────────────────────────────── */}
-      {hasFokus && (
+    <div className="space-y-5">
+      {/* ── Section Title ── */}
+      <div>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+          Maßnahmen & Benchmarks
+        </h2>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Optimierungspotenziale und Umsetzungstracking
+        </p>
+        <div className="copper-line" />
+      </div>
+
+      {/* ── Monatsfokus ── */}
+      {fokusLabel && (
         <div
           className="card"
           style={{
-            borderLeft: '4px solid var(--accent)',
-            backgroundColor: 'rgba(43,108,176,0.06)',
+            borderLeft: '4px solid var(--copper)',
+            backgroundColor: 'rgba(184, 115, 51, 0.04)',
           }}
         >
-          <div
-            className="text-xs font-bold uppercase tracking-widest mb-2"
-            style={{ color: 'var(--accent)' }}
-          >
+          <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--copper)' }}>
             Monatsfokus
           </div>
-          <div className="text-lg font-bold">
-            {monatsfokus.action_label ??
-              monatsfokus.label ??
-              monatsfokus.contract_name}
+          <div className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+            {fokusLabel}
           </div>
-          {(monatsfokus.impact_eur ??
-            monatsfokus.ebit_potential_eur ??
-            monatsfokus.priority_score) != null && (
-            <div
-              className="mt-3 text-3xl font-bold"
-              style={{ color: '#10b981' }}
-            >
-              +
-              {fmtEur(
-                monatsfokus.impact_eur ??
-                  monatsfokus.ebit_potential_eur ??
-                  monatsfokus.priority_score
-              )}
-            </div>
-          )}
-          {monatsfokus.category && (
-            <div
-              className="text-sm mt-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {monatsfokus.category}
+          {fokusImpact > 0 && (
+            <div className="text-lg font-bold mt-1" style={{ color: 'var(--success)' }}>
+              +{fmtEur(fokusImpact)}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Portfolio Summary ─────────────────────────────────────────────── */}
-      {Object.keys(portfolio).length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {portfolio.total_ebit_potential != null && (
-            <KPITile
-              label="Gesamtpotenzial"
-              value={fmtEur(portfolio.total_ebit_potential)}
-            />
-          )}
-          {portfolio.focus_count != null && (
-            <KPITile
-              label="Fokus-Maßnahmen"
-              value={String(portfolio.focus_count)}
-            />
-          )}
-          {(portfolio.avg_impact ?? portfolio.avg_ebit_potential) != null && (
-            <KPITile
-              label="Ø Wirkung"
-              value={fmtEur(portfolio.avg_impact ?? portfolio.avg_ebit_potential)}
-            />
-          )}
+      {/* ── Portfolio Summary ── */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Gesamtpotenzial
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--success)' }}>
+            {fmtEur(totalPotential)}
+          </div>
+        </div>
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Fokus-Maßnahmen
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {focusCount}
+          </div>
+        </div>
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Ø Wirkung
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {fmtEur(avgImpact)}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Wirkung / Realisierung ── */}
+      {(wirkung.realized_ebit || wirkung.potential_remaining || wirkung.realization_rate) && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Realisierter EBIT
+            </div>
+            <div className="text-lg font-bold" style={{ color: 'var(--success)' }}>
+              {fmtEur(wirkung.realized_ebit)}
+            </div>
+          </div>
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Verbleibendes Pot.
+            </div>
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              {fmtEur(wirkung.potential_remaining)}
+            </div>
+          </div>
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Realisierungsquote
+            </div>
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              {fmtPct(wirkung.realization_rate)}
+            </div>
+          </div>
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Maßnahmen gesamt
+            </div>
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              {wirkung.action_count ?? actions.length}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* ── Wirkung (Realisierungsübersicht) ─────────────────────────────── */}
-      {wirkung && Object.keys(wirkung).length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {wirkung.realized_ebit != null && (
-            <KPITile
-              label="Realisierter EBIT"
-              value={fmtEur(wirkung.realized_ebit)}
-            />
-          )}
-          {wirkung.potential_remaining != null && (
-            <KPITile
-              label="Verbleibendes Potenzial"
-              value={fmtEur(wirkung.potential_remaining)}
-            />
-          )}
-          {wirkung.realization_rate != null && (
-            <KPITile
-              label="Realisierungsquote"
-              value={fmtPct(wirkung.realization_rate)}
-            />
-          )}
-          {wirkung.action_count != null && (
-            <KPITile
-              label="Maßnahmen gesamt"
-              value={String(wirkung.action_count)}
-            />
-          )}
-        </div>
-      )}
-
-      {/* ── Actions List ──────────────────────────────────────────────────── */}
+      {/* ── Actions List ── */}
       {actions.length > 0 && (
         <div className="card">
-          <h3
-            className="font-semibold mb-4"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Maßnahmen-Übersicht ({actions.length})
+          <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+            Maßnahmenpool ({actions.length})
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {actions.map((a: any, i: number) => {
-              const key =
-                a.action_key ??
-                a.contract_id ??
-                a.id ??
-                String(i);
-              const label =
-                a.action_label ??
-                a.contract_name ??
-                a.label ??
-                `Maßnahme ${i + 1}`;
-              const impact = Number(
-                a.impact_eur ??
-                  a.ebit_potential_eur ??
-                  a.ebit_potential ??
-                  0
-              );
-              const score = Number(
-                a.priority_score ?? a.fokus_score ?? 0
-              );
-              const isInFocus =
-                a.is_monatsfokus ||
-                a.is_in_focus ||
-                a.monatsfokus;
-              const isRealized = trackerState[key] ?? false;
+              const key = a.action_key || a.contract_id || `action-${i}`;
+              const impact = Number(a.impact_eur ?? a.ebit_potential_eur ?? a.ebit_potential ?? 0);
+              const prio = Number(a.priority_score ?? a.fokus_score ?? 0);
+              const isFokus = !!(a.is_monatsfokus || a.is_in_focus);
+              const realized = isRealized(key);
+              const isSaving = savingKey === key;
 
               return (
                 <div
                   key={key}
-                  className="p-4 rounded-xl"
+                  className="flex items-center gap-3 p-3 rounded-lg"
                   style={{
-                    backgroundColor: isInFocus
-                      ? 'rgba(43,108,176,0.06)'
-                      : 'var(--background)',
-                    border: isInFocus
-                      ? '1px solid rgba(43,108,176,0.25)'
-                      : '1px solid var(--border-color)',
+                    backgroundColor: isFokus ? 'rgba(184, 115, 51, 0.04)' : 'rgba(0,0,0,0.02)',
+                    border: `1px solid ${isFokus ? 'rgba(184, 115, 51, 0.15)' : 'var(--border-color)'}`,
+                    opacity: isSaving ? 0.6 : 1,
                   }}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm">{label}</span>
-                        {isInFocus && (
-                          <span
-                            className="px-1.5 py-0.5 rounded text-xs font-bold"
-                            style={{
-                              backgroundColor: 'var(--accent)',
-                              color: 'white',
-                            }}
-                          >
-                            FOKUS
-                          </span>
-                        )}
-                      </div>
-                      {a.category && (
-                        <div
-                          className="text-xs mt-1"
-                          style={{ color: 'var(--text-secondary)' }}
+                  {/* Toggle */}
+                  <button
+                    onClick={() => handleTrackerToggle(key, impact)}
+                    disabled={isSaving}
+                    className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all"
+                    style={{
+                      borderColor: realized ? 'var(--success)' : 'var(--border-color)',
+                      backgroundColor: realized ? 'var(--success)' : 'transparent',
+                      color: realized ? '#FFFFFF' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {isSaving ? '…' : realized ? '✓' : ''}
+                  </button>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                        {a.action_label || a.contract_name || `Maßnahme ${i + 1}`}
+                      </span>
+                      {isFokus && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(184, 115, 51, 0.12)', color: 'var(--copper)' }}
                         >
-                          {a.category}
-                        </div>
+                          FOKUS
+                        </span>
                       )}
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <div
-                        className="font-bold"
-                        style={{ color: '#10b981' }}
-                      >
-                        +{fmtEur(impact)}
+                    {a.category && (
+                      <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {a.category}
                       </div>
-                      {score > 0 && (
-                        <div
-                          className="text-xs mt-0.5"
-                          style={{ color: 'var(--text-secondary)' }}
-                        >
-                          Score: {score.toFixed(1)}
-                        </div>
-                      )}
+                    )}
+                  </div>
+
+                  {/* Impact */}
+                  <div className="flex-shrink-0 text-right">
+                    <div className="text-sm font-bold" style={{ color: 'var(--success)' }}>
+                      +{fmtEur(impact)}
                     </div>
-                    {/* Tracker toggle */}
-                    <button
-                      onClick={() =>
-                        handleTrackerToggle(key, impact, !isRealized)
-                      }
-                      disabled={savingKey === key}
-                      className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all"
-                      style={{
-                        backgroundColor: isRealized
-                          ? '#10b981'
-                          : 'var(--border-color)',
-                        color: isRealized ? 'white' : 'var(--text-secondary)',
-                        opacity: savingKey === key ? 0.5 : 1,
-                      }}
-                      title={isRealized ? 'Als nicht realisiert markieren' : 'Als realisiert markieren'}
-                    >
-                      {savingKey === key ? '…' : isRealized ? '✓' : '○'}
-                    </button>
+                    {prio > 0 && (
+                      <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        Score: {prio.toFixed(1)}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
-          <div
-            className="mt-3 text-xs"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            ○ = offen · ✓ = realisiert — Klicken zum Umschalten
-          </div>
         </div>
       )}
 
-      {/* ── Benchmarks ───────────────────────────────────────────────────── */}
+      {/* ── Benchmarks ── */}
       {benchmarks.length > 0 && (
-        <div className="card">
-          <h3
-            className="font-semibold mb-4"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Branchen-Benchmarks
+        <div>
+          <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+            Benchmark-Vergleich
           </h3>
-          <div className="space-y-5">
-            {benchmarks.map((b: any, i: number) => {
-              const kpiLabel =
-                b.kpi_label ??
-                b.label ??
-                b.kpi ??
-                `Benchmark ${i + 1}`;
-              const current = Number(b.current ?? b.current_value ?? 0);
-              const targetMin = Number(b.target_min ?? 0);
-              const targetMid = Number(
-                b.target_mid ?? ((targetMin + Number(b.target_max ?? 1)) / 2)
-              );
-              const targetMax = Number(b.target_max ?? 1);
-              return (
-                <BenchmarkGauge
-                  key={i}
-                  kpiLabel={kpiLabel}
-                  current={current}
-                  targetMin={targetMin}
-                  targetMid={targetMid}
-                  targetMax={targetMax}
-                />
-              );
-            })}
-          </div>
-          <div
-            className="mt-3 text-xs flex gap-4"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            <span>
-              <span
-                className="inline-block w-2 h-2 rounded-full mr-1"
-                style={{ backgroundColor: '#f59e0b' }}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {benchmarks.map((b: any, i: number) => (
+              <BenchmarkGauge
+                key={i}
+                label={b.kpi_label || `KPI ${i + 1}`}
+                current={Number(b.current ?? 0)}
+                targetMin={Number(b.target_min ?? 0)}
+                targetMid={Number(b.target_mid ?? 0)}
+                targetMax={Number(b.target_max ?? 0)}
               />
-              Zielwert (Minimum)
-            </span>
-            <span>
-              <span
-                className="inline-block w-2 h-2 rounded-full mr-1"
-                style={{ backgroundColor: '#22c55e' }}
-              />
-              Optimum
-            </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* ── Realisierungstracker ─────────────────────────────────────────── */}
+      {/* ── Realisierungstracker ── */}
       {tracker.length > 0 && (
         <div className="card">
-          <h3
-            className="font-semibold mb-4"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Realisierungstracker ({tracker.length})
+          <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+            Realisierungstracker
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr
-                  className="text-xs uppercase tracking-wide"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <th className="text-left pb-3 font-medium">Maßnahme</th>
-                  <th className="text-right pb-3 font-medium">Ziel-EBIT</th>
-                  <th className="text-center pb-3 font-medium">Realisiert</th>
-                  <th className="text-right pb-3 font-medium">Monat</th>
+                <tr className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                  <th className="text-left pb-2 font-semibold">Maßnahme</th>
+                  <th className="text-right pb-2 font-semibold">Ziel-EBIT</th>
+                  <th className="text-center pb-2 font-semibold">Status</th>
+                  <th className="text-right pb-2 font-semibold">Monat</th>
                 </tr>
               </thead>
               <tbody>
-                {tracker.map((t: any, i: number) => (
-                  <tr
-                    key={i}
-                    style={{ borderTop: '1px solid var(--border-color)' }}
-                  >
-                    <td className="py-2">
-                      {t.action_key ??
-                        t.contract_id ??
-                        t.label ??
-                        '–'}
-                    </td>
-                    <td className="py-2 text-right">
-                      {fmtEur(t.target_ebit_eur)}
-                    </td>
-                    <td className="py-2 text-center">
-                      <span
-                        className="inline-block w-5 h-5 rounded-full"
-                        style={{
-                          backgroundColor: t.is_realization
-                            ? '#10b981'
-                            : 'var(--border-color)',
-                        }}
-                      />
-                    </td>
-                    <td
-                      className="py-2 text-right text-xs"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      {t.month_label ?? t.period ?? '–'}
-                    </td>
-                  </tr>
-                ))}
+                {tracker.map((t: any, i: number) => {
+                  const tKey = t.action_key || t.contract_id || '';
+                  const realized = isRealized(tKey);
+                  return (
+                    <tr key={i} style={{ borderTop: '1px solid var(--border-color)' }}>
+                      <td className="py-2 font-medium">{t.action_label || t.contract_name || tKey}</td>
+                      <td className="py-2 text-right">{fmtEur(t.target_ebit_eur)}</td>
+                      <td className="py-2 text-center">
+                        <span
+                          className="inline-block w-3 h-3 rounded-full"
+                          style={{
+                            backgroundColor: realized ? 'var(--success)' : 'var(--border-color)',
+                          }}
+                        />
+                      </td>
+                      <td className="py-2 text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {t.month_label || t.month_id || '–'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
