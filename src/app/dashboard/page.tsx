@@ -16,13 +16,6 @@ const PAGE_TITLES: Record<PageNum, string> = {
   4: 'Maßnahmen & Benchmarks',
 };
 
-const PAGE_ICONS: Record<PageNum, string> = {
-  1: '📊',
-  2: '📋',
-  3: '💧',
-  4: '🎯',
-};
-
 export default function DashboardPage() {
   const [authData, setAuthData] = useState<AuthData | null>(null);
   const [currentPage, setCurrentPage] = useState<PageNum>(1);
@@ -31,13 +24,12 @@ export default function DashboardPage() {
   const [periods, setPeriods] = useState<Array<{ period: string; label: string }>>([]);
   const [industrySegment, setIndustrySegment] = useState<string>('');
 
-  // Store full API response per page (not just response.data)
   const [pageData, setPageData] = useState<Record<PageNum, any>>({} as any);
   const [loadingPeriods, setLoadingPeriods] = useState(false);
   const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✕✕ Initialize auth ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
+  // ── Initialize auth ──
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
@@ -45,8 +37,6 @@ export default function DashboardPage() {
       if (data.customers && data.customers.length > 0) {
         setSelectedCustomer(data.customers[0]);
       } else if (data.role === 'admin') {
-        // Admin with GLOBAL access gets empty customers[] — discover via API
-        // Try customers endpoint first, then discover by probing periods for known IDs
         fetch('/api/dashboard/customers')
           .then(res => res.json())
           .then(async (resp) => {
@@ -55,8 +45,6 @@ export default function DashboardPage() {
               setAuthData(prev => prev ? { ...prev, customers: customerIds } : prev);
               setSelectedCustomer(customerIds[0]);
             } else {
-              // Drive cache empty — discover customers by probing periods endpoint
-              // These are the known Meyer Decision customer IDs from BigQuery
               const knownIds = [
                 'INDUSTRIE_GAMMA',
                 'MUSTERMANN_TECHNIK',
@@ -72,7 +60,7 @@ export default function DashboardPage() {
                     if (d.periods && d.periods.length > 0) {
                       validIds.push(cid);
                     }
-                  } catch { /* skip invalid */ }
+                  } catch { /* skip */ }
                 })
               );
               if (validIds.length > 0) {
@@ -87,17 +75,19 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ✕✕ Load periods when customer changes ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
+  // ── Load periods when customer changes ──
   useEffect(() => {
     if (!selectedCustomer) return;
-
     const loadPeriods = async () => {
       try {
         setLoadingPeriods(true);
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
         if (response.periods) {
-          setPeriods(response.periods.map((p: any) => ({ period: p.period || p.month_id, label: p.label || p.month_label_short || p.month_id })));
+          setPeriods(response.periods.map((p: any) => ({
+            period: p.period || p.month_id,
+            label: p.label || p.month_label_short || p.month_id,
+          })));
           if ((response as any).industry_segment) {
             setIndustrySegment((response as any).industry_segment || '');
           }
@@ -111,11 +101,10 @@ export default function DashboardPage() {
         setLoadingPeriods(false);
       }
     };
-
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ✕✕ Load page data when page / period changes ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
+  // ── Load page data ──
   const loadPageData = useCallback(
     async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
@@ -124,7 +113,6 @@ export default function DashboardPage() {
       try {
         const response = await api.fetchPageData(page, customer, period);
         if (response && !response.error) {
-          // Store the FULL response so page components can access all top-level keys
           setPageData((prev) => ({ ...prev, [page]: response }));
         } else {
           setError((response as any).error || `Seite ${page} konnte nicht geladen werden`);
@@ -140,7 +128,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (selectedCustomer && selectedPeriod) {
-      // Invalidate cached data when customer/period changes
       setPageData({} as any);
       loadPageData(currentPage, selectedCustomer, selectedPeriod);
     }
@@ -152,7 +139,6 @@ export default function DashboardPage() {
     }
   }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✕✕ PDF Export ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
   const handlePdfExport = () => {
     window.print();
   };
@@ -163,7 +149,7 @@ export default function DashboardPage() {
         <div className="text-center">
           <div
             className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto"
-            style={{ borderBottomColor: 'var(--primary)' }}
+            style={{ borderBottomColor: 'var(--copper)' }}
           />
           <p className="mt-4" style={{ color: 'var(--text-secondary)' }}>
             Wird geladen...
@@ -198,12 +184,18 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* ✕✕ Controls Bar ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
-      <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center print:hidden">
-        {/* Customer Selector */}
-        <div className="flex-1 w-full">
-          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
+    <div className="space-y-5">
+      {/* ── Controls Row (Customer, Period, Industry, PDF) ── */}
+      <div
+        className="card flex flex-col sm:flex-row gap-4 items-start sm:items-end print:hidden"
+        style={{ padding: '1rem 1.25rem' }}
+      >
+        {/* Customer */}
+        <div className="flex-1 w-full sm:w-auto">
+          <label
+            className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Mandant
           </label>
           <select
@@ -211,6 +203,7 @@ export default function DashboardPage() {
             onChange={(e) => setSelectedCustomer(e.target.value)}
             className="w-full"
             disabled={loadingPeriods}
+            style={{ fontSize: '0.85rem' }}
           >
             {authData.customers.map((c) => (
               <option key={c} value={c}>
@@ -220,9 +213,12 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        {/* Period Selector */}
-        <div className="flex-1 w-full">
-          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
+        {/* Period */}
+        <div className="flex-1 w-full sm:w-auto">
+          <label
+            className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             Berichtsperiode
           </label>
           <select
@@ -230,6 +226,7 @@ export default function DashboardPage() {
             onChange={(e) => setSelectedPeriod(e.target.value)}
             className="w-full"
             disabled={periods.length === 0 || loadingPeriods}
+            style={{ fontSize: '0.85rem' }}
           >
             {periods.map((p) => (
               <option key={p.period} value={p.period}>
@@ -239,17 +236,21 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        {/* Industry Segment badge */}
+        {/* Industry Badge */}
         {industrySegment && (
           <div className="flex-shrink-0">
-            <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               Branche
-            </div>
+            </label>
             <span
-              className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              className="inline-block px-3 py-2 rounded text-xs font-semibold"
               style={{
-                backgroundColor: 'rgba(43,108,176,0.12)',
-                color: 'var(--accent)',
+                backgroundColor: 'rgba(27, 42, 74, 0.06)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
               }}
             >
               {industrySegment.replace(/_/g, ' ')}
@@ -257,15 +258,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* PDF Export Button */}
+        {/* PDF Export */}
         <div className="flex-shrink-0">
-          <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'transparent' }}>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
+            style={{ color: 'transparent' }}
+          >
             Export
-          </div>
+          </label>
           <button
             onClick={handlePdfExport}
             className="btn-secondary"
-            style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}
+            style={{ whiteSpace: 'nowrap', fontSize: '0.8rem', padding: '0.5rem 1rem' }}
             title="Als PDF exportieren"
           >
             PDF Export
@@ -273,122 +277,94 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ✕✕ Error Alert ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
+      {/* ── Error Alert ── */}
       {error && (
         <div
-          className="p-4 rounded-xl border text-sm flex items-start gap-3 print:hidden"
+          className="p-4 rounded-lg border text-sm flex items-start gap-3 print:hidden"
           style={{
-            background: 'rgba(239,68,68,0.08)',
+            background: 'rgba(196, 56, 48, 0.06)',
             color: 'var(--danger)',
-            borderColor: 'rgba(239,68,68,0.25)',
+            borderColor: 'rgba(196, 56, 48, 0.2)',
           }}
         >
-          <span className="text-lg">✕ ï¸</span>
+          <span className="text-lg">&#9888;&#6503;</span>
           <div>
             <strong>Fehler:</strong> {error}
           </div>
           <button
             onClick={() => setError(null)}
-            className="ml-auto text-xs"
+            className="ml-auto text-xs font-bold"
             style={{ color: 'var(--danger)' }}
           >
-            ✕
+            &times;
           </button>
         </div>
       )}
 
-      {/* ✕✕ Page Tabs ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
-      <div className="flex gap-2 overflow-x-auto pb-1 print:hidden">
-        {([1, 2, 3, 4] as PageNum[]).map((num) => (
-          <button
-            key={num}
-            onClick={() => setCurrentPage(num)}
-            className="px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap"
-            style={
-              currentPage === num
-                ? {
-                    backgroundColor: 'var(--primary)',
-                    color: 'white',
-                    boxShadow: '0 2px 8px rgba(26,54,93,0.25)',
-                  }
-                : {
-                    backgroundColor: 'var(--background-card)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-secondary)',
-                  }
-            }
-          >
-            <span className="mr-1">{PAGE_ICONS[num]}</span>
-            {PAGE_TITLES[num]}
-          </button>
-        ))}
+      {/* ── Page Tabs (Original Style: numbered, green underline active) ── */}
+      <div
+        className="flex gap-0 print:hidden"
+        style={{
+          borderBottom: '2px solid var(--border-color)',
+        }}
+      >
+        {([1, 2, 3, 4] as PageNum[]).map((num) => {
+          const isActive = currentPage === num;
+          return (
+            <button
+              key={num}
+              onClick={() => setCurrentPage(num)}
+              className="relative px-4 py-2.5 text-sm font-semibold transition-all whitespace-nowrap"
+              style={{
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                backgroundColor: 'transparent',
+                border: 'none',
+                borderBottom: isActive ? '2.5px solid var(--success)' : '2.5px solid transparent',
+                marginBottom: '-2px',
+              }}
+            >
+              <span
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-1.5"
+                style={{
+                  backgroundColor: isActive ? 'var(--navy)' : 'rgba(107, 122, 144, 0.15)',
+                  color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
+                  fontSize: '0.65rem',
+                }}
+              >
+                {num}
+              </span>
+              {PAGE_TITLES[num]}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ✕✕ Page Content ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
+      {/* ── Page Content ── */}
       {loadingPage ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
             <div
-              className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
-              style={{ borderBottomColor: 'var(--primary)' }}
+              className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-4"
+              style={{ borderBottomColor: 'var(--copper)' }}
             />
-            <p style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {PAGE_TITLES[currentPage]} wird geladen...
             </p>
           </div>
         </div>
       ) : currentPageData ? (
-        <div>
-          {/* Section header */}
-          <div className="flex items-center justify-between mb-6 print:mb-2">
-            <div>
-              <h2
-                className="text-2xl font-bold"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Seite {currentPage}: {PAGE_TITLES[currentPage]}
-              </h2>
-              {selectedPeriod && (
-                <p
-                  className="text-sm mt-1"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  {selectedCustomer.replace(/_/g, ' ')} · {selectedPeriod.replace(/_/g, '/')}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() =>
-                loadPageData(currentPage, selectedCustomer, selectedPeriod)
-              }
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition print:hidden"
-              style={{
-                backgroundColor: 'var(--background)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
-              }}
-              title="Daten aktualisieren"
-            >
-              ✕» Aktualisieren
-            </button>
-          </div>
-
-          {renderPage()}
-        </div>
+        <div>{renderPage()}</div>
       ) : !loadingPage && selectedCustomer && selectedPeriod ? (
         <div
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <div className="text-4xl mb-4">📊</div>
           <p className="font-medium">Keine Daten verfügbar</p>
           <p className="text-sm mt-2">
             Für {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
           </p>
           <button
-            onClick={() =>
-              loadPageData(currentPage, selectedCustomer, selectedPeriod)
-            }
+            onClick={() => loadPageData(currentPage, selectedCustomer, selectedPeriod)}
             className="btn-primary mt-4 px-4 py-2 rounded-lg text-sm"
           >
             Erneut versuchen
