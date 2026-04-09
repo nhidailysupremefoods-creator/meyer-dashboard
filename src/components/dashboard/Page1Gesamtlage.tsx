@@ -4,7 +4,7 @@ interface Props {
   data: any;
 }
 
-// ── Formatters ───────────────────────────────────────────────────────────────
+// ── Formatters ─────────────────────────────────────────────────────────
 const fmtEur = (n: any) =>
   n != null
     ? new Intl.NumberFormat('de-DE', {
@@ -17,94 +17,31 @@ const fmtEur = (n: any) =>
 const fmtPct = (n: any) =>
   n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
-const statusInfo = (s: string) => {
-  const u = (s || '').toUpperCase();
-  if (u === 'GRÜN' || u === 'GREEN')
-    return { label: 'GUT', color: '#10b981', bg: 'rgba(16,185,129,0.12)' };
-  if (u === 'GELB' || u === 'YELLOW' || u === 'WARNUNG')
-    return { label: 'WARNUNG', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' };
-  if (u === 'ROT' || u === 'RED' || u === 'KRITISCH')
-    return { label: 'KRITISCH', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' };
-  return { label: s || '–', color: '#6b7280', bg: 'rgba(107,114,128,0.12)' };
+const fmtPctSigned = (n: any) => {
+  if (n == null) return '–';
+  const val = Number(n) * 100;
+  const sign = val > 0 ? '+' : '';
+  return `${sign}${val.toFixed(1)} %`;
 };
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-function KPITile({
-  label,
-  value,
-  sub,
-  subColor,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  subColor?: string;
-}) {
-  return (
-    <div className="card text-center">
-      <div
-        className="text-xs font-medium uppercase tracking-wide mb-2"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        {label}
-      </div>
-      <div
-        className="text-2xl font-bold"
-        style={{ color: 'var(--primary)' }}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div
-          className="text-xs mt-1"
-          style={{ color: subColor || 'var(--text-secondary)' }}
-        >
-          {sub}
-        </div>
-      )}
-    </div>
-  );
-}
+const statusInfo = (s: string) => {
+  const u = (s || '').toUpperCase();
+  if (u === 'GRÜN' || u === 'GREEN' || u === 'GUT')
+    return { label: 'GUT', color: '#2E8B57', bg: 'rgba(46,139,87,0.08)' };
+  if (u === 'GELB' || u === 'YELLOW' || u === 'WARNUNG')
+    return { label: 'WARNUNG', color: '#E8A838', bg: 'rgba(232,168,56,0.08)' };
+  if (u === 'ROT' || u === 'RED' || u === 'KRITISCH')
+    return { label: 'KRITISCH', color: '#C43830', bg: 'rgba(196,56,48,0.08)' };
+  return { label: s || '–', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
+};
 
-function CostBar({
-  label,
-  value,
-  total,
-  color,
-  indent,
-}: {
-  label: string;
-  value: number;
-  total: number;
-  color: string;
-  indent?: boolean;
-}) {
-  const pct = total > 0 ? Math.min((value / total) * 100, 100) : 0;
-  return (
-    <div className={indent ? 'ml-6' : ''}>
-      <div className="flex justify-between text-sm mb-1">
-        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-        <span className="font-medium">
-          {fmtEur(value)}{' '}
-          <span style={{ color: 'var(--text-secondary)' }}>
-            ({pct.toFixed(0)} %)
-          </span>
-        </span>
-      </div>
-      <div
-        className="h-2 rounded-full"
-        style={{ backgroundColor: 'var(--border-color)' }}
-      >
-        <div
-          className="h-2 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  );
-}
+const momColor = (n: any) => {
+  if (n == null) return 'var(--text-secondary)';
+  const val = Number(n);
+  return val > 0 ? '#2E8B57' : val < 0 ? '#C43830' : 'var(--text-secondary)';
+};
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────
 export default function Page1Gesamtlage({ data }: Props) {
   const d = (data as any)?.data || {};
   const trend: any[] = (data as any)?.trend || [];
@@ -129,189 +66,306 @@ export default function Page1Gesamtlage({ data }: Props) {
   const productivity = Number(d.portfolio_productivity ?? d.productivity_rate ?? 0);
   const ebitTarget = Number(d.ebit_target ?? 0);
 
+  // MoM changes
+  const revenueMom = Number(d.revenue_mom_pct ?? 0);
+  const profitMom = Number(d.profit_mom_pct ?? 0);
+
+  // Payroll as % of revenue
+  const payrollPct = revenue > 0 ? payrollCost / revenue : 0;
+  // Cost ratio display
+  const costRatioDisplay = costRatio || (revenue > 0 ? totalCost / revenue : 0);
+
+  // Advisory / Einschätzung text
+  const advisory = d.advisory_text || d.monatliche_einschaetzung || '';
+
+  // YTD
+  const ytdRevenue = Number(d.ytd_revenue ?? 0);
+  const ytdEbit = Number(d.ytd_ebit ?? d.ytd_profit ?? 0);
+  const ytdMargin = Number(d.ytd_margin_pct ?? 0);
+
   return (
-    <div className="space-y-6">
-      {/* ── Status Bar ────────────────────────────────────────────────────── */}
-      <div
-        className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl"
-        style={{ backgroundColor: st.bg, border: `1.5px solid ${st.color}22` }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: st.color }}
-          />
-          <span
-            className="text-xl font-bold"
-            style={{ color: st.color }}
-          >
-            {st.label}
-          </span>
-          {(d.month_label || d.period_label) && (
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {d.month_label || d.period_label}
-            </span>
-          )}
-        </div>
+    <div className="space-y-5">
+      {/* ── Section Title ── */}
+      <div>
+        <h2
+          className="text-lg font-bold"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Monatliche Gesamtlage
+        </h2>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Wie steht das Unternehmen diesen Monat?
+        </p>
+        <div className="copper-line" />
+      </div>
+
+      {/* ── Hero Row: EBIT Card (left) + 2×2 KPI Grid (right) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* EBIT Hero Card — dark navy background */}
         <div
-          className="text-sm font-medium px-3 py-1 rounded-full"
+          className="lg:col-span-2 rounded-xl p-5"
           style={{
-            backgroundColor: st.color + '20',
-            color: st.color,
+            backgroundColor: 'var(--navy)',
+            color: '#FFFFFF',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          Status: {st.label}
+          {/* Status badge top-right */}
+          <div
+            className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold"
+            style={{
+              backgroundColor: st.color + '30',
+              color: st.color,
+            }}
+          >
+            {st.label}
+          </div>
+
+          <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            EBIT (Monat)
+          </div>
+          <div className="text-3xl font-extrabold mb-1" style={{ color: ebit < 0 ? '#E88080' : '#FFFFFF' }}>
+            {fmtEur(ebit)}
+          </div>
+          {ebit < 0 && (
+            <div className="text-xs font-semibold mb-2" style={{ color: '#E88080' }}>
+              Verlust
+            </div>
+          )}
+
+          {/* Margin badge */}
+          <div className="flex items-center gap-2 mb-3">
+            <span
+              className="px-2 py-0.5 rounded text-xs font-bold"
+              style={{
+                backgroundColor: marginPct < 0.05 ? 'rgba(196,56,48,0.25)' : marginPct < 0.10 ? 'rgba(232,168,56,0.25)' : 'rgba(46,139,87,0.25)',
+                color: marginPct < 0.05 ? '#E88080' : marginPct < 0.10 ? '#E8A838' : '#6ECF91',
+              }}
+            >
+              {fmtPct(marginPct)} Marge
+            </span>
+            {profitMom !== 0 && (
+              <span className="text-xs" style={{ color: momColor(profitMom) }}>
+                {fmtPctSigned(profitMom)} MoM
+              </span>
+            )}
+          </div>
+
+          {/* Hebelpotenzial */}
+          {ebitPotential > 0 && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                Hebelpotenzial
+              </div>
+              <div className="text-xl font-bold" style={{ color: '#6ECF91' }}>
+                +{fmtEur(ebitPotential)}
+              </div>
+            </div>
+          )}
+
+          {/* EBITDA if available */}
+          {ebitda > 0 && (
+            <div className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              EBITDA: {fmtEur(ebitda)}
+            </div>
+          )}
+        </div>
+
+        {/* 2×2 KPI Grid */}
+        <div className="lg:col-span-3 grid grid-cols-2 gap-3">
+          {/* Monatsumsatz */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Monatsumsatz (MRR)
+            </div>
+            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {fmtEur(revenue)}
+            </div>
+            {revenueMom !== 0 && (
+              <div className="text-xs mt-1" style={{ color: momColor(revenueMom) }}>
+                {fmtPctSigned(revenueMom)} gg. Vormonat
+              </div>
+            )}
+          </div>
+
+          {/* Produktivität */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Produktivität
+            </div>
+            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {productivity > 0 ? `${Math.round(productivity)} €/Std` : fmtPct(productivity)}
+            </div>
+            {productivity > 0 && (
+              <div className="w-full h-1.5 rounded-full mt-2" style={{ backgroundColor: 'var(--border-color)' }}>
+                <div
+                  className="h-1.5 rounded-full transition-all"
+                  style={{
+                    width: `${Math.min((productivity > 1 ? productivity / 150 : productivity) * 100, 100)}%`,
+                    backgroundColor: productivity >= 0.75 || productivity >= 80 ? '#2E8B57' : productivity >= 0.55 || productivity >= 60 ? '#E8A838' : '#C43830',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Kostenquote */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Kostenquote
+            </div>
+            <div
+              className="text-xl font-bold"
+              style={{
+                color: costRatioDisplay > 0.95 ? 'var(--danger)' : costRatioDisplay > 0.88 ? 'var(--warning)' : 'var(--text-primary)',
+              }}
+            >
+              {fmtPct(costRatioDisplay)}
+            </div>
+            {costRatioDisplay > 0.95 && (
+              <div className="text-xs mt-1" style={{ color: 'var(--danger)' }}>
+                Hoch
+              </div>
+            )}
+          </div>
+
+          {/* Personalkosten */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Personalkosten
+            </div>
+            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              {payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}
+            </div>
+            {payrollCost > 0 && payrollPct > 0 && (
+              <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                {fmtEur(payrollCost)}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── KPI Grid ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <KPITile label="Umsatz (MRR)" value={fmtEur(revenue)} />
-        <KPITile
-          label="EBIT"
-          value={fmtEur(ebit)}
-          sub={ebit < 0 ? '⚠ Verlust' : ebitda > 0 ? `EBITDA: ${fmtEur(ebitda)}` : undefined}
-          subColor={ebit < 0 ? 'var(--danger)' : undefined}
-        />
-        <KPITile label="Marge" value={fmtPct(marginPct)} />
-        <KPITile
-          label="Kostenquote"
-          value={fmtPct(costRatio)}
-          sub={costRatio > 0.95 ? '⚠ Hoch' : undefined}
-          subColor={costRatio > 0.95 ? 'var(--danger)' : undefined}
-        />
-      </div>
+      {/* ── EBIT Target Bar ── */}
+      {(ebitGap !== 0 || ebitTarget > 0) && (
+        <div
+          className="card flex items-center gap-4"
+          style={{ padding: '0.75rem 1.25rem' }}
+        >
+          <div className="flex-shrink-0">
+            <span
+              className="text-xs font-bold uppercase tracking-wider"
+              style={{ color: ebitGap < 0 ? 'var(--danger)' : 'var(--success)' }}
+            >
+              {ebitGap < 0 ? 'EBIT UNTER ZIEL' : 'EBIT IM ZIEL'}
+            </span>
+            {ebitTarget > 0 && (
+              <span className="text-xs ml-2" style={{ color: 'var(--text-secondary)' }}>
+                Ziel: {fmtPct(ebitTarget > 1 ? ebitTarget / 100 : ebitTarget)} Marge
+              </span>
+            )}
+          </div>
+          <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
+            <div
+              className="h-2 rounded-full transition-all"
+              style={{
+                width: `${Math.min(Math.max(marginPct / (ebitTarget > 1 ? ebitTarget / 100 : ebitTarget || 0.12) * 100, 5), 100)}%`,
+                backgroundColor: ebitGap < 0 ? 'var(--danger)' : 'var(--success)',
+              }}
+            />
+          </div>
+          <div className="flex-shrink-0 text-sm font-bold" style={{ color: ebitGap < 0 ? 'var(--danger)' : 'var(--success)' }}>
+            {fmtEur(ebitGap)}
+          </div>
+        </div>
+      )}
 
-      {/* ── Kostenstruktur ────────────────────────────────────────────────── */}
+      {/* ── Monatliche Einschätzung (Advisory Banner) ── */}
+      {advisory && (
+        <div
+          className="rounded-lg p-4"
+          style={{
+            backgroundColor: 'rgba(232, 168, 56, 0.08)',
+            border: '1px solid rgba(232, 168, 56, 0.2)',
+          }}
+        >
+          <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--warning)' }}>
+            Monatliche Einschätzung
+          </div>
+          <div className="text-sm" style={{ color: 'var(--text-primary)', lineHeight: '1.7' }}>
+            {advisory}
+          </div>
+        </div>
+      )}
+
+      {/* ── Kostenstruktur ── */}
       {totalCost > 0 && (
         <div className="card">
-          <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
             Kostenstruktur
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {costVariable > 0 && (
-              <CostBar
-                label="Variable Kosten"
-                value={costVariable}
-                total={totalCost}
-                color="#3b82f6"
-              />
+              <CostBar label="Variable Kosten" value={costVariable} total={totalCost} color="#3B82F6" />
             )}
             {costFixed > 0 && (
-              <CostBar
-                label="Fixkosten"
-                value={costFixed}
-                total={totalCost}
-                color="#6366f1"
-              />
+              <CostBar label="Fixkosten" value={costFixed} total={totalCost} color="#6366F1" />
             )}
             {payrollCost > 0 && (
-              <CostBar
-                label="davon Personalkosten"
-                value={payrollCost}
-                total={totalCost}
-                color="#8b5cf6"
-                indent
-              />
+              <CostBar label="davon Personalkosten" value={payrollCost} total={totalCost} color="#8B5CF6" indent />
             )}
           </div>
         </div>
       )}
 
-      {/* ── Hebelpotenzial & Produktivität ────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {ebitPotential > 0 && (
-          <div className="card">
-            <div
-              className="text-xs font-medium uppercase tracking-wide mb-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Hebelpotenzial (EBIT)
+      {/* ── YTD Summary ── */}
+      {(ytdRevenue > 0 || ytdEbit !== 0) && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Umsatz Kum.
             </div>
-            <div
-              className="text-3xl font-bold"
-              style={{ color: '#10b981' }}
-            >
-              +{fmtEur(ebitPotential)}
-            </div>
-            {ebitGap !== 0 && (
-              <div className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
-                EBIT-Lücke zum Ziel:{' '}
-                <span style={{ color: ebitGap < 0 ? 'var(--danger)' : '#10b981' }}>
-                  {fmtEur(ebitGap)}
-                </span>
-              </div>
-            )}
-            {ebitTarget > 0 && (
-              <div className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Ziel-EBIT: {fmtEur(ebitTarget)}
-              </div>
-            )}
-          </div>
-        )}
-
-        {productivity > 0 && (
-          <div className="card">
-            <div
-              className="text-xs font-medium uppercase tracking-wide mb-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Produktivitätsrate
-            </div>
-            <div
-              className="text-3xl font-bold"
-              style={{ color: 'var(--primary)' }}
-            >
-              {fmtPct(productivity)}
-            </div>
-            <div
-              className="mt-3 h-2 rounded-full"
-              style={{ backgroundColor: 'var(--border-color)' }}
-            >
-              <div
-                className="h-2 rounded-full transition-all duration-700"
-                style={{
-                  width: `${Math.min(productivity * 100, 100)}%`,
-                  backgroundColor:
-                    productivity >= 0.75
-                      ? '#10b981'
-                      : productivity >= 0.55
-                      ? '#f59e0b'
-                      : '#ef4444',
-                }}
-              />
-            </div>
-            <div
-              className="flex justify-between text-xs mt-1"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              <span>Ziel: 75 %</span>
-              <span>Optimal: 90 %</span>
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              {fmtEur(ytdRevenue)}
             </div>
           </div>
-        )}
-      </div>
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              EBIT Kum.
+            </div>
+            <div className="text-lg font-bold" style={{ color: ytdEbit < 0 ? 'var(--danger)' : 'var(--text-primary)' }}>
+              {fmtEur(ytdEbit)}
+            </div>
+          </div>
+          <div className="card text-center">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+              Ø Marge
+            </div>
+            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              {ytdMargin > 0 ? fmtPct(ytdMargin) : '–'}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* ── 12-Monats-Trend ───────────────────────────────────────────────── */}
+      {/* ── 12-Monats-Trend ── */}
       {trend.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+          <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
             12-Monats-Trend
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr
-                  className="text-xs uppercase tracking-wide"
+                  className="text-xs uppercase tracking-wider"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  <th className="text-left pb-3 font-medium">Monat</th>
-                  <th className="text-right pb-3 font-medium">Umsatz</th>
-                  <th className="text-right pb-3 font-medium">EBIT</th>
-                  <th className="text-right pb-3 font-medium">Marge</th>
+                  <th className="text-left pb-2 font-semibold">Monat</th>
+                  <th className="text-right pb-2 font-semibold">Umsatz</th>
+                  <th className="text-right pb-2 font-semibold">EBIT</th>
+                  <th className="text-right pb-2 font-semibold">Marge</th>
                 </tr>
               </thead>
               <tbody>
@@ -325,21 +379,14 @@ export default function Page1Gesamtlage({ data }: Props) {
                       style={{ borderTop: '1px solid var(--border-color)' }}
                     >
                       <td className="py-2 font-medium">
-                        {row.month_label ||
-                          row.month_label_short ||
-                          row.period_label ||
-                          ''}
+                        {row.month_label || row.month_label_short || row.period_label || ''}
                       </td>
                       <td className="py-2 text-right">{fmtEur(rowRevenue)}</td>
                       <td
                         className="py-2 text-right font-medium"
                         style={{
                           color:
-                            rowProfit < 0
-                              ? 'var(--danger)'
-                              : rowProfit > 0
-                              ? '#10b981'
-                              : 'inherit',
+                            rowProfit < 0 ? 'var(--danger)' : rowProfit > 0 ? 'var(--success)' : 'inherit',
                         }}
                       >
                         {fmtEur(rowProfit)}
@@ -348,11 +395,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                         className="py-2 text-right"
                         style={{
                           color:
-                            rowMargin < 0.05
-                              ? 'var(--danger)'
-                              : rowMargin < 0.1
-                              ? 'var(--warning)'
-                              : '#10b981',
+                            rowMargin < 0.05 ? 'var(--danger)' : rowMargin < 0.10 ? 'var(--warning)' : 'var(--success)',
                         }}
                       >
                         {fmtPct(rowMargin)}
@@ -365,6 +408,40 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────
+function CostBar({
+  label,
+  value,
+  total,
+  color,
+  indent,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+  indent?: boolean;
+}) {
+  const pct = total > 0 ? Math.min((value / total) * 100, 100) : 0;
+  return (
+    <div className={indent ? 'ml-6' : ''}>
+      <div className="flex justify-between text-sm mb-1">
+        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+          {fmtEur(value)}{' '}
+          <span style={{ color: 'var(--text-secondary)' }}>({pct.toFixed(0)} %)</span>
+        </span>
+      </div>
+      <div className="h-2 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
+        <div
+          className="h-2 rounded-full transition-all duration-500"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
     </div>
   );
 }
