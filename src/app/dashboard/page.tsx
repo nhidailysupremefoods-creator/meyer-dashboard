@@ -7,10 +7,9 @@ import Page1Gesamtlage from '@/components/dashboard/Page1Gesamtlage';
 import Page2Vertragsanalyse from '@/components/dashboard/Page2Vertragsanalyse';
 import Page3Liquiditaet from '@/components/dashboard/Page3Liquiditaet';
 import Page4Massnahmen from '@/components/dashboard/Page4Massnahmen';
-import Page5Leitfaden from '@/components/dashboard/Page5Leitfaden';
+import Page5Leitfaden from '@/components/dshboard/Page5Leitfaden';
 
 type PageNum = 1 | 2 | 3 | 4 | 5;
-
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
@@ -54,7 +53,7 @@ export default function DashboardPage() {
         fetch('/api/dashboard/customers')
           .then(res => res.json())
           .then(async (resp) => {
-            if (resp.success && resp.customers && resp.customers.length > 0) {
+            if (resp.customers && resp.customers.length > 0) {
               const customerIds = resp.customers.map((c: any) => c.customer_id || c);
               setAuthData(prev => prev ? { ...prev, customers: customerIds } : prev);
               setSelectedCustomer(customerIds[0]);
@@ -73,7 +72,7 @@ export default function DashboardPage() {
                   try {
                     const r = await fetch(`/api/dashboard/periods?customer=${cid}`);
                     const d = await r.json();
-                    if (d.success && d.periods && d.periods.length > 0) {
+                    if (d.periods && d.periods.length > 0) {
                       validIds.push(cid);
                     }
                   } catch { /* skip invalid */ }
@@ -100,7 +99,7 @@ export default function DashboardPage() {
         setLoadingPeriods(true);
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
-        if (response.success && response.periods) {
+        if (response.periods) {
           setPeriods(response.periods);
           if ((response as any).industry_segment) {
             setIndustrySegment((response as any).industry_segment || '');
@@ -150,7 +149,7 @@ export default function DashboardPage() {
       setError(null);
       try {
         const response = await api.fetchPageData(page, customer, period);
-        if (response.success) {
+        if (response && !response.error) {
           // Store the FULL response so page components can access all top-level keys
           setPageData((prev) => ({ ...prev, [page]: response }));
         } else {
