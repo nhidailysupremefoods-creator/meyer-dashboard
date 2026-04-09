@@ -100,12 +100,12 @@ export default function DashboardPage() {
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
         if (response.periods) {
-          setPeriods(response.periods);
+          setPeriods(response.periods.map((p: any) => ({ period: p.period || p.month_id, label: p.label || p.month_label_short || p.month_id })));
           if ((response as any).industry_segment) {
             setIndustrySegment((response as any).industry_segment || '');
           }
           if (response.periods.length > 0) {
-            setSelectedPeriod(response.periods[0].period);
+            setSelectedPeriod((response.periods[0] as any).period || (response.periods[0] as any).month_id);
           }
         }
       } catch {
