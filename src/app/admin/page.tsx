@@ -35,7 +35,6 @@ export default function AdminPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>('customers');
 
-  // Redirect if not admin
   useEffect(() => {
     if (!authLoading && role !== 'admin') {
       router.push('/');
@@ -55,18 +54,18 @@ export default function AdminPage() {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', background: 'var(--navy)',
+        minHeight: '100vh', background: 'var(--background)',
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: 48, height: 48,
-            border: '3px solid rgba(176,138,106,0.2)',
+            border: '3px solid var(--border-color)',
             borderTopColor: 'var(--copper)',
             borderRadius: '50%',
             animation: 'spin 0.8s linear infinite',
             margin: '0 auto',
           }} />
-          <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Ladenâ¦</p>
+          <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Laden...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -77,12 +76,12 @@ export default function AdminPage() {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', background: 'var(--navy)',
+        minHeight: '100vh', background: 'var(--background)',
       }}>
         <div style={{ textAlign: 'center' }}>
-          <p style={{ color: '#ef4444', fontWeight: 600, marginBottom: '1rem' }}>Kein Admin-Zugriff</p>
+          <p style={{ color: 'var(--danger)', fontWeight: 600, marginBottom: '1rem' }}>Kein Admin-Zugriff</p>
           <button onClick={() => router.push('/')} style={{ color: 'var(--copper)', background: 'none', border: 'none', fontWeight: 600 }}>
-            ZurÃ¼ck zum Dashboard
+            Zurück zum Dashboard
           </button>
         </div>
       </div>
@@ -90,59 +89,57 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--navy)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', flexDirection: 'column' }}>
 
-      {/* ââ Nav Bar (same as dashboard) ââââââââââââââââââââââââââââââââââ */}
+      {/* Header */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
         background: 'var(--navy)',
-        borderBottom: '1px solid rgba(176,138,106,0.25)',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+        borderBottom: '1px solid rgba(184,115,51,0.2)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 6,
-                background: 'var(--copper)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 800, fontSize: '0.8rem', color: 'var(--navy)',
-                fontFamily: 'Manrope, sans-serif',
-              }}>MD</div>
-              <div>
-                <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--offwhite)', lineHeight: 1.2 }}>
-                  Meyer Decision
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--copper)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1 }}>
-                  Admin-Bereich
-                </div>
-              </div>
+              <span style={{
+                fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1rem',
+                color: '#FFFFFF', letterSpacing: '0.04em',
+              }}>
+                MEYER<span style={{ color: 'var(--copper)', margin: '0 2px' }}>|</span>DECISION
+              </span>
+              <span style={{
+                fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.12em',
+                textTransform: 'uppercase' as const, color: 'var(--copper-light)',
+              }}>
+                Admin-Bereich
+              </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <a href="/dashboard" style={{
                 padding: '0.35rem 0.85rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
-                background: 'rgba(176,138,106,0.1)', color: 'var(--copper)',
-                border: '1px solid rgba(176,138,106,0.25)',
-              }}>â Dashboard</a>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{email}</span>
+                background: 'rgba(184,115,51,0.15)', color: 'var(--copper-light)',
+                border: '1px solid rgba(184,115,51,0.2)', textDecoration: 'none',
+              }}>Dashboard</a>
+              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>{email}</span>
               <button onClick={handleLogout} style={{
                 padding: '0.35rem 0.85rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
-                background: 'rgba(239,68,68,0.12)', color: '#ef4444',
-                border: '1px solid rgba(239,68,68,0.25)', fontFamily: 'Manrope, sans-serif',
+                background: 'rgba(196,56,48,0.15)', color: '#E88080',
+                border: '1px solid rgba(196,56,48,0.2)', fontFamily: 'Manrope, sans-serif',
+                cursor: 'pointer',
               }}>Abmelden</button>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* ââ Page Header ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* Page Header */}
       <div style={{
-        background: 'rgba(0,0,0,0.15)',
+        background: '#FFFFFF',
         borderBottom: '1px solid var(--border-color)',
         padding: '1.25rem 1.5rem',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--offwhite)', marginBottom: '0.25rem' }}>
+          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             Admin-Bereich
           </h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -151,27 +148,24 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* ââ Error Alert ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* Error */}
       {error && (
         <div style={{ maxWidth: 1200, margin: '1rem auto', padding: '0 1.5rem', width: '100%' }}>
           <div style={{
-            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
+            background: 'rgba(196,56,48,0.06)', border: '1px solid rgba(196,56,48,0.2)',
             borderRadius: 8, padding: '0.75rem 1rem',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
-            <button onClick={clearError} style={{ color: '#ef4444', background: 'none', border: 'none', fontWeight: 600, fontSize: '0.875rem' }}>
-              â
+            <p style={{ color: 'var(--danger)', fontSize: '0.875rem' }}>{error}</p>
+            <button onClick={clearError} style={{ color: 'var(--danger)', background: 'none', border: 'none', fontWeight: 600, fontSize: '1rem', cursor: 'pointer' }}>
+              &times;
             </button>
           </div>
         </div>
       )}
 
-      {/* ââ Tab Navigation âââââââââââââââââââââââââââââââââââââââââââââââ */}
-      <div style={{
-        background: 'rgba(0,0,0,0.1)',
-        borderBottom: '1px solid var(--border-color)',
-      }}>
+      {/* Tabs */}
+      <div style={{ background: '#FFFFFF', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem' }}>
           <nav style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
             {TABS.map((tab) => (
@@ -185,9 +179,9 @@ export default function AdminPage() {
                   fontFamily: 'Manrope, sans-serif',
                   background: 'none', border: 'none',
                   borderBottom: activeTab === tab.id
-                    ? '2px solid var(--copper)'
-                    : '2px solid transparent',
-                  color: activeTab === tab.id ? 'var(--copper)' : 'var(--text-secondary)',
+                    ? '2.5px solid var(--copper)'
+                    : '2.5px solid transparent',
+                  color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
                   transition: 'all 0.2s',
                   cursor: 'pointer',
                 }}
@@ -199,7 +193,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* ââ Tab Content ââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* Content */}
       <div style={{ flex: 1, maxWidth: 1200, margin: '0 auto', width: '100%', padding: '1.5rem' }}>
         {activeTab === 'customers'     && <CustomerTab     customers={customers}   onUpdate={init} />}
         {activeTab === 'users'         && <UserTab         users={users} customers={customers} onUpdate={init} />}
