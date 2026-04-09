@@ -14,17 +14,17 @@ type PageNum = 1 | 2 | 3 | 4 | 5;
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
-  3: 'LiquiditÃ¤tsstabilitÃ¤t',
-  4: 'MaÃnahmen & Benchmarks',
-  5: 'GesprÃ¤chsleitfaden',
+  3: 'Liquiditätsstabilität',
+  4: 'Maßnahmen & Benchmarks',
+  5: 'Gesprächsleitfaden',
 };
 
 const PAGE_ICONS: Record<PageNum, string> = {
-  1: 'ð',
-  2: 'ð',
-  3: 'ð§',
-  4: 'ð¯',
-  5: 'ð',
+  1: '📊',
+  2: '📋',
+  3: '💧',
+  4: '🎯',
+  5: '📖',
 };
 
 export default function DashboardPage() {
@@ -41,18 +41,57 @@ export default function DashboardPage() {
   const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ââ Initialize auth âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ✕✕ Initialize auth ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
       setAuthData(data);
       if (data.customers && data.customers.length > 0) {
         setSelectedCustomer(data.customers[0]);
+      } else if (data.role === 'admin') {
+        // Admin with GLOBAL access gets empty customers[] — discover via API
+        // Try customers endpoint first, then discover by probing periods for known IDs
+        fetch('/api/dashboard/customers')
+          .then(res => res.json())
+          .then(async (resp) => {
+            if (resp.success && resp.customers && resp.customers.length > 0) {
+              const customerIds = resp.customers.map((c: any) => c.customer_id || c);
+              setAuthData(prev => prev ? { ...prev, customers: customerIds } : prev);
+              setSelectedCustomer(customerIds[0]);
+            } else {
+              // Drive cache empty — discover customers by probing periods endpoint
+              // These are the known Meyer Decision customer IDs from BigQuery
+              const knownIds = [
+                'INDUSTRIE_GAMMA',
+                'MUSTERMANN_TECHNIK',
+                'SCHMIDT_ANLAGENBAU',
+                'WEBER_HAUSTECHNIK',
+              ];
+              const validIds: string[] = [];
+              await Promise.all(
+                knownIds.map(async (cid) => {
+                  try {
+                    const r = await fetch(`/api/dashboard/periods?customer=${cid}`);
+                    const d = await r.json();
+                    if (d.success && d.periods && d.periods.length > 0) {
+                      validIds.push(cid);
+                    }
+                  } catch { /* skip invalid */ }
+                })
+              );
+              if (validIds.length > 0) {
+                validIds.sort();
+                setAuthData(prev => prev ? { ...prev, customers: validIds } : prev);
+                setSelectedCustomer(validIds[0]);
+              }
+            }
+          })
+          .catch(err => console.error('Error loading customers:', err));
       }
     }
   }, []);
 
-  // ââ Load periods when customer changes ââââââââââââââââââââââââââââââââââââ
+  // ✕✕ Load periods when customer changes ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
   useEffect(() => {
     if (!selectedCustomer) return;
 
@@ -80,7 +119,7 @@ export default function DashboardPage() {
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ââ Load page data when page / period changes âââââââââââââââââââââââââââââ
+  // ✕✕ Load page data when page / period changes ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
   const loadPageData = useCallback(
     async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
@@ -140,7 +179,7 @@ export default function DashboardPage() {
     }
   }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ââ PDF Export âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ✕✕ PDF Export ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕
   const handlePdfExport = () => {
     window.print();
   };
@@ -195,7 +234,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* ââ Controls Bar âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* ✕✕ Controls Bar ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
       <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center print:hidden">
         {/* Customer Selector */}
         <div className="flex-1 w-full">
@@ -269,7 +308,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ââ Error Alert âââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* ✕✕ Error Alert ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
       {error && (
         <div
           className="p-4 rounded-xl border text-sm flex items-start gap-3 print:hidden"
@@ -279,7 +318,7 @@ export default function DashboardPage() {
             borderColor: 'rgba(239,68,68,0.25)',
           }}
         >
-          <span className="text-lg">â ï¸</span>
+          <span className="text-lg">✕ ï¸</span>
           <div>
             <strong>Fehler:</strong> {error}
           </div>
@@ -288,12 +327,12 @@ export default function DashboardPage() {
             className="ml-auto text-xs"
             style={{ color: 'var(--danger)' }}
           >
-            â
+            ✕
           </button>
         </div>
       )}
 
-      {/* ââ Page Tabs âââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* ✕✕ Page Tabs ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
       <div className="flex gap-2 overflow-x-auto pb-1 print:hidden">
         {([1, 2, 3, 4, 5] as PageNum[]).map((num) => (
           <button
@@ -320,7 +359,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ââ Page Content âââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* ✕✕ Page Content ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
       {loadingPage ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
@@ -349,7 +388,7 @@ export default function DashboardPage() {
                   className="text-sm mt-1"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  {selectedCustomer.replace(/_/g, ' ')} Â· {selectedPeriod.replace(/_/g, '/')}
+                  {selectedCustomer.replace(/_/g, ' ')} · {selectedPeriod.replace(/_/g, '/')}
                 </p>
               )}
             </div>
@@ -365,7 +404,7 @@ export default function DashboardPage() {
               }}
               title="Daten aktualisieren"
             >
-              â» Aktualisieren
+              ✕» Aktualisieren
             </button>
           </div>
 
@@ -376,10 +415,10 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <div className="text-4xl mb-4">ð</div>
-          <p className="font-medium">Keine Daten verfÃ¼gbar</p>
+          <div className="text-4xl mb-4">📊</div>
+          <p className="font-medium">Keine Daten verfügbar</p>
           <p className="text-sm mt-2">
-            FÃ¼r {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
+            Für {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
           </p>
           <button
             onClick={() =>
@@ -395,7 +434,7 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p>Bitte Mandant und Periode auswÃ¤hlen</p>
+          <p>Bitte Mandant und Periode auswählen</p>
         </div>
       )}
     </div>
