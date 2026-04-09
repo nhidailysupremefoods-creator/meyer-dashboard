@@ -9,7 +9,7 @@ const CUSTOMER_FALLBACK = [
 ];
 
 /** German short month names */
-const DE_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const DE_MONTHS = ['Jan','Feb','MÃ¤r','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
 /**
  * Generate fallback periods: last N months ending at today.
@@ -71,7 +71,7 @@ export async function GET(
     if (customer) { params_obj.customer = customer; }
     if (period) { params_obj.period = period; }
 
-    // ── customers: fallback to hardcoded list if Apps Script unavailable ──
+    // ââ customers: fallback to hardcoded list if Apps Script unavailable ââ
     if (action === 'customers') {
       try {
         const result = await callAppsScriptApi(params_obj);
@@ -90,7 +90,7 @@ export async function GET(
       }
     }
 
-    // ── periods: transform response format + fallback if Apps Script fails ──
+    // ââ periods: transform response format + fallback if Apps Script fails ââ
     if (action === 'periods') {
       try {
         const result = await callAppsScriptApi(params_obj);
@@ -113,12 +113,23 @@ export async function GET(
     }
 
     const result = await callAppsScriptApi(params_obj);
-    // Add success:true — frontend checks response.success before using data
+
+    // If Apps Script returned an error (e.g. expired token), propagate it clearly
+    if (result.error && !result.data && !result.page) {
+      console.warn(`[${action}] Apps Script error:`, result.error);
+      return NextResponse.json({
+        success: false,
+        error: result.error,
+        action,
+      });
+    }
+
+    // Add success:true â frontend checks response.success before using data
     return NextResponse.json({ ...result, success: true });
   } catch (err: any) {
     console.error(`Dashboard API error for action ${params.action}:`, err);
     return NextResponse.json(
-      { error: err.message || 'Dashboard API request failed' },
+      { success: false, error: err.message || 'Dashboard API request failed', action: params.action },
       { status: 500 }
     );
   }
