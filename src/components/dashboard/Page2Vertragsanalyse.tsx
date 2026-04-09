@@ -112,7 +112,7 @@ export default function Page2Vertragsanalyse({ data }: Props) {
 
       {/* ── Contracts Table ── */}
       <div className="card">
-        <h3 classNamme="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+        <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
           Vertragsübersicht ({contracts.length} Verträge)
         </h3>
 
