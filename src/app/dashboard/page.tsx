@@ -7,7 +7,7 @@ import Page1Gesamtlage from '@/components/dashboard/Page1Gesamtlage';
 import Page2Vertragsanalyse from '@/components/dashboard/Page2Vertragsanalyse';
 import Page3Liquiditaet from '@/components/dashboard/Page3Liquiditaet';
 import Page4Massnahmen from '@/components/dashboard/Page4Massnahmen';
-import Page5Leitfaden from '@/components/dshboard/Page5Leitfaden';
+import Page5Leitfaden from '@/components/dashboard/Page5Leitfaden';
 
 type PageNum = 1 | 2 | 3 | 4 | 5;
 const PAGE_TITLES: Record<PageNum, string> = {
