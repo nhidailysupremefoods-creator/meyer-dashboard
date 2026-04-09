@@ -19,35 +19,13 @@ const fmtPct = (n: any) =>
 const riskInfo = (level: string) => {
   const u = (level || '').toUpperCase();
   if (u === 'KRITISCH' || u === 'CRITICAL' || u === 'ROT' || u === 'HIGH')
-    return { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', label: level || 'Kritisch' };
-  if (
-    u === 'WARNUNG' ||
-    u === 'WARNING' ||
-    u === 'MITTEL' ||
-    u === 'MEDIUM' ||
-    u === 'GELB'
-  )
-    return { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: level || 'Warnung' };
+    return { color: '#C43830', bg: 'rgba(196,56,48,0.08)', label: level || 'Kritisch' };
+  if (u === 'WARNUNG' || u === 'WARNING' || u === 'MITTEL' || u === 'MEDIUM' || u === 'GELB')
+    return { color: '#E8A838', bg: 'rgba(232,168,56,0.08)', label: level || 'Warnung' };
   if (u === 'GUT' || u === 'OK' || u === 'NIEDRIG' || u === 'LOW' || u === 'GREEN')
-    return { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: level || 'Gut' };
-  return { color: '#6b7280', bg: 'rgba(107,114,128,0.12)', label: level || '–' };
+    return { color: '#2E8B57', bg: 'rgba(46,139,87,0.08)', label: level || 'Gut' };
+  return { color: '#6B7A90', bg: 'rgba(107,122,144,0.08)', label: level || '–' };
 };
-
-function KPITile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="card text-center">
-      <div
-        className="text-xs font-medium uppercase tracking-wide mb-2"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        {label}
-      </div>
-      <div className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>
-        {value}
-      </div>
-    </div>
-  );
-}
 
 export default function Page2Vertragsanalyse({ data }: Props) {
   const summary = (data as any)?.summary || {};
@@ -59,87 +37,101 @@ export default function Page2Vertragsanalyse({ data }: Props) {
   }).length;
 
   return (
-    <div className="space-y-6">
-      {/* ── Portfolio Summary ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <KPITile
-          label="Portfolio-EBIT"
-          value={fmtEur(summary.profit_total ?? summary.ebit_total)}
-        />
-        <KPITile
-          label="Verträge gesamt"
-          value={String(summary.contract_count ?? contracts.length)}
-        />
-        <KPITile
-          label="Gesamtumsatz"
-          value={fmtEur(summary.revenue_total)}
-        />
-        <KPITile
-          label="Kritische Verträge"
-          value={
-            criticalCount > 0
-              ? `${criticalCount} / ${contracts.length}`
-              : `0 / ${contracts.length}`
-          }
-        />
+    <div className="space-y-5">
+      {/* ── Section Title ── */}
+      <div>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+          Vertragsanalyse
+        </h2>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Übersicht aller aktiven Verträge und Risikobewertung
+        </p>
+        <div className="copper-line" />
       </div>
 
-      {/* ── Risk Overview Banner ─────────────────────────────────────────── */}
+      {/* ── Portfolio Summary ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Portfolio-EBIT
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {fmtEur(summary.profit_total ?? summary.ebit_total)}
+          </div>
+        </div>
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Verträge gesamt
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {summary.contract_count ?? contracts.length}
+          </div>
+        </div>
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Gesamtumsatz
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {fmtEur(summary.revenue_total)}
+          </div>
+        </div>
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Kritische Verträge
+          </div>
+          <div
+            className="text-xl font-bold"
+            style={{ color: criticalCount > 0 ? 'var(--danger)' : 'var(--success)' }}
+          >
+            {criticalCount} / {contracts.length}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Risk Warning ── */}
       {criticalCount > 0 && (
         <div
-          className="p-4 rounded-xl flex items-center gap-3"
+          className="p-3 rounded-lg flex items-center gap-3"
           style={{
-            backgroundColor: 'rgba(239,68,68,0.08)',
-            border: '1px solid rgba(239,68,68,0.25)',
+            backgroundColor: 'rgba(196,56,48,0.06)',
+            border: '1px solid rgba(196,56,48,0.2)',
           }}
         >
-          <span className="text-2xl">⚠️</span>
+          <span className="text-lg">&#9888;&#6503;</span>
           <div>
-            <div
-              className="font-semibold"
-              style={{ color: '#ef4444' }}
-            >
+            <span className="font-semibold text-sm" style={{ color: 'var(--danger)' }}>
               {criticalCount} kritische{' '}
               {criticalCount === 1 ? 'Vertrag' : 'Verträge'} erkannt
-            </div>
-            <div
-              className="text-sm"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Sofortige Maßnahmen empfohlen
-            </div>
+            </span>
+            <span className="text-xs ml-2" style={{ color: 'var(--text-secondary)' }}>
+              — Sofortige Maßnahmen empfohlen
+            </span>
           </div>
         </div>
       )}
 
-      {/* ── Contracts Table ───────────────────────────────────────────────── */}
+      {/* ── Contracts Table ── */}
       <div className="card">
-        <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <h3 classNamme="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
           Vertragsübersicht ({contracts.length} Verträge)
         </h3>
 
         {contracts.length === 0 ? (
-          <p
-            className="text-center py-8"
-            style={{ color: 'var(--text-secondary)' }}
-          >
+          <p className="text-center py-8 text-sm" style={{ color: 'var(--text-secondary)' }}>
             Keine Vertragsdaten verfügbar
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr
-                  className="text-xs uppercase tracking-wide"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  <th className="text-left pb-3 font-medium">#</th>
-                  <th className="text-left pb-3 font-medium">Vertrag</th>
-                  <th className="text-right pb-3 font-medium">Umsatz</th>
-                  <th className="text-right pb-3 font-medium">EBIT</th>
-                  <th className="text-right pb-3 font-medium">Marge</th>
-                  <th className="text-center pb-3 font-medium">Risiko</th>
-                  <th className="text-right pb-3 font-medium">Prio</th>
+                <tr className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                  <th className="text-left pb-2 font-semibold">#</th>
+                  <th className="text-left pb-2 font-semibold">Vertrag</th>
+                  <th className="text-right pb-2 font-semibold">Umsatz</th>
+                  <th className="text-right pb-2 font-semibold">EBIT</th>
+                  <th className="text-right pb-2 font-semibold">Marge</th>
+                  <th className="text-center pb-2 font-semibold">Risiko</th>
+                  <th className="text-right pb-2 font-semibold">Prio</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,68 +141,36 @@ export default function Page2Vertragsanalyse({ data }: Props) {
                   const revenue = Number(c.revenue_eur ?? c.revenue ?? 0);
                   const margin = Number(c.margin_pct ?? 0);
                   return (
-                    <tr
-                      key={i}
-                      style={{
-                        borderTop: '1px solid var(--border-color)',
-                      }}
-                    >
-                      <td
-                        className="py-3 text-xs"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
+                    <tr key={i} style={{ borderTop: '1px solid var(--border-color)' }}>
+                      <td className="py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {c.rank_priority ?? i + 1}
                       </td>
-                      <td className="py-3 font-medium">
+                      <td className="py-2.5 font-medium">
                         {c.contract_name ?? c.name ?? `Vertrag ${i + 1}`}
                       </td>
-                      <td className="py-3 text-right">
-                        {fmtEur(revenue)}
-                      </td>
+                      <td className="py-2.5 text-right">{fmtEur(revenue)}</td>
                       <td
-                        className="py-3 text-right font-medium"
-                        style={{
-                          color:
-                            ebit < 0
-                              ? 'var(--danger)'
-                              : ebit > 0
-                              ? '#10b981'
-                              : 'inherit',
-                        }}
+                        className="py-2.5 text-right font-medium"
+                        style={{ color: ebit < 0 ? 'var(--danger)' : ebit > 0 ? 'var(--success)' : 'inherit' }}
                       >
                         {fmtEur(ebit)}
                       </td>
                       <td
-                        className="py-3 text-right"
-                        style={{
-                          color:
-                            margin < 0.05
-                              ? 'var(--danger)'
-                              : margin < 0.1
-                              ? 'var(--warning)'
-                              : 'inherit',
-                        }}
+                        className="py-2.5 text-right"
+                        style={{ color: margin < 0.05 ? 'var(--danger)' : margin < 0.1 ? 'var(--warning)' : 'inherit' }}
                       >
                         {fmtPct(margin)}
                       </td>
-                      <td className="py-3 text-center">
+                      <td className="py-2.5 text-center">
                         <span
                           className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                          style={{
-                            backgroundColor: ri.bg,
-                            color: ri.color,
-                          }}
+                          style={{ backgroundColor: ri.bg, color: ri.color }}
                         >
                           {ri.label}
                         </span>
                       </td>
-                      <td
-                        className="py-3 text-right text-xs"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        {c.rank_priority != null
-                          ? `#${c.rank_priority}`
-                          : '–'}
+                      <td className="py-2.5 text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {c.rank_priority != null ? `#${c.rank_priority}` : '–'}
                       </td>
                     </tr>
                   );
@@ -221,20 +181,28 @@ export default function Page2Vertragsanalyse({ data }: Props) {
         )}
       </div>
 
-      {/* ── Additional summary fields ─────────────────────────────────────── */}
+      {/* ── Additional KPIs ── */}
       {(summary.avg_risk_score != null || summary.avg_margin_pct != null) && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {summary.avg_risk_score != null && (
-            <KPITile
-              label="Ø Risiko-Score"
-              value={Number(summary.avg_risk_score).toFixed(1)}
-            />
+            <div className="card text-center">
+              <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+                Ø Risiko-Score
+              </div>
+              <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                {Number(summary.avg_risk_score).toFixed(1)}
+              </div>
+            </div>
           )}
           {summary.avg_margin_pct != null && (
-            <KPITile
-              label="Ø Portfolio-Marge"
-              value={fmtPct(summary.avg_margin_pct)}
-            />
+            <div className="card text-center">
+              <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+                Ø Portfolio-Marge
+              </div>
+              <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                {fmtPct(summary.avg_margin_pct)}
+              </div>
+            </div>
           )}
         </div>
       )}
