@@ -7,15 +7,13 @@ import Page1Gesamtlage from '@/components/dashboard/Page1Gesamtlage';
 import Page2Vertragsanalyse from '@/components/dashboard/Page2Vertragsanalyse';
 import Page3Liquiditaet from '@/components/dashboard/Page3Liquiditaet';
 import Page4Massnahmen from '@/components/dashboard/Page4Massnahmen';
-import Page5Leitfaden from '@/components/dashboard/Page5Leitfaden';
 
-type PageNum = 1 | 2 | 3 | 4 | 5;
+type PageNum = 1 | 2 | 3 | 4;
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
   3: 'Liquiditätsstabilität',
   4: 'Maßnahmen & Benchmarks',
-  5: 'Gesprächsleitfaden',
 };
 
 const PAGE_ICONS: Record<PageNum, string> = {
@@ -23,7 +21,6 @@ const PAGE_ICONS: Record<PageNum, string> = {
   2: '📋',
   3: '💧',
   4: '🎯',
-  5: '📖',
 };
 
 export default function DashboardPage() {
@@ -122,29 +119,6 @@ export default function DashboardPage() {
   const loadPageData = useCallback(
     async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
-      // Page 5 uses a different endpoint
-      if (page === 5) {
-        setLoadingPage(true);
-        setError(null);
-        try {
-          const token = api.getToken();
-          if (!token) throw new Error('Nicht eingeloggt');
-          const params = new URLSearchParams({ token, customer, period });
-          const res = await fetch(`/api/dashboard/advisory?${params}`);
-          const response = await res.json();
-          if (response.success || response.advisory || response.situation) {
-            setPageData((prev) => ({ ...prev, [page]: response }));
-          } else {
-            setError((response as any).error || 'Leitfaden konnte nicht geladen werden');
-          }
-        } catch {
-          setError('Leitfaden konnte nicht geladen werden');
-        } finally {
-          setLoadingPage(false);
-        }
-        return;
-      }
-
       setLoadingPage(true);
       setError(null);
       try {
@@ -213,14 +187,6 @@ export default function DashboardPage() {
       case 4:
         return (
           <Page4Massnahmen
-            data={currentPageData}
-            customer={selectedCustomer}
-            period={selectedPeriod}
-          />
-        );
-      case 5:
-        return (
-          <Page5Leitfaden
             data={currentPageData}
             customer={selectedCustomer}
             period={selectedPeriod}
@@ -333,7 +299,7 @@ export default function DashboardPage() {
 
       {/* ✕✕ Page Tabs ✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕✕ */}
       <div className="flex gap-2 overflow-x-auto pb-1 print:hidden">
-        {([1, 2, 3, 4, 5] as PageNum[]).map((num) => (
+        {([1, 2, 3, 4] as PageNum[]).map((num) => (
           <button
             key={num}
             onClick={() => setCurrentPage(num)}
