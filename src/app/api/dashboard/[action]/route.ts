@@ -9,11 +9,34 @@ const CUSTOMER_FALLBACK = [
 ];
 
 /** German short month names */
-const DE_MONTHS = ['Jan','Feb','MÃ¤r','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const DE_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+// -- In-memory cache for Vercel serverless (survives warm invocations) --
+interface CacheEntry { data: any; ts: number; }
+const cache = new Map<string, CacheEntry>();
+const CACHE_TTL: Record<string, number> = {
+  customers: 5 * 60 * 1000,   // 5 min
+  periods: 3 * 60 * 1000,     // 3 min
+  page: 2 * 60 * 1000,        // 2 min for page data
+};
+
+function getCached(key: string, ttl: number): any | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > ttl) { cache.delete(key); return null; }
+  return entry.data;
+}
+function setCache(key: string, data: any) {
+  cache.set(key, { data, ts: Date.now() });
+  // Evict old entries if cache grows too large
+  if (cache.size > 100) {
+    const now = Date.now();
+    cache.forEach((v, k) => { if (now - v.ts > 5 * 60 * 1000) cache.delete(k); });
+  }
+}
 
 /**
  * Generate fallback periods: last N months ending at today.
- * Returns array of {period: "YYYY_MM", label: "Mmm YY"} sorted newest first.
  */
 function generateFallbackPeriods(count = 14): Array<{period: string; label: string}> {
   const now = new Date();
@@ -21,7 +44,7 @@ function generateFallbackPeriods(count = 14): Array<{period: string; label: stri
   for (let i = 1; i <= count; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const y = d.getFullYear();
-    const m = d.getMonth(); // 0-indexed
+    const m = d.getMonth();
     const mm = String(m + 1).padStart(2, '0');
     results.push({
       period: `${y}_${mm}`,
@@ -33,8 +56,6 @@ function generateFallbackPeriods(count = 14): Array<{period: string; label: stri
 
 /**
  * Transform Apps Script periods response to PeriodsResponse format.
- * Apps Script returns: {customer, periods: [{month_id, month_label_short, period_date}]}
- * Dashboard expects:   {success: true, periods: [{period, label}]}
  */
 function transformPeriodsResponse(raw: any): { success: true; periods: Array<{period: string; label: string}>; industry_segment?: string } {
   const rawPeriods: any[] = raw.periods || raw.rows || [];
@@ -71,8 +92,11 @@ export async function GET(
     if (customer) { params_obj.customer = customer; }
     if (period) { params_obj.period = period; }
 
-    // ââ customers: fallback to hardcoded list if Apps Script unavailable ââ
+    // -- customers: cached + fallback --
     if (action === 'customers') {
+      const cacheKey = 'customers';
+      const cached = getCached(cacheKey, CACHE_TTL.customers);
+      if (cached) return NextResponse.json(cached);
       try {
         const result = await callAppsScriptApi(params_obj);
         if (
@@ -81,30 +105,38 @@ export async function GET(
           (Array.isArray(result.customers) && result.customers.length === 0)
         ) {
           console.warn('[customers] Using fallback:', result.drive_error);
-          return NextResponse.json({ customers: CUSTOMER_FALLBACK });
+          const fb = { customers: CUSTOMER_FALLBACK };
+          setCache(cacheKey, fb);
+          return NextResponse.json(fb);
         }
+        setCache(cacheKey, result);
         return NextResponse.json(result);
       } catch (err: any) {
         console.warn('[customers] Fallback due to error:', err.message);
-        return NextResponse.json({ customers: CUSTOMER_FALLBACK });
+        const fb = { customers: CUSTOMER_FALLBACK };
+        setCache(cacheKey, fb);
+        return NextResponse.json(fb);
       }
     }
 
-    // ââ periods: transform response format + fallback if Apps Script fails ââ
+    // -- periods: cached + transform + fallback --
     if (action === 'periods') {
+      const cacheKey = `periods_${customer}`;
+      const cached = getCached(cacheKey, CACHE_TTL.periods);
+      if (cached) return NextResponse.json(cached);
       try {
         const result = await callAppsScriptApi(params_obj);
-        // Apps Script may return {error: "..."} without success
         if (result.error && !result.periods) {
           console.warn('[periods] Apps Script returned error:', result.error);
-          return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
+          const fb = { success: true, periods: generateFallbackPeriods() };
+          return NextResponse.json(fb);
         }
         const transformed = transformPeriodsResponse(result);
-        // If no periods returned, use fallback
         if (transformed.periods.length === 0) {
           console.warn('[periods] No periods from Apps Script, using fallback');
           return NextResponse.json({ success: true, periods: generateFallbackPeriods() });
         }
+        setCache(cacheKey, transformed);
         return NextResponse.json(transformed);
       } catch (err: any) {
         console.warn('[periods] Fallback due to error:', err.message);
@@ -112,9 +144,17 @@ export async function GET(
       }
     }
 
+    // -- page data: cached for 2 min (same customer+period+page) --
+    const isPageAction = /^page[1-4]$/.test(action);
+    if (isPageAction) {
+      const cacheKey = `${action}_${customer}_${period}`;
+      const cached = getCached(cacheKey, CACHE_TTL.page);
+      if (cached) return NextResponse.json(cached);
+    }
+
     const result = await callAppsScriptApi(params_obj);
 
-    // If Apps Script returned an error (e.g. expired token), propagate it clearly
+    // If Apps Script returned an error, propagate it clearly
     if (result.error && !result.data && !result.page) {
       console.warn(`[${action}] Apps Script error:`, result.error);
       return NextResponse.json({
@@ -124,8 +164,15 @@ export async function GET(
       });
     }
 
-    // Add success:true â frontend checks response.success before using data
-    return NextResponse.json({ ...result, success: true });
+    const response = { ...result, success: true };
+
+    // Cache page data
+    if (isPageAction) {
+      const cacheKey = `${action}_${customer}_${period}`;
+      setCache(cacheKey, response);
+    }
+
+    return NextResponse.json(response);
   } catch (err: any) {
     const msg = err.message || 'Dashboard API request failed';
     const isTransient = msg.includes('HTML instead of JSON') || msg.includes('timeout');
@@ -134,7 +181,7 @@ export async function GET(
       {
         success: false,
         error: isTransient
-          ? 'Der Server ist voruebergehend nicht erreichbar. Bitte versuche es in wenigen Sekunden erneut.'
+          ? 'Der Server ist vorübergehend nicht erreichbar. Bitte versuche es in wenigen Sekunden erneut.'
           : msg,
         action: params.action,
         retryable: isTransient,
