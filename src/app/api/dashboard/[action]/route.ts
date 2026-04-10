@@ -127,10 +127,19 @@ export async function GET(
     // Add success:true â frontend checks response.success before using data
     return NextResponse.json({ ...result, success: true });
   } catch (err: any) {
-    console.error(`Dashboard API error for action ${params.action}:`, err);
+    const msg = err.message || 'Dashboard API request failed';
+    const isTransient = msg.includes('HTML instead of JSON') || msg.includes('timeout');
+    console.error(`Dashboard API error for action ${params.action}:`, msg);
     return NextResponse.json(
-      { success: false, error: err.message || 'Dashboard API request failed', action: params.action },
-      { status: 500 }
+      {
+        success: false,
+        error: isTransient
+          ? 'Der Server ist voruebergehend nicht erreichbar. Bitte versuche es in wenigen Sekunden erneut.'
+          : msg,
+        action: params.action,
+        retryable: isTransient,
+      },
+      { status: isTransient ? 503 : 500 }
     );
   }
 }
