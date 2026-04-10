@@ -12,8 +12,8 @@ type PageNum = 1 | 2 | 3 | 4;
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
-  3: 'Liquiditätsstabilität',
-  4: 'Maßnahmen & Benchmarks',
+  3: 'LiquiditÃ¤tsstabilitÃ¤t',
+  4: 'MaÃnahmen & Benchmarks',
 };
 
 export default function DashboardPage() {
@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Initialize auth ──
+  // ââ Initialize auth ââ
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
@@ -75,7 +75,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ── Load periods when customer changes ──
+  // ââ Load periods when customer changes ââ
   useEffect(() => {
     if (!selectedCustomer) return;
     const loadPeriods = async () => {
@@ -104,22 +104,35 @@ export default function DashboardPage() {
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ── Load page data ──
+  // ââ Load page data ââ
   const loadPageData = useCallback(
-    async (page: PageNum, customer: string, period: string) => {
+    async (page: PageNum, customer: string, period: string, retryCount = 0) => {
       if (!customer || !period) return;
-      setLoadingPage(true);
-      setError(null);
+      if (retryCount === 0) {
+        setLoadingPage(true);
+        setError(null);
+      }
+      let shouldRetry = false;
       try {
         const response = await api.fetchPageData(page, customer, period);
         if (response && !response.error) {
           setPageData((prev) => ({ ...prev, [page]: response }));
+        } else if ((response as any).retryable && retryCount < 2) {
+          shouldRetry = true;
         } else {
           setError((response as any).error || `Seite ${page} konnte nicht geladen werden`);
         }
       } catch {
-        setError(`Seite ${page} konnte nicht geladen werden`);
-      } finally {
+        if (retryCount < 1) {
+          shouldRetry = true;
+        } else {
+          setError(`Seite ${page} konnte nicht geladen werden`);
+        }
+      }
+      if (shouldRetry) {
+        console.warn(`[Page ${page}] Transient error, auto-retry #${retryCount + 1} in 2s`);
+        setTimeout(() => loadPageData(page, customer, period, retryCount + 1), 2000);
+      } else {
         setLoadingPage(false);
       }
     },
@@ -185,7 +198,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      {/* ── Controls Row (Customer, Period, Industry, PDF) ── */}
+      {/* ââ Controls Row (Customer, Period, Industry, PDF) ââ */}
       <div
         className="card flex flex-col sm:flex-row gap-4 items-start sm:items-end print:hidden"
         style={{ padding: '1rem 1.25rem' }}
@@ -277,7 +290,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Error Alert ── */}
+      {/* ââ Error Alert ââ */}
       {error && (
         <div
           className="p-4 rounded-lg border text-sm flex items-start gap-3 print:hidden"
@@ -301,7 +314,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Page Tabs (Original Style: numbered, green underline active) ── */}
+      {/* ââ Page Tabs (Original Style: numbered, green underline active) ââ */}
       <div
         className="flex gap-0 print:hidden"
         style={{
@@ -339,7 +352,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* ── Page Content ── */}
+      {/* ââ Page Content ââ */}
       {loadingPage ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
@@ -359,9 +372,9 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p className="font-medium">Keine Daten verfügbar</p>
+          <p className="font-medium">Keine Daten verfÃ¼gbar</p>
           <p className="text-sm mt-2">
-            Für {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
+            FÃ¼r {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
           </p>
           <button
             onClick={() => loadPageData(currentPage, selectedCustomer, selectedPeriod)}
@@ -375,7 +388,7 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p>Bitte Mandant und Periode auswählen</p>
+          <p>Bitte Mandant und Periode auswÃ¤hlen</p>
         </div>
       )}
     </div>
