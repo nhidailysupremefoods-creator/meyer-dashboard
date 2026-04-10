@@ -16,9 +16,51 @@ export interface AppsScriptResponse {
 }
 
 /**
+ * Internal: single fetch attempt to Apps Script.
+ * Returns parsed JSON or throws with a descriptive error.
+ */
+async function fetchAppsScript(url: string, timeoutMs: number): Promise<AppsScriptResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Apps Script API error: HTTP ${res.status}`);
+    }
+
+    // Read body as text first to detect HTML error pages from Google
+    const text = await res.text();
+    if (text.startsWith('<!DOCTYPE') || text.startsWith('<html') || text.startsWith('<HTML')) {
+      throw new Error('Apps Script returned HTML instead of JSON (Google error page)');
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Apps Script returned invalid JSON: ${text.slice(0, 100)}`);
+    }
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Apps Script API request timeout');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * Call Apps Script API via GET with action parameter.
  * Used for apiDispatch actions (dashboard data, admin operations).
  * Apps Script doGet routes this to the appropriate handler.
+ * Includes retry logic: if first attempt returns HTML error page, retries once.
  */
 export async function callAppsScriptApi(params: Record<string, string>): Promise<AppsScriptResponse> {
   const url = new URL(APPS_SCRIPT_URL);
@@ -30,33 +72,26 @@ export async function callAppsScriptApi(params: Record<string, string>): Promise
     }
   });
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const urlStr = url.toString();
+  const MAX_RETRIES = 2;
 
-  try {
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      redirect: 'follow', // Apps Script redirects on GET
-      signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`Apps Script API error: HTTP ${res.status}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fetchAppsScript(urlStr, 30000);
+    } catch (err: any) {
+      const isRetryable = err.message?.includes('HTML instead of JSON') ||
+                          err.message?.includes('timeout') ||
+                          err.message?.includes('invalid JSON');
+      if (attempt < MAX_RETRIES && isRetryable) {
+        console.warn(`[Apps Script] Attempt ${attempt} failed (${err.message}), retrying...`);
+        await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
+        continue;
+      }
+      throw new Error(`Apps Script API error: ${err.message}`);
     }
-
-    const data = await res.json();
-    return data;
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw new Error('Apps Script API request timeout (30s)');
-    }
-    throw new Error(`Apps Script API error: ${err.message}`);
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw new Error('Apps Script API error: max retries exceeded');
 }
 
 /**
@@ -81,33 +116,26 @@ export async function callAppsScriptPublic(
     }
   });
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const urlStr = url.toString();
+  const MAX_RETRIES = 2;
 
-  try {
-    const res = await fetch(url.toString(), {
-      method: 'GET', // Apps Script doGet handles all public actions via GET
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`Apps Script public API error: HTTP ${res.status}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fetchAppsScript(urlStr, 30000);
+    } catch (err: any) {
+      const isRetryable = err.message?.includes('HTML instead of JSON') ||
+                          err.message?.includes('timeout') ||
+                          err.message?.includes('invalid JSON');
+      if (attempt < MAX_RETRIES && isRetryable) {
+        console.warn(`[Apps Script Public] Attempt ${attempt} failed (${err.message}), retrying...`);
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      throw new Error(`Apps Script public API error: ${err.message}`);
     }
-
-    const data = await res.json();
-    return data;
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw new Error('Apps Script public API request timeout (30s)');
-    }
-    throw new Error(`Apps Script public API error: ${err.message}`);
-  } finally {
-    clearTimeout(timeout);
   }
+
+  throw new Error('Apps Script public API error: max retries exceeded');
 }
 
 /**
