@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import { AuthData } from '@/types';
 import Page1Gesamtlage from '@/components/dashboard/Page1Gesamtlage';
@@ -12,8 +12,8 @@ type PageNum = 1 | 2 | 3 | 4;
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
-  3: 'LiquiditÃ¤tsstabilitÃ¤t',
-  4: 'MaÃnahmen & Benchmarks',
+  3: 'Liquiditätsstabilität',
+  4: 'Maßnahmen & Benchmarks',
 };
 
 export default function DashboardPage() {
@@ -24,12 +24,19 @@ export default function DashboardPage() {
   const [periods, setPeriods] = useState<Array<{ period: string; label: string }>>([]);
   const [industrySegment, setIndustrySegment] = useState<string>('');
 
-  const [pageData, setPageData] = useState<Record<PageNum, any>>({} as any);
+  // Cache all 4 pages keyed by "customer_period_page"
+  const [pageData, setPageData] = useState<Record<string, any>>({});
+  const [loadingPages, setLoadingPages] = useState<Set<PageNum>>(new Set());
   const [loadingPeriods, setLoadingPeriods] = useState(false);
-  const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ââ Initialize auth ââ
+  // Track current load to avoid stale updates
+  const loadIdRef = useRef(0);
+
+  // Helper: cache key for page data
+  const pageKey = (page: PageNum, cust: string, per: string) => `${cust}_${per}_${page}`;
+
+  // -- Initialize auth (no more 4-customer validation loop) --
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
@@ -37,45 +44,30 @@ export default function DashboardPage() {
       if (data.customers && data.customers.length > 0) {
         setSelectedCustomer(data.customers[0]);
       } else if (data.role === 'admin') {
+        // Admin without customer list: use hardcoded fallback immediately
+        const knownIds = [
+          'INDUSTRIE_GAMMA',
+          'MUSTERMANN_TECHNIK',
+          'SCHMIDT_ANLAGENBAU',
+          'WEBER_HAUSTECHNIK',
+        ];
+        setAuthData(prev => prev ? { ...prev, customers: knownIds } : prev);
+        setSelectedCustomer(knownIds[0]);
+        // Also try loading real list in background (non-blocking)
         fetch('/api/dashboard/customers')
           .then(res => res.json())
-          .then(async (resp) => {
+          .then(resp => {
             if (resp.customers && resp.customers.length > 0) {
               const customerIds = resp.customers.map((c: any) => c.customer_id || c);
               setAuthData(prev => prev ? { ...prev, customers: customerIds } : prev);
-              setSelectedCustomer(customerIds[0]);
-            } else {
-              const knownIds = [
-                'INDUSTRIE_GAMMA',
-                'MUSTERMANN_TECHNIK',
-                'SCHMIDT_ANLAGENBAU',
-                'WEBER_HAUSTECHNIK',
-              ];
-              const validIds: string[] = [];
-              await Promise.all(
-                knownIds.map(async (cid) => {
-                  try {
-                    const r = await fetch(`/api/dashboard/periods?customer=${cid}`);
-                    const d = await r.json();
-                    if (d.periods && d.periods.length > 0) {
-                      validIds.push(cid);
-                    }
-                  } catch { /* skip */ }
-                })
-              );
-              if (validIds.length > 0) {
-                validIds.sort();
-                setAuthData(prev => prev ? { ...prev, customers: validIds } : prev);
-                setSelectedCustomer(validIds[0]);
-              }
             }
           })
-          .catch(err => console.error('Error loading customers:', err));
+          .catch(() => { /* fallback already set */ });
       }
     }
   }, []);
 
-  // ââ Load periods when customer changes ââ
+  // -- Load periods when customer changes --
   useEffect(() => {
     if (!selectedCustomer) return;
     const loadPeriods = async () => {
@@ -104,51 +96,74 @@ export default function DashboardPage() {
     loadPeriods();
   }, [selectedCustomer]);
 
-  // ââ Load page data ââ
-  const loadPageData = useCallback(
-    async (page: PageNum, customer: string, period: string, retryCount = 0) => {
+  // -- Load a single page (with retry) --
+  const loadSinglePage = useCallback(
+    async (page: PageNum, customer: string, period: string, loadId: number, retryCount = 0) => {
       if (!customer || !period) return;
-      if (retryCount === 0) {
-        setLoadingPage(true);
-        setError(null);
-      }
-      let shouldRetry = false;
+
       try {
         const response = await api.fetchPageData(page, customer, period);
+        // Abort if a newer load started
+        if (loadIdRef.current !== loadId) return;
+
         if (response && !response.error) {
-          setPageData((prev) => ({ ...prev, [page]: response }));
+          const key = pageKey(page, customer, period);
+          setPageData(prev => ({ ...prev, [key]: response }));
         } else if ((response as any).retryable && retryCount < 2) {
-          shouldRetry = true;
-        } else {
-          setError((response as any).error || `Seite ${page} konnte nicht geladen werden`);
+          setTimeout(() => loadSinglePage(page, customer, period, loadId, retryCount + 1), 1500);
+          return; // don't clear loading state yet
         }
       } catch {
         if (retryCount < 1) {
-          shouldRetry = true;
-        } else {
-          setError(`Seite ${page} konnte nicht geladen werden`);
+          setTimeout(() => loadSinglePage(page, customer, period, loadId, retryCount + 1), 1500);
+          return;
         }
       }
-      if (shouldRetry) {
-        console.warn(`[Page ${page}] Transient error, auto-retry #${retryCount + 1} in 2s`);
-        setTimeout(() => loadPageData(page, customer, period, retryCount + 1), 2000);
-      } else {
-        setLoadingPage(false);
-      }
+
+      // Remove from loading set
+      setLoadingPages(prev => {
+        const next = new Set(prev);
+        next.delete(page);
+        return next;
+      });
     },
     []
   );
 
+  // -- Load ALL 4 pages in parallel when customer+period change --
   useEffect(() => {
-    if (selectedCustomer && selectedPeriod) {
-      setPageData({} as any);
-      loadPageData(currentPage, selectedCustomer, selectedPeriod);
+    if (!selectedCustomer || !selectedPeriod) return;
+
+    const loadId = ++loadIdRef.current;
+    const pagesToLoad: PageNum[] = [];
+
+    // Check which pages need loading (not already cached)
+    for (const p of [1, 2, 3, 4] as PageNum[]) {
+      const key = pageKey(p, selectedCustomer, selectedPeriod);
+      if (!pageData[key]) {
+        pagesToLoad.push(p);
+      }
+    }
+
+    if (pagesToLoad.length === 0) return;
+
+    // Mark all as loading
+    setLoadingPages(new Set(pagesToLoad));
+    setError(null);
+
+    // Fire all requests in parallel
+    for (const p of pagesToLoad) {
+      loadSinglePage(p, selectedCustomer, selectedPeriod, loadId);
     }
   }, [selectedCustomer, selectedPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // -- When switching tabs: load if not cached --
   useEffect(() => {
-    if (selectedCustomer && selectedPeriod) {
-      loadPageData(currentPage, selectedCustomer, selectedPeriod);
+    if (!selectedCustomer || !selectedPeriod) return;
+    const key = pageKey(currentPage, selectedCustomer, selectedPeriod);
+    if (!pageData[key] && !loadingPages.has(currentPage)) {
+      setLoadingPages(prev => new Set(prev).add(currentPage));
+      loadSinglePage(currentPage, selectedCustomer, selectedPeriod, loadIdRef.current);
     }
   }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -172,7 +187,9 @@ export default function DashboardPage() {
     );
   }
 
-  const currentPageData = pageData[currentPage];
+  const currentKey = pageKey(currentPage, selectedCustomer, selectedPeriod);
+  const currentPageData = pageData[currentKey];
+  const isCurrentLoading = loadingPages.has(currentPage);
 
   const renderPage = () => {
     if (!currentPageData) return null;
@@ -196,9 +213,17 @@ export default function DashboardPage() {
     }
   };
 
+  // Show which pages are loaded (green dots)
+  const getPageLoadStatus = (num: PageNum): 'loaded' | 'loading' | 'empty' => {
+    const key = pageKey(num, selectedCustomer, selectedPeriod);
+    if (pageData[key]) return 'loaded';
+    if (loadingPages.has(num)) return 'loading';
+    return 'empty';
+  };
+
   return (
     <div className="space-y-5">
-      {/* ââ Controls Row (Customer, Period, Industry, PDF) ââ */}
+      {/* -- Controls Row (Customer, Period, Industry, PDF) -- */}
       <div
         className="card flex flex-col sm:flex-row gap-4 items-start sm:items-end print:hidden"
         style={{ padding: '1rem 1.25rem' }}
@@ -290,7 +315,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ââ Error Alert ââ */}
+      {/* -- Error Alert -- */}
       {error && (
         <div
           className="p-4 rounded-lg border text-sm flex items-start gap-3 print:hidden"
@@ -300,7 +325,7 @@ export default function DashboardPage() {
             borderColor: 'rgba(196, 56, 48, 0.2)',
           }}
         >
-          <span className="text-lg">&#9888;&#6503;</span>
+          <span className="text-lg">&#9888;&#65039;</span>
           <div>
             <strong>Fehler:</strong> {error}
           </div>
@@ -314,7 +339,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ââ Page Tabs (Original Style: numbered, green underline active) ââ */}
+      {/* -- Page Tabs (with load status indicators) -- */}
       <div
         className="flex gap-0 print:hidden"
         style={{
@@ -323,6 +348,7 @@ export default function DashboardPage() {
       >
         {([1, 2, 3, 4] as PageNum[]).map((num) => {
           const isActive = currentPage === num;
+          const status = getPageLoadStatus(num);
           return (
             <button
               key={num}
@@ -347,13 +373,26 @@ export default function DashboardPage() {
                 {num}
               </span>
               {PAGE_TITLES[num]}
+              {/* Small dot showing load status */}
+              {!isActive && status === 'loaded' && (
+                <span
+                  className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: 'var(--success)' }}
+                />
+              )}
+              {!isActive && status === 'loading' && (
+                <span
+                  className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ backgroundColor: 'var(--copper)' }}
+                />
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* ââ Page Content ââ */}
-      {loadingPage ? (
+      {/* -- Page Content -- */}
+      {isCurrentLoading && !currentPageData ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
             <div
@@ -367,17 +406,20 @@ export default function DashboardPage() {
         </div>
       ) : currentPageData ? (
         <div>{renderPage()}</div>
-      ) : !loadingPage && selectedCustomer && selectedPeriod ? (
+      ) : !isCurrentLoading && selectedCustomer && selectedPeriod ? (
         <div
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p className="font-medium">Keine Daten verfÃ¼gbar</p>
+          <p className="font-medium">Keine Daten verfügbar</p>
           <p className="text-sm mt-2">
-            FÃ¼r {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
+            Für {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
           </p>
           <button
-            onClick={() => loadPageData(currentPage, selectedCustomer, selectedPeriod)}
+            onClick={() => {
+              setLoadingPages(prev => new Set(prev).add(currentPage));
+              loadSinglePage(currentPage, selectedCustomer, selectedPeriod, loadIdRef.current);
+            }}
             className="btn-primary mt-4 px-4 py-2 rounded-lg text-sm"
           >
             Erneut versuchen
@@ -388,7 +430,7 @@ export default function DashboardPage() {
           className="text-center py-16"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <p>Bitte Mandant und Periode auswÃ¤hlen</p>
+          <p>Bitte Mandant und Periode auswählen</p>
         </div>
       )}
     </div>
