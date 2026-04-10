@@ -4,7 +4,7 @@ interface Props {
   data: any;
 }
 
-// ââ Formatters âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Formatters ─────────────────────────────────────────────────────────
 const fmtEur = (n: any) =>
   n != null
     ? new Intl.NumberFormat('de-DE', {
@@ -12,13 +12,13 @@ const fmtEur = (n: any) =>
         currency: 'EUR',
         maximumFractionDigits: 0,
       }).format(Number(n))
-    : 'â';
+    : '–';
 
 const fmtPct = (n: any) =>
-  n != null ? `${(Number(n) * 100).toFixed(1)} %` : 'â';
+  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
 const fmtPctSigned = (n: any) => {
-  if (n == null) return 'â';
+  if (n == null) return '–';
   const val = Number(n) * 100;
   const sign = val > 0 ? '+' : '';
   return `${sign}${val.toFixed(1)} %`;
@@ -26,13 +26,13 @@ const fmtPctSigned = (n: any) => {
 
 const statusInfo = (s: string) => {
   const u = (s || '').toUpperCase();
-  if (u === 'GRÃN' || u === 'GREEN' || u === 'GUT')
+  if (u === 'GRÜN' || u === 'GREEN' || u === 'GUT')
     return { label: 'GUT', color: '#2E8B57', bg: 'rgba(46,139,87,0.08)' };
   if (u === 'GELB' || u === 'YELLOW' || u === 'WARNUNG')
     return { label: 'WARNUNG', color: '#E8A838', bg: 'rgba(232,168,56,0.08)' };
   if (u === 'ROT' || u === 'RED' || u === 'KRITISCH')
     return { label: 'KRITISCH', color: '#C43830', bg: 'rgba(196,56,48,0.08)' };
-  return { label: s || 'â', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
+  return { label: s || '–', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
 };
 
 const momColor = (n: any) => {
@@ -41,7 +41,7 @@ const momColor = (n: any) => {
   return val > 0 ? '#2E8B57' : val < 0 ? '#C43830' : 'var(--text-secondary)';
 };
 
-// ââ Main Component âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Main Component ─────────────────────────────────────────────────────
 export default function Page1Gesamtlage({ data }: Props) {
   const d = (data as any)?.data || {};
   const trend: any[] = (data as any)?.trend || [];
@@ -75,7 +75,7 @@ export default function Page1Gesamtlage({ data }: Props) {
   // Cost ratio display
   const costRatioDisplay = costRatio || (revenue > 0 ? totalCost / revenue : 0);
 
-  // Advisory / EinschÃ¤tzung text
+  // Advisory / Einschätzung text
   const advisory = d.advisory_text || d.monatliche_einschaetzung || '';
 
   // YTD
@@ -85,7 +85,7 @@ export default function Page1Gesamtlage({ data }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* ââ Section Title ââ */}
+      {/* ── Section Title ── */}
       <div>
         <h2
           className="text-lg font-bold"
@@ -99,9 +99,9 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* ââ Hero Row: EBIT Card (left) + 2Ã2 KPI Grid (right) ââ */}
+      {/* ── Hero Row: EBIT Card (left) + 2×2 KPI Grid (right) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* EBIT Hero Card â dark navy background */}
+        {/* EBIT Hero Card — dark navy background */}
         <div
           className="lg:col-span-2 rounded-xl p-5"
           style={{
@@ -172,7 +172,7 @@ export default function Page1Gesamtlage({ data }: Props) {
           )}
         </div>
 
-        {/* 2Ã2 KPI Grid */}
+        {/* 2×2 KPI Grid */}
         <div className="lg:col-span-3 grid grid-cols-2 gap-3">
           {/* Monatsumsatz */}
           <div className="card">
@@ -189,17 +189,17 @@ export default function Page1Gesamtlage({ data }: Props) {
             )}
           </div>
 
-          {/* ProduktivitÃ¤t */}
+          {/* Produktivität */}
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-              ProduktivitÃ¤t
+              Produktivität
             </div>
             <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
               {productivity > 0
                 ? productivity <= 1
                   ? fmtPct(productivity)
-                  : `${Math.round(productivity)} â¬/Std`
-                : 'â'}
+                  : `${Math.round(productivity)} €/Std`
+                : '–'}
             </div>
             {productivity > 0 && (
               <div className="w-full h-1.5 rounded-full mt-2" style={{ backgroundColor: 'var(--border-color)' }}>
@@ -254,7 +254,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       </div>
 
-      {/* ââ EBIT Target Bar ââ */}
+      {/* ── EBIT Target Bar ── */}
       {(ebitGap !== 0 || ebitTarget > 0) && (
         <div
           className="card flex items-center gap-4"
@@ -288,7 +288,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ââ Monatliche EinschÃ¤tzung (Advisory Banner) ââ */}
+      {/* ── Monatliche Einschätzung (Advisory Banner) ── */}
       {advisory && (
         <div
           className="rounded-lg p-4"
@@ -298,7 +298,7 @@ export default function Page1Gesamtlage({ data }: Props) {
           }}
         >
           <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--warning)' }}>
-            Monatliche EinschÃ¤tzung
+            Monatliche Einschätzung
           </div>
           <div className="text-sm" style={{ color: 'var(--text-primary)', lineHeight: '1.7' }}>
             {advisory}
@@ -306,7 +306,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ââ Kostenstruktur ââ */}
+      {/* ── Kostenstruktur ── */}
       {totalCost > 0 && (
         <div className="card">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
@@ -326,7 +326,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ââ YTD Summary ââ */}
+      {/* ── YTD Summary ── */}
       {(ytdRevenue > 0 || ytdEbit !== 0) && (
         <div className="grid grid-cols-3 gap-3">
           <div className="card text-center">
@@ -347,16 +347,16 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
           <div className="card text-center">
             <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-              Ã Marge
+              Ø Marge
             </div>
             <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-              {ytdMargin > 0 ? fmtPct(ytdMargin) : 'â'}
+              {ytdMargin > 0 ? fmtPct(ytdMargin) : '–'}
             </div>
           </div>
         </div>
       )}
 
-      {/* ââ 12-Monats-Trend ââ */}
+      {/* ── 12-Monats-Trend ── */}
       {trend.length > 0 && (
         <div className="card">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
@@ -419,7 +419,7 @@ export default function Page1Gesamtlage({ data }: Props) {
   );
 }
 
-// ââ Sub-components âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Sub-components ─────────────────────────────────────────────────────
 function CostBar({
   label,
   value,
