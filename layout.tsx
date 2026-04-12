@@ -91,8 +91,8 @@ export default function DashboardLayout({
                   href="/admin"
                   className="px-3 py-1.5 rounded text-xs font-semibold"
                   style={{
-                    backgroundColor: 'rgba(232, 168, 56, 0.2)',
-                    color: 'var(--warning)',
+                    backgroundColor: 'rgba(176, 138, 106, 0.2)',
+                    color: 'var(--copper-light)',
                   }}
                 >
                   Admin
