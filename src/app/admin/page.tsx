@@ -95,7 +95,7 @@ export default function AdminPage() {
       <nav style={{
         position: 'sticky', top: 0, zIndex: 50,
         background: 'var(--navy)',
-        borderBottom: '1px solid rgba(184,115,51,0.2)',
+        borderBottom: '1px solid rgba(176, 138, 106,0.2)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem' }}>
@@ -117,8 +117,8 @@ export default function AdminPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <a href="/dashboard" style={{
                 padding: '0.35rem 0.85rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600,
-                background: 'rgba(184,115,51,0.15)', color: 'var(--copper-light)',
-                border: '1px solid rgba(184,115,51,0.2)', textDecoration: 'none',
+                background: 'rgba(176, 138, 106,0.15)', color: 'var(--copper-light)',
+                border: '1px solid rgba(176, 138, 106,0.2)', textDecoration: 'none',
               }}>Dashboard</a>
               <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>{email}</span>
               <button onClick={handleLogout} style={{
