@@ -32,6 +32,7 @@ export default function DashboardPage() {
 
   // Track current load to avoid stale updates
   const loadIdRef = useRef(0);
+  const bgTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Helper: cache key for page data
   const pageKey = (page: PageNum, cust: string, per: string) => `${cust}_${per}_${page}`;
@@ -130,31 +131,38 @@ export default function DashboardPage() {
     []
   );
 
-  // -- Load ALL 4 pages in parallel when customer+period change --
+  // -- Load ACTIVE page immediately, stagger background loads --
   useEffect(() => {
     if (!selectedCustomer || !selectedPeriod) return;
-
+    bgTimersRef.current.forEach(t => clearTimeout(t));
+    bgTimersRef.current = [];
     const loadId = ++loadIdRef.current;
-    const pagesToLoad: PageNum[] = [];
 
-    // Check which pages need loading (not already cached)
-    for (const p of [1, 2, 3, 4] as PageNum[]) {
-      const key = pageKey(p, selectedCustomer, selectedPeriod);
-      if (!pageData[key]) {
-        pagesToLoad.push(p);
-      }
+    const activeKey = pageKey(currentPage, selectedCustomer, selectedPeriod);
+    const needsActive = !pageData[activeKey];
+    if (needsActive) {
+      setLoadingPages(new Set([currentPage]));
+      setError(null);
+      loadSinglePage(currentPage, selectedCustomer, selectedPeriod, loadId);
     }
 
-    if (pagesToLoad.length === 0) return;
+    const otherPages = ([1, 2, 3, 4] as PageNum[]).filter(
+      p => p !== currentPage && !pageData[pageKey(p, selectedCustomer, selectedPeriod)]
+    );
+    otherPages.forEach((p, i) => {
+      const delay = (needsActive ? 2500 : 500) + i * 2500;
+      const timer = setTimeout(() => {
+        if (loadIdRef.current !== loadId) return;
+        setLoadingPages(prev => new Set(prev).add(p));
+        loadSinglePage(p, selectedCustomer, selectedPeriod, loadId);
+      }, delay);
+      bgTimersRef.current.push(timer);
+    });
 
-    // Mark all as loading
-    setLoadingPages(new Set(pagesToLoad));
-    setError(null);
-
-    // Fire all requests in parallel
-    for (const p of pagesToLoad) {
-      loadSinglePage(p, selectedCustomer, selectedPeriod, loadId);
-    }
+    return () => {
+      bgTimersRef.current.forEach(t => clearTimeout(t));
+      bgTimersRef.current = [];
+    };
   }, [selectedCustomer, selectedPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- When switching tabs: load if not cached --
