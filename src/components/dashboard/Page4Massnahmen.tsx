@@ -40,7 +40,7 @@ function BenchmarkGauge({
   const pctMid = (targetMid / range) * 100;
   const pctMax = (targetMax / range) * 100;
   const inTarget = current >= targetMin && current <= targetMax;
-  const barColor = current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : '#E8A838';
+  const barColor = current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : 'var(--copper)';
 
   return (
     <div className="card">
@@ -144,7 +144,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
           className="card"
           style={{
             borderLeft: '4px solid var(--copper)',
-            backgroundColor: 'rgba(184, 115, 51, 0.04)',
+            backgroundColor: 'rgba(176, 138, 106, 0.04)',
           }}
         >
           <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--copper)' }}>
@@ -247,8 +247,8 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
                   key={key}
                   className="flex items-center gap-3 p-3 rounded-lg"
                   style={{
-                    backgroundColor: isFokus ? 'rgba(184, 115, 51, 0.04)' : 'rgba(0,0,0,0.02)',
-                    border: `1px solid ${isFokus ? 'rgba(184, 115, 51, 0.15)' : 'var(--border-color)'}`,
+                    backgroundColor: isFokus ? 'rgba(176, 138, 106, 0.04)' : 'rgba(0,0,0,0.02)',
+                    border: `1px solid ${isFokus ? 'rgba(176, 138, 106, 0.15)' : 'var(--border-color)'}`,
                     opacity: isSaving ? 0.6 : 1,
                   }}
                 >
@@ -275,7 +275,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
                       {isFokus && (
                         <span
                           className="px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: 'rgba(184, 115, 51, 0.12)', color: 'var(--copper)' }}
+                          style={{ backgroundColor: 'rgba(176, 138, 106, 0.12)', color: 'var(--copper)' }}
                         >
                           FOKUS
                         </span>
