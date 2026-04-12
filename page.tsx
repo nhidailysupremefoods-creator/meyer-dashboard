@@ -135,7 +135,7 @@ export default function LoginPage() {
         {/* Card */}
         <div style={{
           background: 'var(--navy-card)',
-          border: '1px solid rgba(184, 115, 51, 0.2)',
+          border: '1px solid rgba(176, 138, 106, 0.2)',
           borderRadius: '0.875rem',
           padding: '2rem',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
@@ -163,14 +163,14 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
                 <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
                   placeholder="ihre@email.com" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(184,115,51,0.25)' }}
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Zugangscode</label>
                 <input type="password" value={loginCode} onChange={(e) => setLoginCode(e.target.value)}
                   placeholder="Zugangscode eingeben" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(184,115,51,0.25)' }}
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
                 />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
@@ -180,7 +180,7 @@ export default function LoginPage() {
                 <button type="button" onClick={() => { setView('reset'); setError(null); setSuccess(null); }} style={{ ...linkStyle, display: 'block', width: '100%' }}>
                   Passwort vergessen?
                 </button>
-                <div style={{ paddingTop: '0.75rem', marginTop: '0.75rem', borderTop: '1px solid rgba(184,115,51,0.15)' }}>
+                <div style={{ paddingTop: '0.75rem', marginTop: '0.75rem', borderTop: '1px solid rgba(176, 138, 106,0.15)' }}>
                   <p style={{ marginBottom: '0.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Noch nicht registriert?</p>
                   <button type="button" onClick={() => { setView('register'); setError(null); setSuccess(null); }} style={linkStyle}>
                     Neu registrieren
@@ -203,7 +203,7 @@ export default function LoginPage() {
                   <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>{f.label}</label>
                   <input type={f.type} value={f.val} onChange={(e) => f.set(e.target.value)}
                     placeholder={f.ph} required={f.req} disabled={isLoading}
-                    style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(184,115,51,0.25)' }}
+                    style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
                   />
                 </div>
               ))}
@@ -228,7 +228,7 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
                 <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
                   placeholder="ihre@email.com" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(184,115,51,0.25)' }}
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
                 />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
@@ -252,14 +252,14 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Reset-Code</label>
                 <input type="text" value={resetCode} onChange={(e) => setResetCode(e.target.value)}
                   placeholder="6-stelliger Code" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(184,115,51,0.25)' }}
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Neues Passwort</label>
                 <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)}
                   placeholder="Neues Passwort" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(184,115,51,0.25)' }}
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
                 />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
