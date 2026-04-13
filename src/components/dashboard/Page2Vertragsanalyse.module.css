@@ -1,0 +1,90 @@
+.page2Container {
+  background-color: var(--background, #F7F5F2);
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.heroSection {
+  background: linear-gradient(135deg, #192231 0%, #1e2a3a 50%, #243447 100%);
+  padding: 2.5rem 2rem;
+  border-radius: 0 0 12px 12px;
+  margin-bottom: 2rem;
+}
+.heroContent { display: flex; align-items: center; justify-content: space-between; max-width: 1200px; margin: 0 auto; }
+.heroLeft { display: flex; flex-direction: column; gap: 0.5rem; }
+.heroTitle { color: #fff; font-size: 2rem; font-weight: 700; letter-spacing: 2px; margin: 0; text-transform: uppercase; }
+.heroSubtitle { color: rgba(255,255,255,0.65); font-size: 1.1rem; font-weight: 400; margin: 0; }
+.heroBadge { background: #E53935; color: #fff; font-size: 0.8rem; font-weight: 700; letter-spacing: 1.5px; padding: 0.5rem 1.25rem; border-radius: 6px; text-transform: uppercase; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+.kpiSection { padding: 0 2rem 2rem; max-width: 1200px; margin-left: auto; margin-right: auto; }
+.kpiGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.kpiCard { background: #fff; border: 1px solid #e8e4e0; border-radius: 10px; padding: 1.5rem; text-align: center; box-shadow: 0 2px 8px rgba(25,34,49,0.06); transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.kpiCard:hover { box-shadow: 0 4px 16px rgba(25,34,49,0.12); transform: translateY(-1px); }
+.kpiCardRed { border-left: 4px solid #E53935; }
+.kpiLabel { font-size: 0.8rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.75rem; }
+.kpiValue { font-size: 1.85rem; font-weight: 700; color: var(--primary, #192231); line-height: 1.2; }
+.kpiSub { font-size: 0.8rem; color: #999; margin-top: 0.5rem; }
+.healthSection { padding: 0 2rem 1.5rem; max-width: 1200px; margin-left: auto; margin-right: auto; }
+.healthHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+.healthTitle { font-size: 1rem; font-weight: 600; color: var(--primary, #192231); margin: 0; }
+.healthLegend { display: flex; gap: 1.25rem; font-size: 0.8rem; color: #666; }
+.legendItem { display: flex; align-items: center; gap: 0.35rem; }
+.legendDot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.healthBar { display: flex; height: 28px; border-radius: 14px; overflow: hidden; background: #e0e0e0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+.healthSegment { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75rem; font-weight: 700; transition: width 0.4s ease; min-width: 0; }
+.warningSection { padding: 0 2rem 1.5rem; max-width: 1200px; margin-left: auto; margin-right: auto; }
+.warningBox { background: #FFF3E0; border: 1px solid #FFB74D; border-left: 4px solid #E53935; border-radius: 8px; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; font-size: 0.95rem; color: #333; }
+.warningIcon { font-size: 1.4rem; color: #E53935; flex-shrink: 0; }
+.filterSection { padding: 0 2rem 1.5rem; max-width: 1200px; margin-left: auto; margin-right: auto; }
+.tabBar { display: flex; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 6px rgba(25,34,49,0.06); border: 1px solid #e8e4e0; }
+.tab { flex: 1; padding: 1rem 1.5rem; background: transparent; border: none; border-bottom: 3px solid transparent; color: #888; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; text-align: center; position: relative; }
+.tab:not(:last-child)::after { content: ''; position: absolute; right: 0; top: 25%; height: 50%; width: 1px; background: #e8e4e0; }
+.tab:hover { background: #fafaf8; color: var(--primary, #192231); }
+.tabRot.active { color: #E53935; border-bottom-color: #E53935; background: #FFEBEE; }
+.tabGelb.active { color: #E65100; border-bottom-color: #F9A825; background: #FFF8E1; }
+.tabGruen.active { color: #2E7D32; border-bottom-color: #43A047; background: #E8F5E9; }
+.tableSection { padding: 0 2rem 2rem; max-width: 1200px; margin-left: auto; margin-right: auto; }
+.tableWrapper { background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(25,34,49,0.06); border: 1px solid #e8e4e0; overflow-x: auto; }
+.contractsTable { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.contractsTable thead { background: var(--primary, #192231); color: #fff; position: sticky; top: 0; z-index: 10; }
+.headerRow { font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; font-size: 0.78rem; border-bottom: 2px solid var(--accent, #B08A6A); }
+.headerRow th { padding: 0.9rem 1rem; text-align: left; white-space: nowrap; }
+.cellPrio { width: 60px; min-width: 50px; text-align: center; padding: 0.9rem 0.5rem; }
+.cellVertrag { min-width: 200px; width: 25%; padding: 0.9rem 1rem; }
+.cellNumeric { min-width: 110px; text-align: right; padding: 0.9rem 1rem; }
+.cellMarge { min-width: 160px; width: 18%; padding: 0.9rem 1rem; }
+.cellDiagnose { min-width: 200px; width: 25%; padding: 0.9rem 1rem; }
+.dataRow { border-bottom: 1px solid #f0eeeb; transition: background-color 0.15s ease; }
+.dataRow:nth-child(even) { background: #fafaf8; }
+.dataRow:hover { background: #f5f3f0; }
+.dataRow td { padding: 0.9rem 1rem; vertical-align: middle; }
+.rowLoss { background: #FFF5F5 !important; }
+.rowLoss:hover { background: #FFEBEE !important; }
+.prioBadge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #E53935; color: #fff; font-weight: 800; font-size: 1rem; }
+.prioNormal { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #e8e4e0; color: #666; font-weight: 600; font-size: 0.85rem; }
+.contractName { font-weight: 600; color: var(--primary, #192231); margin-bottom: 0.2rem; line-height: 1.3; }
+.contractMeta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.contractId { font-size: 0.75rem; color: #999; font-family: 'SF Mono', 'Fira Code', monospace; }
+.contractType { font-size: 0.7rem; color: #7B6F63; background: #f0eeeb; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 500; }
+.textRed { color: #E53935; }
+.margeBarContainer { width: 100%; height: 10px; background: #e8e4e0; border-radius: 5px; overflow: hidden; margin-bottom: 0.4rem; }
+.margeBarFill { height: 100%; border-radius: 5px; transition: width 0.3s ease; }
+.margeValue { font-size: 0.9rem; font-weight: 700; }
+.diagnoseBadge { display: inline-block; font-size: 0.78rem; font-weight: 500; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid; line-height: 1.3; }
+.emptyState { padding: 3rem 2rem; text-align: center; background: #fff; border-radius: 10px; color: #999; font-size: 1rem; border: 1px solid #e8e4e0; }
+.emptyState p { margin: 0; }
+@media (max-width: 768px) {
+  .heroSection { padding: 1.5rem 1.25rem; }
+  .heroTitle { font-size: 1.4rem; }
+  .kpiGrid { grid-template-columns: 1fr; gap: 0.75rem; }
+  .kpiSection, .healthSection, .warningSection, .filterSection, .tableSection { padding-left: 1rem; padding-right: 1rem; }
+  .tab { padding: 0.75rem; font-size: 0.85rem; }
+  .cellVertrag { min-width: 140px; }
+  .cellNumeric { min-width: 90px; }
+  .cellDiagnose { min-width: 160px; }
+}
+@media (max-width: 480px) {
+  .heroContent { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .heroTitle { font-size: 1.2rem; }
+  .tabBar { flex-direction: column; }
+  .tab:not(:last-child)::after { display: none; }
+}
