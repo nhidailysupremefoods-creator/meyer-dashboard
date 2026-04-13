@@ -78,7 +78,6 @@ function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?:
         strokeLinejoin="round"
         strokeLinecap="round"
       />
-      {/* Last dot */}
       {(() => {
         const lastPt = pts[pts.length - 1].split(',');
         return <circle cx={lastPt[0]} cy={lastPt[1]} r="2.5" fill={isPositive ? '#D49564' : '#E88080'} />;
@@ -97,8 +96,8 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ebit = Number(d.ebit ?? d.profit ?? 0);
   const marginPct = Number(d.margin_pct ?? 0);
   const costRatio = Number(d.cost_ratio ?? d.cost_pct ?? 0);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ebitda = Number(d.ebitda ?? 0);
+  void ebitda;
 
   const payrollCost = Math.abs(Number(d.payroll_cost ?? 0));
   const costFixed = Math.abs(Number(d.cost_fixed ?? 0));
@@ -116,18 +115,14 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ebitGapRaw = Number(d.ebit_gap ?? 0);
   const ebitGap = ebitGapRaw !== 0 ? ebitGapRaw : ebit - targetEbitAbs;
 
-  // MoM changes
   const revenueMom = Number(d.revenue_mom_pct ?? 0);
   const profitMom = Number(d.profit_mom_pct ?? 0);
   const costMom = Number(d.cost_mom_pct ?? 0);
   const payrollMom = Number(d.payroll_mom_pct ?? 0);
 
-  // Payroll as % of revenue
   const payrollPct = revenue > 0 ? payrollCost / revenue : 0;
-  // Cost ratio display
   const costRatioDisplay = costRatio || (revenue > 0 ? totalCost / revenue : 0);
 
-  // Productivity display
   const prodDisplay = productivity > 0
     ? productivity <= 1
       ? fmtPct(productivity)
@@ -139,17 +134,14 @@ export default function Page1Gesamtlage({ data }: Props) {
       : (productivity - 80) / 80
     : 0;
 
-  // Payroll pct MoM — computed from trend if payrollMom not in backend data
   const prevM = trend.length >= 2 ? trend[trend.length - 2] : null;
   const prevPayrollCost = prevM ? Math.abs(Number(prevM.payroll_cost ?? 0)) : 0;
   const prevRevForPayroll = prevM ? Math.abs(Number(prevM.revenue ?? 0)) : 0;
   const prevPayrollPct = prevRevForPayroll > 0 && prevPayrollCost > 0 ? prevPayrollCost / prevRevForPayroll : 0;
   const payrollPctDelta = payrollPct > 0 && prevPayrollPct > 0 ? payrollPct - prevPayrollPct : 0;
 
-  // Advisory / Einschätzung text
   const advisory = d.advisory_text || d.monatliche_einschaetzung || '';
 
-  // YTD — berechne aus Trend-Daten wenn Backend es nicht liefert
   const ytdFromTrend = trend.slice(-12).reduce(
     (acc: { rev: number; ebit: number }, r: any) => ({
       rev: acc.rev + Math.abs(Number(r.revenue ?? 0)),
@@ -161,15 +153,12 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ytdEbit = Number(d.ytd_ebit ?? d.ytd_profit ?? 0) || ytdFromTrend.ebit;
   const ytdMargin = Number(d.ytd_margin_pct ?? 0) || (ytdRevenue > 0 ? ytdEbit / ytdRevenue : 0);
 
-  // Chart data
   const chartData = trend.slice(-12);
   const maxRev = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.revenue ?? 0))), 1);
   const maxEbit = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.profit ?? r.ebit ?? 0))), 1);
 
-  // Sparkline data (EBIT values for last 12 months)
   const sparklineData = chartData.map((r: any) => Number(r.profit ?? r.ebit ?? 0));
 
-  // Pill color based on margin
   const pillColor = marginPct < 0.05
     ? { bg: 'rgba(196,56,48,0.30)', text: '#E88080', border: 'rgba(196,56,48,0.45)' }
     : marginPct < 0.10
@@ -189,16 +178,13 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* ── Hero + 4 KPI Tiles — Side by Side ── */}
+      {/* ── Hero + 4 KPI Tiles ── */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch">
-
-        {/* ── EBIT Hero Card ── */}
         <div
           className="rounded-xl"
           style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', overflow: 'hidden', flexShrink: 0 }}
         >
           <div className="flex flex-col sm:flex-row">
-            {/* ── Left: EBIT details ── */}
             <div className="flex-1 p-5 pb-4">
               <div
                 className="text-xs font-bold uppercase tracking-widest mb-3"
@@ -206,23 +192,17 @@ export default function Page1Gesamtlage({ data }: Props) {
               >
                 EBIT – MONATSERGEBNIS
               </div>
-
-              {/* Big EBIT number in copper/gold */}
               <div
                 className="text-4xl font-extrabold mb-1 leading-none"
                 style={{ color: ebit < 0 ? '#E88080' : '#D49564' }}
               >
                 {fmtEur(ebit)}
               </div>
-
-              {/* Sparkline */}
               {sparklineData.length >= 2 && (
                 <div className="my-2">
                   <Sparkline data={sparklineData} width={180} height={30} />
                 </div>
               )}
-
-              {/* MoM comparison */}
               {profitMom !== 0 && (
                 <div
                   className="text-sm font-semibold mb-3"
@@ -231,8 +211,6 @@ export default function Page1Gesamtlage({ data }: Props) {
                   {momArrow(profitMom)} {fmtPctSigned(profitMom)} ggü. Vormonat
                 </div>
               )}
-
-              {/* Marge + Abstand pill */}
               <div
                 className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
                 style={{
@@ -250,20 +228,15 @@ export default function Page1Gesamtlage({ data }: Props) {
                 )}
               </div>
             </div>
-
-            {/* ── Vertical Divider ── */}
             <div
               className="hidden sm:block"
               style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.10)', margin: '20px 0' }}
             />
             <div className="block sm:hidden mx-5" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)' }} />
-
-            {/* ── Right: STATUS + HEBELPOTENZIAL ── */}
             <div
               className="p-5 flex flex-row sm:flex-col justify-around sm:justify-center gap-4"
               style={{ minWidth: 180 }}
             >
-              {/* Status */}
               <div>
                 <div
                   className="text-xs font-bold uppercase tracking-widest mb-1"
@@ -278,8 +251,6 @@ export default function Page1Gesamtlage({ data }: Props) {
                   {st.label}
                 </div>
               </div>
-
-              {/* Hebelpotenzial */}
               {ebitPotential > 0 && (
                 <div>
                   <div
@@ -310,8 +281,6 @@ export default function Page1Gesamtlage({ data }: Props) {
 
         {/* ── 4 KPI Tiles 2×2 ── */}
         <div className="grid grid-cols-2 gap-3 flex-1">
-
-          {/* Monatsumsatz */}
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
               Monatsumsatz
@@ -325,8 +294,6 @@ export default function Page1Gesamtlage({ data }: Props) {
               </div>
             )}
           </div>
-
-          {/* Produktivität */}
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
             <div className="text-3xl font-bold leading-none mb-2" style={{ color: prodVsZiel >= 0 ? '#2E8B57' : 'var(--text-primary)' }}>{prodDisplay}</div>
@@ -336,8 +303,6 @@ export default function Page1Gesamtlage({ data }: Props) {
               </div>
             )}
           </div>
-
-          {/* Kostenquote */}
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Kostenquote</div>
             <div className="text-3xl font-bold leading-none mb-2" style={{
@@ -351,8 +316,6 @@ export default function Page1Gesamtlage({ data }: Props) {
               </div>
             )}
           </div>
-
-          {/* Personalkosten */}
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Personalkosten</div>
             <div className="text-3xl font-bold leading-none mb-2" style={{ color: 'var(--text-primary)' }}>{payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}</div>
@@ -366,7 +329,6 @@ export default function Page1Gesamtlage({ data }: Props) {
               </div>
             ) : null}
           </div>
-
         </div>
       </div>
 
@@ -434,7 +396,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ── 12-Monats-Trend Chart (SVG Bar + Line) ── */}
+      {/* ── 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT) ── */}
       {chartData.length > 0 && (
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
@@ -443,54 +405,92 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mb-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 14, height: 10, backgroundColor: 'rgba(212,149,106,0.4)', borderRadius: 2 }} /> Umsatz</span>
-            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 14, height: 2, backgroundColor: 'var(--navy)' }} /> EBIT</span>
+            <span className="flex items-center gap-1">
+              <span style={{ display: 'inline-block', width: 14, height: 10, background: 'linear-gradient(180deg,rgba(212,149,106,0.72) 0%,rgba(212,149,106,0.08) 100%)', borderRadius: 2 }} />
+              Umsatz
+            </span>
+            <span className="flex items-center gap-1">
+              <span style={{ display: 'inline-block', width: 20, height: 2, backgroundColor: '#43A047', borderRadius: 1 }} />
+              EBIT
+            </span>
           </div>
           <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
-            {/* Y-axis labels */}
+            <defs>
+              <linearGradient id="p1barGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(212,149,106,1)" stopOpacity="0.72" />
+                <stop offset="100%" stopColor="rgba(212,149,106,0)" stopOpacity="0.08" />
+              </linearGradient>
+              <linearGradient id="p1ebitGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#43A047" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#43A047" stopOpacity="0.01" />
+              </linearGradient>
+            </defs>
+            {/* Dashed grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
               const y = 190 - f * 170;
               const val = maxRev * f;
               return (
                 <g key={`yL${i}`}>
-                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidth="0.5" />
+                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidth="0.5" strokeDasharray="4 3" />
                   <text x="46" y={y + 3} textAnchor="end" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>
                 </g>
               );
             })}
-            {/* EBIT Y-axis (right) */}
+            {/* Right Y-axis (EBIT) */}
             {[0, 0.5, 1].map((f, i) => {
               const y = 190 - f * 170;
               const val = maxEbit * f;
               return <text key={`yR${i}`} x="694" y={y + 3} textAnchor="start" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>;
             })}
-            {/* Bars + Line */}
-            {chartData.map((row, i) => {
-              const rev = Number(row.revenue ?? 0);
-              const ebitVal = Number(row.profit ?? row.ebit ?? 0);
+            {/* Revenue bars with gradient fill */}
+            {chartData.map((row: any, i: number) => {
+              const rev = Math.abs(Number(row.revenue ?? 0));
               const barH = maxRev > 0 ? (rev / maxRev) * 170 : 0;
               const colW = 635 / chartData.length;
-              const x = 55 + i * colW + colW * 0.5;
-              const barW = colW * 0.7;
-              const lineY = 190 - (maxEbit > 0 ? (Math.abs(ebitVal) / maxEbit) * 170 : 0);
+              const x = 55 + i * colW + colW * 0.15;
+              const barW = colW * 0.70;
               const label = row.month_label_short || row.month_label || '';
               return (
-                <g key={i}>
-                  <rect x={x} y={190 - barH} width={barW} height={Math.max(barH, 0)} fill="rgba(212,149,106,0.35)" rx="2" />
-                  {i > 0 && (() => {
-                    const prevEbit = Math.abs(Number(chartData[i - 1].profit ?? chartData[i - 1].ebit ?? 0));
-                    const prevY = 190 - (maxEbit > 0 ? (prevEbit / maxEbit) * 170 : 0);
-                    const prevX = 55 + (i - 1) * colW + colW * 0.5;
-                    const curX = x + barW / 2;
-                    return <line x1={prevX} y1={prevY} x2={curX} y2={lineY} stroke="var(--navy)" strokeWidth="2" />;
-                  })()}
-                  <circle cx={x + barW / 2} cy={lineY} r="3" fill="var(--navy)" />
+                <g key={`bar${i}`}>
+                  <rect x={x} y={190 - Math.max(barH, 0)} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3" />
                   <text x={x + barW / 2} y="207" textAnchor="middle" fontSize="8" fill="var(--text-secondary)">{label}</text>
                 </g>
               );
             })}
+            {/* EBIT smooth Catmull-Rom bezier curve + area fill */}
+            {chartData.length >= 2 && (() => {
+              const colW = 635 / chartData.length;
+              const pts = chartData.map((row: any, i: number) => ({
+                x: 55 + i * colW + colW * 0.5,
+                y: 190 - (maxEbit > 0 ? (Math.abs(Number(row.profit ?? row.ebit ?? 0)) / maxEbit) * 170 : 0),
+              }));
+              const pathParts: string[] = [`M ${pts[0].x} ${pts[0].y}`];
+              for (let i = 0; i < pts.length - 1; i++) {
+                const p0 = pts[Math.max(0, i - 1)];
+                const p1 = pts[i];
+                const p2 = pts[i + 1];
+                const p3 = pts[Math.min(pts.length - 1, i + 2)];
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+                pathParts.push(`C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x} ${p2.y}`);
+              }
+              const linePath = pathParts.join(' ');
+              const last = pts[pts.length - 1];
+              const first = pts[0];
+              const areaPath = `${linePath} L ${last.x} 190 L ${first.x} 190 Z`;
+              return (
+                <g>
+                  <path d={areaPath} fill="url(#p1ebitGrad)" />
+                  <path d={linePath} fill="none" stroke="#43A047" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+                  {pts.map((pt, idx) => (
+                    <circle key={idx} cx={pt.x} cy={pt.y} r="3.5" fill="#43A047" stroke="#fff" strokeWidth="1.5" />
+                  ))}
+                </g>
+              );
+            })()}
           </svg>
-          {/* 3M average */}
           {chartData.length >= 3 && (() => {
             const last3 = chartData.slice(-3);
             const avg3 = last3.reduce((s: number, r: any) => s + Number(r.revenue ?? 0), 0) / 3;
