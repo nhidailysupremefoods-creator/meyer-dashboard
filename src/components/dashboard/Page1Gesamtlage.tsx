@@ -23,7 +23,7 @@ const fmtEurK = (n: any) => {
 };
 
 const fmtPct = (n: any) =>
-  n != null ? `$x(Number(n) * 100).toFixed(1)} %` : '–';
+  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
 const fmtPctSigned = (n: any) => {
   if (n == null) return '–';
@@ -443,8 +443,8 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mb-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span className="flex items-center gap-1"><span style={ display: 'inline-block', width: 14, height: 10, backgroundColor: 'rgba(212,149,106,0.4)', borderRadius: 2 }} /> Umsatz</span>
-            <span className="flex items-center gap-1"><span style={ display: 'inline-block', width: 14, height: 2, backgroundColor: 'var(--navy)' }} /> EBIT</span>
+            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 14, height: 10, backgroundColor: 'rgba(212,149,106,0.4)', borderRadius: 2 }} /> Umsatz</span>
+            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 14, height: 2, backgroundColor: 'var(--navy)' }} /> EBIT</span>
           </div>
           <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
             {/* Y-axis labels */}
@@ -453,7 +453,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               const val = maxRev * f;
               return (
                 <g key={`yL${i}`}>
-                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidta="0.5" />
+                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidth="0.5" />
                   <text x="46" y={y + 3} textAnchor="end" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>
                 </g>
               );
@@ -470,7 +470,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               const ebitVal = Number(row.profit ?? row.ebit ?? 0);
               const barH = maxRev > 0 ? (rev / maxRev) * 170 : 0;
               const colW = 635 / chartData.length;
-              const x = 55 + i * colW + colW * 0.5M;
+              const x = 55 + i * colW + colW * 0.5;
               const barW = colW * 0.7;
               const lineY = 190 - (maxEbit > 0 ? (Math.abs(ebitVal) / maxEbit) * 170 : 0);
               const label = row.month_label_short || row.month_label || '';
@@ -482,7 +482,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                     const prevY = 190 - (maxEbit > 0 ? (prevEbit / maxEbit) * 170 : 0);
                     const prevX = 55 + (i - 1) * colW + colW * 0.5;
                     const curX = x + barW / 2;
-                    return <line x1={prevX} y1={prevY} x2={curX} y2={lineY} stroke="var(--navy)" strokeWidta="2" />;
+                    return <line x1={prevX} y1={prevY} x2={curX} y2={lineY} stroke="var(--navy)" strokeWidth="2" />;
                   })()}
                   <circle cx={x + barW / 2} cy={lineY} r="3" fill="var(--navy)" />
                   <text x={x + barW / 2} y="207" textAnchor="middle" fontSize="8" fill="var(--text-secondary)">{label}</text>
