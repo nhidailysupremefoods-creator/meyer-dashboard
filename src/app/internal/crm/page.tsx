@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from 'react';
 import { Lead, Branche, PipelineStatus } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
 import {
-  formatCurrency,
   computeICPScore,
   BRANCHEN_LABELS,
   PIPELINE_STAGES,

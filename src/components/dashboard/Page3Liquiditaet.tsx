@@ -107,9 +107,6 @@ export default function Page3Liquiditaet({ data }: Props) {
     .map((r: any) => Number(r.bank_balance_eur ?? 0));
 
   // liquidity months trend
-  const liqTrendData = trend
-    .slice(-12)
-    .map((r: any) => Number(r.liquidity_months ?? 0));
 
   // score description
   const dimensions = [
