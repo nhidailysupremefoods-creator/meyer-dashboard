@@ -11,6 +11,13 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        navy: "#192231",
+        copper: "#B08A6A",
+        gold: "#C9A87C",
+        offwhite: "#F7F5F2",
+      },
+      fontFamily: {
+        manrope: ["Manrope", "sans-serif"],
       },
     },
   },

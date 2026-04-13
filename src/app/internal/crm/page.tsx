@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Lead, Branche, PipelineStatus } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
 import {
@@ -11,9 +11,35 @@ import {
 } from '@/lib/internal-os/utils';
 
 const PAGE_SIZE = 50;
+const STORAGE_KEY = 'meyer-internal-os-leads';
+
+function loadLeads(): Lead[] {
+  if (typeof window === 'undefined') return SEED_LEADS;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return SEED_LEADS;
+}
 
 export default function CRMPage() {
-  const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [leads, setLeads] = useState<Lead[]>(loadLeads);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Persist leads to localStorage on every change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+    } catch {}
+  }, [leads]);
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -144,12 +170,14 @@ export default function CRMPage() {
     }
     setShowForm(false);
     setEditingLead(null);
+    setToast(editingLead ? 'Lead gespeichert' : 'Neuer Lead erstellt');
   }
 
   function handleDelete(leadId: string) {
     setLeads(prev => prev.filter(l => l.lead_id !== leadId));
     setShowForm(false);
     setEditingLead(null);
+    setToast('Lead gelöscht');
   }
 
   function handleRestore(leadId: string) {
@@ -174,6 +202,13 @@ export default function CRMPage() {
 
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-[60] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium animate-pulse">
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
