@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './Page3Liquiditaet.module.css';
 
 interface CashflowSummary {
@@ -86,30 +86,37 @@ function scoreBand(pts: number, max: number): { label: string; color: string } {
 }
 
 function BankChart({ trend }: { trend: TrendRow[] }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const rows = trend.filter(r => r.bank_balance_eur != null).slice(-12);
   if (rows.length < 2) return null;
+
   const W = 760; const H = 190;
   const pl = 68; const pr = 16; const pt = 16; const pb = 38;
   const iW = W - pl - pr;
   const iH = H - pt - pb;
   const vals = rows.map(r => r.bank_balance_eur as number);
-  const maxV = Math.max(...vals) * 1.05;
-  const minV = Math.min(Math.min(...vals) * 0.95, 0);
+  const maxV = Math.max(...vals) * 1.08;
+  const minV = Math.min(Math.min(...vals) * 0.92, 0);
   const rng = maxV - minV || 1;
   const cx = (i: number) => pl + (i / (rows.length - 1)) * iW;
   const cy = (v: number) => pt + ((maxV - v) / rng) * iH;
   const zeroY = cy(0);
-  const ptStr = rows.map((r, i) => cx(i).toFixed(1) + ',' + cy(r.bank_balance_eur as number).toFixed(1)).join(' L ');
+  const ptStr = rows.map((r, i) =>
+    cx(i).toFixed(1) + ',' + cy(r.bank_balance_eur as number).toFixed(1)
+  ).join(' L ');
   const first = rows[0]!;
-  const fillD = 'M ' + cx(0).toFixed(1) + ',' + zeroY.toFixed(1)
-    + ' L ' + cx(0).toFixed(1) + ',' + cy(first.bank_balance_eur as number).toFixed(1)
-    + ' L ' + ptStr
-    + ' L ' + cx(rows.length - 1).toFixed(1) + ',' + zeroY.toFixed(1) + ' Z';
+  const fillD =
+    'M ' + cx(0).toFixed(1) + ',' + zeroY.toFixed(1) +
+    ' L ' + cx(0).toFixed(1) + ',' + cy(first.bank_balance_eur as number).toFixed(1) +
+    ' L ' + ptStr +
+    ' L ' + cx(rows.length - 1).toFixed(1) + ',' + zeroY.toFixed(1) + ' Z';
   const lineD = 'M ' + ptStr;
   const tickCount = 4;
   const ticks = Array.from({ length: tickCount }, (_, i) => minV + (rng / (tickCount - 1)) * i);
+  const TT_W = 110; const TT_H = 38;
+
   return (
-    <svg viewBox={'0 0 ' + W + ' ' + H} className={styles.bankChart}>
+    <svg viewBox={'0 0 ' + W + ' ' + H} className={styles.bankChart} style={{ overflow: 'visible' }}>
       <defs>
         <linearGradient id="bankGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#8B6A40" stopOpacity={0.18} />
@@ -128,18 +135,47 @@ function BankChart({ trend }: { trend: TrendRow[] }) {
       <path d={fillD} fill="url(#bankGrad)" />
       <path d={lineD} fill="none" stroke="#8B6A40" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
       {rows.map((r, i) => {
-        const st = getStatus(r.page3_status_color);
-        const dotColor = st === 'rot' ? '#E53935' : st === 'gelb' ? '#F9A825' : '#43A047';
-        return (
-          <circle key={i} cx={cx(i)} cy={cy(r.bank_balance_eur as number)}
-            r={4.5} fill={dotColor} stroke="#fff" strokeWidth={2} />
-        );
-      })}
-      {rows.map((r, i) => {
         if (rows.length > 8 && i % 2 !== 0) return null;
         const lbl = (r.month_label_short || r.month_id || '').substring(0, 6);
         return <text key={i} x={cx(i)} y={H - 8} textAnchor="middle" fontSize={10} fill="#999">{lbl}</text>;
       })}
+      {rows.map((r, i) => {
+        const st = getStatus(r.page3_status_color);
+        const dotColor = st === 'rot' ? '#E53935' : st === 'gelb' ? '#F9A825' : '#43A047';
+        const isHov = hoverIdx === i;
+        return (
+          <circle
+            key={i}
+            cx={cx(i)}
+            cy={cy(r.bank_balance_eur as number)}
+            r={isHov ? 7 : 5}
+            fill={dotColor}
+            stroke="#fff"
+            strokeWidth={2}
+            style={{ cursor: 'pointer', transition: 'r 0.1s' }}
+            onMouseEnter={() => setHoverIdx(i)}
+            onMouseLeave={() => setHoverIdx(null)}
+          />
+        );
+      })}
+      {hoverIdx != null && rows[hoverIdx] != null && (() => {
+        const r = rows[hoverIdx]!;
+        const bv = r.bank_balance_eur as number;
+        const dotX = cx(hoverIdx);
+        const dotY = cy(bv);
+        const ttX = Math.min(Math.max(dotX - TT_W / 2, pl), W - pr - TT_W);
+        const ttY = dotY - TT_H - 10;
+        const lbl = r.month_label_short || r.month_id || '';
+        const valStr = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(bv) + ' €';
+        return (
+          <g style={{ pointerEvents: 'none' }}>
+            <line x1={dotX} y1={dotY - 7} x2={dotX} y2={ttY + TT_H} stroke="#192231" strokeWidth={1} strokeDasharray="3 2" opacity={0.4} />
+            <rect x={ttX} y={ttY} width={TT_W} height={TT_H} rx={5} fill="#192231" opacity={0.93} />
+            <text x={ttX + TT_W / 2} y={ttY + 13} textAnchor="middle" fontSize={9.5} fill="#C8A96E" fontWeight="600" letterSpacing="0.5">{lbl}</text>
+            <text x={ttX + TT_W / 2} y={ttY + 28} textAnchor="middle" fontSize={12} fill="#ffffff" fontWeight="700">{valStr}</text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }
@@ -257,6 +293,23 @@ export default function Page3Liquiditaet({ data }: Props) {
         </div>
       </div>
 
+      <section className={styles.stressSection}>
+        <div className={styles.stressLabel}>STRESS-SZENARIO &middot; {shockN}% UMSATZ</div>
+        <div className={impact < 0 ? styles.stressRed : styles.stressGreen}>
+          {impact >= 0 ? '+' : ''}{fmt(impact)}&nbsp;€
+        </div>
+        <div className={styles.stressSub}>Netto-OCF-Belastung nach Kostenflex</div>
+        {revImpCalc !== 0 && (
+          <div className={styles.stressFormula}>
+            <span className={styles.fRed}>Umsatz {fmt(revImpCalc)}&nbsp;€</span>
+            <span className={styles.fSep}> — </span>
+            <span className={styles.fGreen}>var. Kosten +{fmt(Math.abs(varRelCalc))}&nbsp;€</span>
+            <span className={styles.fSep}> = </span>
+            <span className={impact < 0 ? styles.fRed : styles.fGreen}>{fmt(impact)}&nbsp;€</span>
+          </div>
+        )}
+      </section>
+
       {hasScores && (
         <div className={styles.scoreDimSection}>
           <div className={styles.scoreDimHeader}>
@@ -334,23 +387,6 @@ export default function Page3Liquiditaet({ data }: Props) {
           </div>
         </div>
       )}
-
-      <section className={styles.stressSection}>
-        <div className={styles.stressLabel}>STRESS-SZENARIO &middot; {shockN}% UMSATZ</div>
-        <div className={impact < 0 ? styles.stressRed : styles.stressGreen}>
-          {impact >= 0 ? '+' : ''}{fmt(impact)}&nbsp;€
-        </div>
-        <div className={styles.stressSub}>Netto-OCF-Belastung nach Kostenflex</div>
-        {revImpCalc !== 0 && (
-          <div className={styles.stressFormula}>
-            <span className={styles.fRed}>Umsatz {fmt(revImpCalc)}&nbsp;€</span>
-            <span className={styles.fSep}> — </span>
-            <span className={styles.fGreen}>var. Kosten +{fmt(Math.abs(varRelCalc))}&nbsp;€</span>
-            <span className={styles.fSep}> = </span>
-            <span className={impact < 0 ? styles.fRed : styles.fGreen}>{fmt(impact)}&nbsp;€</span>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
