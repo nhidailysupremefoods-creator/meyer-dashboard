@@ -474,9 +474,9 @@ export default function OperationsPage() {
                           <div className="text-2xl mb-1">{step.icon}</div>
                           <div className="text-[11px] font-semibold text-gray-500 mb-3">{step.label}</div>
 
-                          {isSent && (
-                            <div className="text-[10px] text-green-600 font-medium mb-2">✓ Gesendet</div>
-                          )}
+                          <div className={`text-[10px] font-medium mb-2 ${isSent ? 'text-green-600' : 'text-transparent'}`}>
+                            {isSent ? '✓ Gesendet' : '–'}
+                          </div>
 
                           <div className="flex flex-col gap-1.5">
                             <button
