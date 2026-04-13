@@ -47,6 +47,11 @@ export default function MandatePage() {
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
   const totalSetup = mandates.reduce((s, m) => s + (m.setup_fee || 0), 0);
 
+  function capitalizeFirst(s: string | null | undefined): string {
+    if (!s) return '–';
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   const statusColors: Record<string, string> = {
     active: 'bg-green-100 text-green-700',
     onboarding: 'bg-blue-100 text-blue-700',
@@ -106,7 +111,7 @@ export default function MandatePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Kunde', 'E-Mail', 'Status', 'Vertragsart', 'Dienstleistung', 'Honorar/Mon.', 'Setup-Fee', 'Beginn', 'Ende', 'Sync', ''].map(h => (
+                {['Kunde', 'E-Mail', 'Status', 'Vertragsart', 'Dienstleistung', 'Honorar/Mon.', 'Setup-Fee', 'Beginn', 'Ende', ''].map(h => (
                   <th key={h} className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -127,7 +132,7 @@ export default function MandatePage() {
                       {m.manually_edited && <span title="Manuell bearbeitet" className="text-[10px]">✏</span>}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-600">{m.vertragsart || '–'}</td>
+                  <td className="py-3 px-3 text-xs text-gray-600">{capitalizeFirst(m.vertragsart)}</td>
                   <td className="py-3 px-3 text-xs text-gray-600 max-w-[180px] truncate">{m.gebuchte_dienstleistung || '–'}</td>
                   <td className="py-3 px-3 font-semibold text-navy">
                     {m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}
@@ -135,9 +140,6 @@ export default function MandatePage() {
                   <td className="py-3 px-3 text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
                   <td className="py-3 px-3 text-xs">{formatDate(m.vertragsbeginn)}</td>
                   <td className="py-3 px-3 text-xs">{m.vertragsende ? formatDate(m.vertragsende) : 'unbefristet'}</td>
-                  <td className="py-3 px-3 text-[10px] text-gray-300">
-                    {formatDate(m.last_auto_sync)}
-                  </td>
                   <td className="py-3 px-3">
                     <button
                       onClick={() => setEditingMandate(m)}
@@ -156,21 +158,6 @@ export default function MandatePage() {
           <div className="text-center py-12 text-gray-400">Keine Mandate vorhanden</div>
         )}
       </div>
-
-      {/* Notes Section */}
-      {mandates.some(m => m.notes) && (
-        <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h3 className="font-manrope font-bold text-navy mb-3">Notizen</h3>
-          <div className="space-y-2">
-            {mandates.filter(m => m.notes).map(m => (
-              <div key={m.customer_id} className="flex gap-3 text-sm">
-                <span className="font-medium text-navy min-w-[180px]">{m.company_name}:</span>
-                <span className="text-gray-600">{m.notes}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Edit Mandate Modal */}
       {editingMandate && (
@@ -206,7 +193,6 @@ function MandateEditModal({
     vertragsbeginn: mandate.vertragsbeginn || '',
     vertragsende: mandate.vertragsende || '',
     mandate_status: mandate.mandate_status || 'active',
-    notes: mandate.notes || '',
   });
 
   const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-copper/20 focus:border-copper';
@@ -236,7 +222,6 @@ function MandateEditModal({
               vertragsbeginn: form.vertragsbeginn || null,
               vertragsende: form.vertragsende || null,
               mandate_status: form.mandate_status,
-              notes: form.notes,
             });
           }}
         >
@@ -263,9 +248,9 @@ function MandateEditModal({
               <label className="block text-xs font-medium text-gray-500 mb-1">Vertragsart</label>
               <select className={inputCls + ' bg-white'} value={form.vertragsart} onChange={e => setForm(f => ({ ...f, vertragsart: e.target.value }))}>
                 <option value="">–</option>
-                <option value="dienstleistungsvertrag">Dienstleistungsvertrag</option>
-                <option value="rahmenvertrag">Rahmenvertrag</option>
-                <option value="projektvertrag">Projektvertrag</option>
+                <option value="Dienstleistungsvertrag">Dienstleistungsvertrag</option>
+                <option value="Rahmenvertrag">Rahmenvertrag</option>
+                <option value="Projektvertrag">Projektvertrag</option>
               </select>
             </div>
             <div>
@@ -304,11 +289,6 @@ function MandateEditModal({
               <label className="block text-xs font-medium text-gray-500 mb-1">Vertragsende</label>
               <input className={inputCls} type="date" value={form.vertragsende} onChange={e => setForm(f => ({ ...f, vertragsende: e.target.value }))} />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Notizen</label>
-            <textarea className={inputCls + ' h-20 resize-none'} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
