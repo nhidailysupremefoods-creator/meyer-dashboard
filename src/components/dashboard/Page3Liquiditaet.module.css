@@ -1,0 +1,353 @@
+/* ═══════════════════════════════════════════════════════════
+   Page 3 — Liquiditätsstabilität
+   ═══════════════════════════════════════════════════════════ */
+
+.page3Container {
+  background-color: #F7F5F2;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ── Page Header ── */
+.pageHeader {
+  padding: 1.75rem 2rem 1.25rem;
+  background: #F7F5F2;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #192231;
+  margin: 0 0 0.35rem 0;
+  letter-spacing: 0.3px;
+}
+
+.pageSubtitle {
+  font-size: 0.95rem;
+  color: #888;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ── Hero Section ── */
+.heroSection {
+  background: linear-gradient(135deg, #192231 0%, #1e2a3a 50%, #243447 100%);
+  padding: 2rem 2rem 1.75rem;
+  margin-bottom: 2rem;
+}
+
+.heroTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto 1rem;
+}
+
+.heroLabel {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.heroBadgeRot {
+  background: #E53935;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.heroBadgeGelb {
+  background: #F9A825;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.heroMain {
+  max-width: 1200px;
+  margin: 0 auto 0.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.heroCountRot  { font-size: 3.5rem; font-weight: 800; color: #EF9A9A; line-height: 1; }
+.heroCountGelb { font-size: 3.5rem; font-weight: 800; color: #FFE082; line-height: 1; }
+.heroCountGruen{ font-size: 3.5rem; font-weight: 800; color: #A5D6A7; line-height: 1; }
+
+.heroUnit {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.heroMeta {
+  max-width: 1200px;
+  margin: 0 auto 1rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.heroLuecke {
+  color: #EF9A9A;
+  font-weight: 600;
+}
+
+.heroProgressBar {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.heroProgressFillRot  { height: 100%; background: #EF9A9A; border-radius: 3px; transition: width 0.6s ease; }
+.heroProgressFillGelb { height: 100%; background: #FFE082; border-radius: 3px; transition: width 0.6s ease; }
+.heroProgressFillGruen{ height: 100%; background: #A5D6A7; border-radius: 3px; transition: width 0.6s ease; }
+
+/* ── KPI Cards ── */
+.kpiSection {
+  padding: 0 2rem;
+  margin-bottom: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.kpiCard {
+  background: #fff;
+  border: 1px solid #e8e4e0;
+  border-radius: 10px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(25, 34, 49, 0.06);
+}
+
+.kpiCardHighlight {
+  background: #fff;
+  border: 2px solid #F9A825;
+  border-radius: 10px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(249, 168, 37, 0.15);
+}
+
+.kpiLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 0.75rem;
+}
+
+.kpiValueGreen {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #43A047;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+
+.kpiValueRed {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #E53935;
+  line-height: 1.2;
+  margin-bottom: 0.5rem;
+}
+
+.kpiSub {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 0.35rem;
+}
+
+/* Score */
+.scoreRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.scoreValue {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.scoreBarTrack {
+  width: 100%;
+  height: 8px;
+  background: #e8e4e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.scoreBarFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.scoreLabelText {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Coverage badges */
+.coverageBadgeRow {
+  margin: 0.5rem 0;
+}
+
+.badgeGreen {
+  display: inline-block;
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #A5D6A7;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+.badgeRed {
+  display: inline-block;
+  background: #FFEBEE;
+  color: #C62828;
+  border: 1px solid #EF9A9A;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+}
+
+/* ── Bankbestand Chart ── */
+.chartSection {
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+  padding: 0 2rem;
+}
+
+.chartHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.chartTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #192231;
+}
+
+.chartSubtitle {
+  font-size: 0.82rem;
+  color: #999;
+}
+
+.chartBox {
+  background: #fff;
+  border: 1px solid #e8e4e0;
+  border-radius: 10px;
+  padding: 1rem 0.5rem 0.5rem;
+  box-shadow: 0 2px 8px rgba(25, 34, 49, 0.06);
+}
+
+.bankChart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── Stress-Szenario ── */
+.stressSection {
+  background: linear-gradient(135deg, #192231 0%, #1a2535 100%);
+  padding: 2rem;
+  text-align: center;
+}
+
+.stressLabel {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.stressValueRed {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #EF9A9A;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+}
+
+.stressValueGreen {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #A5D6A7;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+}
+
+.stressSub {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 1.5rem;
+}
+
+.stressFormula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  padding: 1rem 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stressFormulaRed  { color: #EF9A9A; font-weight: 500; }
+.stressFormulaGreen{ color: #A5D6A7; font-weight: 500; }
+.stressFormulaSep  { color: rgba(255, 255, 255, 0.35); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .pageHeader { padding: 1.25rem 1rem 1rem; }
+  .pageTitle { font-size: 1.3rem; }
+  .heroSection { padding: 1.5rem 1.25rem 1.25rem; }
+  .heroCountRot, .heroCountGelb, .heroCountGruen { font-size: 2.5rem; }
+  .kpiSection, .chartSection { padding-left: 1rem; padding-right: 1rem; }
+  .kpiGrid { grid-template-columns: 1fr; gap: 0.75rem; }
+  .kpiValueGreen, .kpiValueRed, .scoreValue { font-size: 1.5rem; }
+  .stressSection { padding: 1.5rem 1rem; }
+  .stressValueRed, .stressValueGreen { font-size: 2rem; }
+}
