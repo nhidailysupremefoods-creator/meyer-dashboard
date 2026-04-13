@@ -75,13 +75,13 @@ export default function CRMPage() {
     // Status filter
     if (filterStatus) result = result.filter(l => l.pipeline_status === filterStatus);
 
-    // Search (fuzzy across company_name, ansprechpartner, email, telefon)
+    // Search (fuzzy across company_name, ansprechpartner, alle emails, telefon)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(l =>
         l.company_name.toLowerCase().includes(q) ||
         l.ansprechpartner.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
+        (l.emails || []).some(e => e.toLowerCase().includes(q)) ||
         l.telefon.includes(q) ||
         l.adresse.toLowerCase().includes(q)
       );
@@ -146,7 +146,7 @@ export default function CRMPage() {
         controller_anzahl: null,
         ansprechpartner: '',
         telefon: '',
-        email: '',
+        emails: [],
         adresse: '',
         pipeline_status: 'neu',
         next_action: '',
@@ -372,8 +372,11 @@ export default function CRMPage() {
                       {PIPELINE_STAGES.find(s => s.value === lead.pipeline_status)?.label}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px] truncate">
-                    {lead.email || '–'}
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px]">
+                    <div className="truncate">{(lead.emails?.[0]) || '–'}</div>
+                    {(lead.emails?.length ?? 0) > 1 && (
+                      <div className="text-[10px] text-copper">+{lead.emails.length - 1} weitere</div>
+                    )}
                   </td>
                   <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">
                     {lead.telefon || '–'}
@@ -485,7 +488,7 @@ function LeadFormModal({
     controller_anzahl: lead?.controller_anzahl ?? '',
     ansprechpartner: lead?.ansprechpartner || '',
     telefon: lead?.telefon || '',
-    email: lead?.email || '',
+    emails: lead?.emails?.length ? lead.emails : [''],
     adresse: lead?.adresse || '',
     pipeline_status: lead?.pipeline_status || 'neu' as PipelineStatus,
     next_action: lead?.next_action || '',
@@ -518,7 +521,7 @@ function LeadFormModal({
       controller_anzahl: form.controller_anzahl !== '' ? Number(form.controller_anzahl) : null,
       ansprechpartner: form.ansprechpartner,
       telefon: form.telefon,
-      email: form.email,
+      emails: form.emails.filter(e => e.trim() !== ''),
       adresse: form.adresse,
       pipeline_status: form.pipeline_status as PipelineStatus,
       next_action: form.next_action,
@@ -626,8 +629,36 @@ function LeadFormModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">E-Mail</label>
-              <input className={inputCls} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              <label className="block text-xs font-medium text-gray-500 mb-1">E-Mail Adressen</label>
+              <div className="space-y-2">
+                {form.emails.map((email, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      className={inputCls}
+                      type="email"
+                      placeholder={idx === 0 ? 'Haupt-E-Mail' : `Weitere E-Mail ${idx + 1}`}
+                      value={email}
+                      onChange={e => {
+                        const updated = [...form.emails];
+                        updated[idx] = e.target.value;
+                        setForm(f => ({ ...f, emails: updated }));
+                      }}
+                    />
+                    {form.emails.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, emails: f.emails.filter((_, i) => i !== idx) }))}
+                        className="text-gray-300 hover:text-red-400 text-lg leading-none flex-shrink-0"
+                      >×</button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, emails: [...f.emails, ''] }))}
+                  className="text-xs text-copper hover:text-copper/80 font-medium"
+                >+ E-Mail hinzufügen</button>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>

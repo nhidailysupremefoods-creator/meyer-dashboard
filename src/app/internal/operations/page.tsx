@@ -29,6 +29,8 @@ export default function OperationsPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [senderEmail, setSenderEmail] = useState(SENDERS[0].email);
   const [preparing, setPreparing] = useState<string | null>(null);
+  // Empfänger-E-Mail pro Kunde (Standard: erste E-Mail aus der Liste)
+  const [selectedRecipients, setSelectedRecipients] = useState<Record<string, string>>({});
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type });
@@ -75,7 +77,8 @@ export default function OperationsPage() {
     };
 
     const senderName = SENDERS.find(s => s.email === senderEmail)?.name || 'Meyer Decision';
-    const recipientEmail = customer.email || `${customer.ansprechpartner.toLowerCase().replace(/\s+/g, '.')}@example.de`;
+    const firstEmail = customer.emails?.[0] || `${customer.ansprechpartner.toLowerCase().replace(/\s+/g, '.')}@example.de`;
+    const recipientEmail = selectedRecipients[customer.customer_id] || firstEmail;
 
     setPreview({
       to: recipientEmail,
@@ -433,7 +436,26 @@ export default function OperationsPage() {
                   <div className={`w-4 h-4 rounded-full ${ampelStyles[customer.ampel_status]} shadow-sm`} />
                   <div>
                     <div className="font-manrope font-bold text-navy">{customer.company_name}</div>
-                    <div className="text-xs text-gray-400">{customer.ansprechpartner} &middot; {customer.email || '–'}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-gray-400">{customer.ansprechpartner}</span>
+                      {(customer.emails?.length ?? 0) > 1 ? (
+                        <select
+                          value={selectedRecipients[customer.customer_id] || customer.emails[0]}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => {
+                            e.stopPropagation();
+                            setSelectedRecipients(prev => ({ ...prev, [customer.customer_id]: e.target.value }));
+                          }}
+                          className="text-xs text-copper border border-copper/20 rounded-lg px-2 py-0.5 bg-white outline-none"
+                        >
+                          {customer.emails.map(em => (
+                            <option key={em} value={em}>{em}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-gray-400">{customer.emails?.[0] || '–'}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

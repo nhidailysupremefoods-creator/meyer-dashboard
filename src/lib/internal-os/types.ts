@@ -17,7 +17,7 @@ export interface Lead {
   controller_anzahl: number | null;
   ansprechpartner: string;
   telefon: string;
-  email: string;
+  emails: string[];
   adresse: string;
   pipeline_status: PipelineStatus;
   next_action: string;
@@ -57,7 +57,7 @@ export interface OperationsCustomer {
   customer_id: string;
   company_name: string;
   ansprechpartner: string;
-  email: string;
+  emails: string[];
   daten_erhalten: boolean;
   daten_valide: boolean;
   call_durchgefuehrt: boolean;
