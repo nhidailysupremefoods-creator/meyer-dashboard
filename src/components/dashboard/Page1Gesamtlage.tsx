@@ -4,7 +4,7 @@ interface Props {
   data: any;
 }
 
-// ââ Formatters âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Formatters ─────────────────────────────────────────────────────────
 const fmtEur = (n: any) =>
   n != null
     ? new Intl.NumberFormat('de-DE', {
@@ -12,21 +12,21 @@ const fmtEur = (n: any) =>
         currency: 'EUR',
         maximumFractionDigits: 0,
       }).format(Number(n))
-    : 'â';
+    : '–';
 
 const fmtEurK = (n: any) => {
-  if (n == null) return 'â';
+  if (n == null) return '–';
   const v = Number(n);
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')} Mio â¬`;
-  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k â¬`;
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')} Mio €`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k €`;
   return fmtEur(v);
 };
 
 const fmtPct = (n: any) =>
-  n != null ? `${(Number(n) * 100).toFixed(1)} %` : 'â';
+  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
 const fmtPctSigned = (n: any) => {
-  if (n == null) return 'â';
+  if (n == null) return '–';
   const val = Number(n) * 100;
   const sign = val > 0 ? '+' : '';
   return `${sign}${val.toFixed(1)} %`;
@@ -34,13 +34,13 @@ const fmtPctSigned = (n: any) => {
 
 const statusInfo = (s: string) => {
   const u = (s || '').toUpperCase();
-  if (u === 'GRÃN' || u === 'GREEN' || u === 'GUT')
+  if (u === 'GRÜN' || u === 'GREEN' || u === 'GUT')
     return { label: 'GUT', color: '#2E8B57', bg: 'rgba(46,139,87,0.08)' };
   if (u === 'GELB' || u === 'YELLOW' || u === 'WARNUNG')
     return { label: 'WARNUNG', color: '#E8A838', bg: 'rgba(232,168,56,0.08)' };
   if (u === 'ROT' || u === 'RED' || u === 'KRITISCH')
     return { label: 'KRITISCH', color: '#C43830', bg: 'rgba(196,56,48,0.08)' };
-  return { label: s || 'â', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
+  return { label: s || '–', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
 };
 
 const momColor = (n: any) => {
@@ -52,10 +52,10 @@ const momColor = (n: any) => {
 const momArrow = (n: any) => {
   if (n == null) return '';
   const val = Number(n);
-  return val > 0.001 ? 'â²' : val < -0.001 ? 'â¼' : 'â';
+  return val > 0.001 ? '▲' : val < -0.001 ? '▼' : '→';
 };
 
-// ââ Main Component âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Main Component ─────────────────────────────────────────────────────
 export default function Page1Gesamtlage({ data }: Props) {
   const d = (data as any)?.data || {};
   const trend: any[] = (data as any)?.trend || [];
@@ -76,11 +76,12 @@ export default function Page1Gesamtlage({ data }: Props) {
       : Math.abs(revenue - ebit);
 
   const ebitPotential = Number(d.ebit_potential ?? 0);
-  const ebitGap = Number(d.ebit_gap ?? 0);
   const productivity = Number(d.portfolio_productivity ?? d.productivity_rate ?? 0);
   const ebitTarget = Number(d.ebit_target ?? 0);
   const targetMargin = ebitTarget > 1 ? ebitTarget / 100 : ebitTarget || 0.12;
   const targetEbitAbs = revenue * targetMargin;
+  const ebitGapRaw = Number(d.ebit_gap ?? 0);
+  const ebitGap = ebitGapRaw !== 0 ? ebitGapRaw : ebit - targetEbitAbs;
 
   // MoM changes
   const revenueMom = Number(d.revenue_mom_pct ?? 0);
@@ -97,21 +98,28 @@ export default function Page1Gesamtlage({ data }: Props) {
   const prodDisplay = productivity > 0
     ? productivity <= 1
       ? fmtPct(productivity)
-      : `${Math.round(productivity)} â¬/Std`
-    : 'â';
+      : `${Math.round(productivity)} €/Std`
+    : '–';
   const prodVsZiel = productivity > 0
     ? productivity <= 1
       ? productivity - 0.70
       : (productivity - 80) / 80
     : 0;
 
-  // Advisory / EinschÃ¤tzung text
+  // Advisory / Einschätzung text
   const advisory = d.advisory_text || d.monatliche_einschaetzung || '';
 
-  // YTD
-  const ytdRevenue = Number(d.ytd_revenue ?? 0);
-  const ytdEbit = Number(d.ytd_ebit ?? d.ytd_profit ?? 0);
-  const ytdMargin = Number(d.ytd_margin_pct ?? 0);
+  // YTD — berechne aus Trend-Daten wenn Backend es nicht liefert
+  const ytdFromTrend = trend.slice(-12).reduce(
+    (acc: { rev: number; ebit: number }, r: any) => ({
+      rev: acc.rev + Math.abs(Number(r.revenue ?? 0)),
+      ebit: acc.ebit + Number(r.profit ?? r.ebit ?? 0),
+    }),
+    { rev: 0, ebit: 0 }
+  );
+  const ytdRevenue = Number(d.ytd_revenue ?? 0) || ytdFromTrend.rev;
+  const ytdEbit = Number(d.ytd_ebit ?? d.ytd_profit ?? 0) || ytdFromTrend.ebit;
+  const ytdMargin = Number(d.ytd_margin_pct ?? 0) || (ytdRevenue > 0 ? ytdEbit / ytdRevenue : 0);
 
   // Chart data
   const chartData = trend.slice(-12);
@@ -120,7 +128,7 @@ export default function Page1Gesamtlage({ data }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* ââ Section Title ââ */}
+      {/* ── Section Title ── */}
       <div>
         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
           Monatliche Gesamtlage
@@ -131,9 +139,9 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* ââ Hero Row: EBIT Card (left) + 2Ã2 KPI Grid (right) ââ */}
+      {/* ── Hero Row: EBIT Card (left) + 2×2 KPI Grid (right) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* EBIT Hero Card â dark navy background */}
+        {/* EBIT Hero Card — dark navy background */}
         <div
           className="lg:col-span-2 rounded-xl p-5"
           style={{
@@ -204,7 +212,7 @@ export default function Page1Gesamtlage({ data }: Props) {
           )}
         </div>
 
-        {/* 2Ã2 KPI Grid */}
+        {/* 2×2 KPI Grid */}
         <div className="lg:col-span-3 grid grid-cols-2 gap-3">
           {/* Monatsumsatz */}
           <div className="card text-center">
@@ -221,9 +229,9 @@ export default function Page1Gesamtlage({ data }: Props) {
             )}
           </div>
 
-          {/* ProduktivitÃ¤t */}
+          {/* Produktivität */}
           <div className="card text-center">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>ProduktivitÃ¤t</div>
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
             <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{prodDisplay}</div>
             {prodVsZiel !== 0 && (
               <div className="text-xs mt-1" style={{ color: prodVsZiel > 0 ? '#2E8B57' : '#C43830' }}>
@@ -260,16 +268,16 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       </div>
 
-      {/* ââ EBIT Target Bar ââ */}
-      {(ebitGap !== 0 || ebitTarget > 0) && (
+      {/* ── EBIT Target Bar ── */}
+      {revenue > 0 && (
         <div className="card" style={{ padding: '0.75rem 1.25rem' }}>
           <div className="flex items-center justify-between mb-2">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: ebitGap < 0 ? 'var(--danger)' : 'var(--success)' }}>
-                {ebitGap < 0 ? 'â¼ EBIT UNTER ZIEL' : 'â² EBIT IM ZIEL'}
+                {ebitGap < 0 ? '▼ EBIT UNTER ZIEL' : '▲ EBIT IM ZIEL'}
               </span>
               <span className="text-xs ml-2" style={{ color: 'var(--text-secondary)' }}>
-                Â· Ziel {fmtPct(targetMargin)} Marge
+                · Ziel {fmtPct(targetMargin)} Marge
               </span>
             </div>
             <div className="text-right">
@@ -291,17 +299,17 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ââ Monatliche EinschÃ¤tzung ââ */}
+      {/* ── Monatliche Einschätzung ── */}
       {advisory && (
         <div className="rounded-lg p-4" style={{ backgroundColor: 'rgba(232,168,56,0.08)', border: '1px solid rgba(232,168,56,0.2)' }}>
           <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--warning)' }}>
-            â Monatliche EinschÃ¤tzung
+            ● Monatliche Einschätzung
           </div>
           <div className="text-sm" style={{ color: 'var(--text-primary)', lineHeight: '1.7' }}>{advisory}</div>
         </div>
       )}
 
-      {/* ââ YTD Summary ââ */}
+      {/* ── YTD Summary ── */}
       {(ytdRevenue > 0 || ytdEbit !== 0) && (
         <div className="card flex items-center gap-6" style={{ padding: '0.75rem 1.25rem' }}>
           <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
@@ -317,18 +325,18 @@ export default function Page1Gesamtlage({ data }: Props) {
               <div className="text-lg font-bold" style={{ color: ytdEbit < 0 ? 'var(--danger)' : '#2E8B57' }}>{fmtEur(ytdEbit)}</div>
             </div>
             <div>
-              <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Ã Marge</span>
-              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{ytdMargin > 0 ? fmtPct(ytdMargin) : 'â'}</div>
+              <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Ø Marge</span>
+              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{ytdMargin > 0 ? fmtPct(ytdMargin) : '–'}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ââ 12-Monats-Trend Chart (SVG Bar + Line) ââ */}
+      {/* ── 12-Monats-Trend Chart (SVG Bar + Line) ── */}
       {chartData.length > 0 && (
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold" style={{ color: 'var(--warning)' }}>â</span>
+            <span className="text-xs font-bold" style={{ color: 'var(--warning)' }}>●</span>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Umsatz & EBIT Trend (12M)</h3>
           </div>
           {/* Legend */}
@@ -386,14 +394,14 @@ export default function Page1Gesamtlage({ data }: Props) {
             const avg3 = last3.reduce((s: number, r: any) => s + Number(r.revenue ?? 0), 0) / 3;
             return (
               <div className="text-center text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Ã Umsatz 3M: {fmtEur(avg3)} | Gleitender Durchschnitt
+                Ø Umsatz 3M: {fmtEur(avg3)} | Gleitender Durchschnitt
               </div>
             );
           })()}
         </div>
       )}
 
-      {/* ââ Kostenstruktur ââ */}
+      {/* ── Kostenstruktur ── */}
       {totalCost > 0 && (
         <div className="card">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Kostenstruktur</h3>
