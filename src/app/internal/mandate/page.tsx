@@ -92,20 +92,28 @@ export default function MandatePage() {
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
   const totalSetup = mandates.reduce((s, m) => s + (m.setup_fee || 0), 0);
 
-  // ARR: Honorar × tatsächliche Vertragslaufzeit in Monaten (nicht immer 12)
-  // Falls kein Enddatum gesetzt, werden 12 Monate angenommen.
-  const totalARR = activeMandates.reduce((s, m) => {
-    const honorar = m.monatliches_honorar || 0;
+  // Hilfsfunktion: tatsächliche Vertragslaufzeit in Monaten
+  const calcMonths = (m: (typeof activeMandates)[0]) => {
     if (m.vertragsbeginn && m.vertragsende) {
       const start = new Date(m.vertragsbeginn);
       const end = new Date(m.vertragsende);
       const months =
         (end.getFullYear() - start.getFullYear()) * 12 +
         (end.getMonth() - start.getMonth());
-      return s + honorar * Math.max(months, 1);
+      return Math.max(months, 1);
     }
-    // Kein Enddatum → 12 Monate als Standard
-    return s + honorar * 12;
+    return 12; // kein Enddatum → 12 Monate Fallback
+  };
+
+  // ARR: jährliche Kennzahl → Laufzeit auf max. 12 Monate gekappt
+  const totalARR = activeMandates.reduce((s, m) => {
+    const honorar = m.monatliches_honorar || 0;
+    return s + honorar * Math.min(calcMonths(m), 12);
+  }, 0);
+
+  // Gesamtvolumen: volle Vertragslaufzeit ohne Deckel
+  const totalVolumen = activeMandates.reduce((s, m) => {
+    return s + (m.monatliches_honorar || 0) * calcMonths(m);
   }, 0);
 
   return (
@@ -144,7 +152,7 @@ export default function MandatePage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-5 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-copper">{formatCurrency(totalMRR)}</div>
           <div className="text-sm text-gray-400 mt-1">MRR gesamt</div>
@@ -155,7 +163,11 @@ export default function MandatePage() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalARR)}</div>
-          <div className="text-sm text-gray-400 mt-1">ARR (Vertragslaufzeit)</div>
+          <div className="text-sm text-gray-400 mt-1">ARR (max. 12 Mon.)</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalVolumen)}</div>
+          <div className="text-sm text-gray-400 mt-1">Gesamtvolumen</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalSetup)}</div>
