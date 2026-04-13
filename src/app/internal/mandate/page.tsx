@@ -36,21 +36,85 @@ export default function MandatePage() {
     }
   }, [toast]);
 
-  // ── Sync (calls backend when API_BASE is set) ───────────
+  // ── Sync: Liest Dienstleistungsverträge aus Google Drive ──
   async function handleSync() {
     setSyncing(true);
-    try {
-      await new Promise(r => setTimeout(r, 1000));
-      setMandates(prev => prev.map(m => ({
-        ...m,
-        last_auto_sync: new Date().toISOString(),
-      })));
-    } catch {
-      setMandates(prev => prev.map(m => ({
-        ...m,
-        last_auto_sync: new Date().toISOString(),
-      })));
+    const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+
+    if (!API_BASE) {
+      // Kein Backend → nur Timestamp aktualisieren
+      setMandates(prev => prev.map(m => ({ ...m, last_auto_sync: new Date().toISOString() })));
+      setToast('⚠ Backend nicht verbunden – bitte Apps Script deployen');
+      setSyncing(false);
+      return;
     }
+
+    try {
+      const res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync_mandates' }),
+      });
+      const json = await res.json();
+
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        setMandates(prev => {
+          const updated = [...prev];
+          json.data.forEach((driveMandate: Partial<MandateTracking> & { customer_id: string; emails?: string[] }) => {
+            const existingIdx = updated.findIndex(
+              m => m.company_name.toLowerCase() === driveMandate.company_name?.toLowerCase()
+            );
+            if (existingIdx >= 0) {
+              // Bestehendes Mandat updaten – nur Felder die nicht manuell bearbeitet wurden
+              if (!updated[existingIdx].manually_edited) {
+                updated[existingIdx] = {
+                  ...updated[existingIdx],
+                  ...driveMandate,
+                  // E-Mail-Feld: emails Array aus Drive
+                  emails: driveMandate.emails?.length
+                    ? driveMandate.emails
+                    : updated[existingIdx].emails,
+                  last_auto_sync: new Date().toISOString(),
+                };
+              } else {
+                updated[existingIdx] = {
+                  ...updated[existingIdx],
+                  last_auto_sync: new Date().toISOString(),
+                };
+              }
+            } else {
+              // Neues Mandat aus Drive hinzufügen
+              updated.push({
+                customer_id:             driveMandate.customer_id,
+                company_name:            driveMandate.company_name || '',
+                ansprechpartner:         driveMandate.ansprechpartner || '',
+                emails:                  driveMandate.emails || [],
+                vertragsbeginn:          driveMandate.vertragsbeginn || null,
+                vertragsende:            driveMandate.vertragsende || null,
+                vertragsart:             'dienstleistungsvertrag',
+                gebuchte_dienstleistung: driveMandate.gebuchte_dienstleistung || 'Advisory',
+                monatliches_honorar:     driveMandate.monatliches_honorar || null,
+                setup_fee:               driveMandate.setup_fee || null,
+                mandate_status:          driveMandate.mandate_status || 'onboarding',
+                notes:                   '',
+                last_auto_sync:          new Date().toISOString(),
+                manually_edited:         false,
+              });
+            }
+          });
+          return updated;
+        });
+
+        const errCount = json.errors?.length || 0;
+        const msg = `✓ ${json.count} Verträge aus Drive gelesen${errCount ? ` · ${errCount} Fehler` : ''}`;
+        setToast(msg);
+      } else {
+        setToast(json.error ? `Fehler: ${json.error}` : 'Keine Verträge gefunden');
+      }
+    } catch (err) {
+      setToast('Verbindungsfehler – Apps Script nicht erreichbar');
+    }
+
     setSyncing(false);
   }
 

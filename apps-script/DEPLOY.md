@@ -13,12 +13,15 @@
 2. Suche nach **Drive API** → Hinzufügen
 3. Dies wird für die .docx → PDF Konvertierung benötigt
 
-## 3. Script Property setzen
+## 3. Script Properties setzen
 
 1. **Projekteinstellungen** (Zahnrad-Icon)
-2. **Skripteigenschaften** → Eigenschaft hinzufügen:
-   - Eigenschaft: `DRIVE_FOLDER_ID`
-   - Wert: `1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg`
+2. **Skripteigenschaften** → Eigenschaften hinzufügen:
+
+| Eigenschaft      | Wert                                       | Zweck                        |
+|------------------|--------------------------------------------|------------------------------|
+| `DRIVE_FOLDER_ID`  | `1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg`     | Begleitmail-Vorlagen (Seite 3) |
+| `KUNDEN_FOLDER_ID` | `1opLoHnHgPat85NsoDOpUB5dc0bgq0AmE`     | Kundenordner mit Verträgen (Seite 2) |
 
 ## 4. Als Web-App deployen
 
@@ -51,11 +54,28 @@ Beim ersten Aufruf wirst du nach Berechtigungen gefragt:
 ## 7. Testen
 
 Nach dem Redeploy auf `meyer-dashboard.vercel.app/internal`:
-1. Gehe zur **Operations**-Seite
+
+**Seite 2 – Mandate Sync:**
+1. Gehe zu **Mandate Tracking**
+2. Klicke **Jetzt synchronisieren**
+3. Das Script liest alle Kundenordner in `02_KUNDEN` durch
+4. Pro Ordner sucht es `02_VERTRAG/Dienstleistungsvertrag_*.docx`
+5. Felder werden automatisch befüllt: Beginn, Ende, Honorar, Ansprechpartner, E-Mail
+6. Neue Kunden (nur in Drive, noch nicht im Dashboard) werden automatisch angelegt
+7. Bestehende Mandate die manuell bearbeitet wurden (`✎`) werden NICHT überschrieben
+
+**Seite 3 – Operations E-Mail:**
+1. Gehe zur **Kundenbetreuung**-Seite
 2. Klicke bei einem Kunden auf **Vorbereiten**
-3. Die Vorschau sollte jetzt echte Anhang-Infos aus Drive zeigen
-4. Die gelbe "Backend nicht verbunden"-Meldung sollte verschwunden sein
+3. Die Vorschau zeigt jetzt echte Anhang-Infos aus Drive
+4. Die gelbe "Backend nicht verbunden"-Meldung verschwindet
 5. **Jetzt senden** verschickt die E-Mail mit echten PDF-Anhängen
+
+**Neuen Kunden automatisch anlegen:**
+1. Lege Kundenordner in Drive an: `02_KUNDEN/FIRMENNAME/02_VERTRAG/`
+2. Speichere den Dienstleistungsvertrag als `.docx` im `02_VERTRAG` Ordner
+3. Klicke in Seite 2 auf **Jetzt synchronisieren**
+4. Der neue Kunde erscheint automatisch in der Mandatsliste
 
 ## Fehlerbehebung
 

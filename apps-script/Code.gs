@@ -1,11 +1,13 @@
 /**
  * Meyer Decision – Internal OS – Apps Script Backend
  * ===================================================
- * Handles email dispatch for the Operations workflow.
+ * Handles email dispatch (Seite 3) and mandate sync from Drive (Seite 2).
  *
  * Deploy as Web App:  Execute as "Me", Access "Anyone"
- * Set Script Properties:
- *   DRIVE_FOLDER_ID      = 1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg
+ * Services needed:   Drive API (Advanced Service)
+ * Script Properties:
+ *   DRIVE_FOLDER_ID      = 1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg  (Begleitmail-Vorlagen)
+ *   KUNDEN_FOLDER_ID     = 1opLoHnHgPat85NsoDOpUB5dc0bgq0AmE  (02_KUNDEN Ordner für Verträge)
  *   KUNDEN_UPLOAD_FOLDER = (ID of the root folder containing per-customer upload folders)
  */
 
@@ -13,6 +15,10 @@
 const PROPS = PropertiesService.getScriptProperties();
 const DRIVE_FOLDER_ID = PROPS.getProperty('DRIVE_FOLDER_ID')
   || '1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg';
+
+// Hauptordner mit allen Kundenordnern (enthält 02_VERTRAG Unterordner)
+const KUNDEN_FOLDER_ID = PROPS.getProperty('KUNDEN_FOLDER_ID')
+  || '1opLoHnHgPat85NsoDOpUB5dc0bgq0AmE';
 
 // Root folder that contains per-customer subfolders for monthly data uploads
 // Structure: KUNDEN_UPLOAD_FOLDER / [Kundenname] / [YYYY-MM] / files...
@@ -63,6 +69,9 @@ function doPost(e) {
 
     var result;
     switch (action) {
+      case 'sync_mandates':
+        result = syncMandates();
+        break;
       case 'ops_prepare':
         result = handlePrepare(payload);
         break;
@@ -532,4 +541,266 @@ function toPdfName(fileName) {
 function getSenderName(email) {
   if (email === 'nhi@meyerdecision.com') return 'Nhi Meyer – Meyer Decision';
   return 'Gregory Meyer – Meyer Decision';
+}
+
+// ============================================================
+// MANDATE SYNC – Liest alle Dienstleistungsverträge aus Drive
+// Seite 2: "Jetzt synchronisieren" ruft diese Funktion auf
+// ============================================================
+
+function syncMandates() {
+  var results = [];
+  var errors  = [];
+
+  try {
+    var kundenFolder = DriveApp.getFolderById(KUNDEN_FOLDER_ID);
+    var customerFolders = kundenFolder.getFolders();
+
+    while (customerFolders.hasNext()) {
+      var customerFolder = customerFolders.next();
+      var folderName = customerFolder.getName();
+
+      try {
+        // 02_VERTRAG Unterordner suchen
+        var vertragFolders = customerFolder.getFoldersByName('02_VERTRAG');
+        if (!vertragFolders.hasNext()) {
+          errors.push({ folder: folderName, error: '02_VERTRAG Unterordner nicht gefunden' });
+          continue;
+        }
+
+        var vertragFolder = vertragFolders.next();
+        var contractData  = findAndParseContract(vertragFolder, folderName);
+
+        if (contractData) {
+          results.push(contractData);
+        } else {
+          errors.push({ folder: folderName, error: 'Kein Dienstleistungsvertrag gefunden' });
+        }
+      } catch (folderErr) {
+        errors.push({ folder: folderName, error: folderErr.toString() });
+      }
+    }
+  } catch (mainErr) {
+    return { success: false, error: mainErr.toString() };
+  }
+
+  return {
+    success:    true,
+    synced_at:  new Date().toISOString(),
+    count:      results.length,
+    data:       results,
+    errors:     errors,
+  };
+}
+
+// ── Findet und parsed den Dienstleistungsvertrag im Ordner ───
+function findAndParseContract(vertragFolder, folderName) {
+  var files = vertragFolder.getFiles();
+
+  while (files.hasNext()) {
+    var file = files.next();
+    var name = file.getName().toLowerCase();
+
+    // Nur Dienstleistungsvertrag – keine Anlagen
+    if (
+      name.indexOf('dienstleistungsvertrag') !== -1 &&
+      name.indexOf('anlage')   === -1 &&
+      name.indexOf('avv')      === -1 &&
+      name.indexOf('tom')      === -1
+    ) {
+      try {
+        var text = extractTextFromFile(file);
+        if (text) {
+          return parseContractText(text, folderName, file.getId(), file.getName());
+        }
+      } catch (parseErr) {
+        Logger.log('Parse-Fehler für ' + file.getName() + ': ' + parseErr);
+      }
+    }
+  }
+  return null;
+}
+
+// ── Text aus Datei lesen (.docx oder Google Doc) ─────────────
+function extractTextFromFile(file) {
+  var mimeType = file.getMimeType();
+
+  // Nativer Google Doc
+  if (mimeType === 'application/vnd.google-apps.document') {
+    return DocumentApp.openById(file.getId()).getBody().getText();
+  }
+
+  // .docx / .doc → temporär in Google Doc konvertieren, lesen, löschen
+  if (
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    mimeType === 'application/msword'
+  ) {
+    var tempFile = Drive.Files.copy(
+      { mimeType: 'application/vnd.google-apps.document', title: '_TEMP_' + file.getName() },
+      file.getId()
+    );
+    try {
+      var text = DocumentApp.openById(tempFile.id).getBody().getText();
+      Drive.Files.remove(tempFile.id);
+      return text;
+    } catch (e) {
+      try { Drive.Files.remove(tempFile.id); } catch (_) {}
+      throw e;
+    }
+  }
+
+  return null;
+}
+
+// ── Extraktion der Vertragsdaten aus dem Rohtext ─────────────
+function parseContractText(text, folderName, fileId, fileName) {
+
+  // DD.MM.YYYY → YYYY-MM-DD
+  function toIsoDate(str) {
+    if (!str) return null;
+    var m = str.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    if (!m) return null;
+    return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+
+  // "4.500,00" → 4500
+  function parseEuro(str) {
+    if (!str) return null;
+    var n = parseFloat(str.replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? null : n;
+  }
+
+  // ── Firmenname ──────────────────────────────────────────────
+  var companyName = null;
+  var cpPatterns = [
+    /Auftraggeber[:\s]+([^\n,]+(?:GmbH|AG|KG|GbR|e\.K\.|OHG|UG|SE|eG)[^\n,]*)/i,
+    /zwischen\s+(?:der\s+)?([^\n,]+(?:GmbH|AG|KG|GbR|e\.K\.|OHG|UG|SE|eG)[^\n,]*)/i,
+    /Kunde[:\s]+([^\n]+(?:GmbH|AG|KG|GbR|e\.K\.|OHG|UG|SE|eG)[^\n]*)/i,
+  ];
+  for (var i = 0; i < cpPatterns.length; i++) {
+    var m = text.match(cpPatterns[i]);
+    if (m) { companyName = m[1].trim(); break; }
+  }
+  if (!companyName) companyName = folderName.replace(/_/g, ' ');
+
+  // ── Ansprechpartner ─────────────────────────────────────────
+  var ansprechpartner = null;
+  var apPatterns = [
+    /vertreten durch\s+([^\n,]+)/i,
+    /Ansprechpartner[:\s]+([^\n]+)/i,
+    /Geschäftsführer[:\s]+([^\n,]+)/i,
+    /(?:Herr|Frau)\s+([A-ZÄÖÜ][a-zäöüß]+ [A-ZÄÖÜ][a-zäöüß]+)/,
+  ];
+  for (var j = 0; j < apPatterns.length; j++) {
+    var ap = text.match(apPatterns[j]);
+    if (ap) { ansprechpartner = ap[1].trim().replace(/,$/, ''); break; }
+  }
+
+  // ── E-Mail (erste Nicht-Meyer-Decision Adresse) ─────────────
+  var email = null;
+  var emailMatches = text.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) || [];
+  for (var k = 0; k < emailMatches.length; k++) {
+    if (emailMatches[k].indexOf('meyerdecision.com') === -1 &&
+        emailMatches[k].indexOf('gmail.com') === -1) {
+      email = emailMatches[k];
+      break;
+    }
+  }
+
+  // ── Vertragsbeginn ──────────────────────────────────────────
+  var vertragsbeginn = null;
+  var beginPatterns = [
+    /(?:Vertragsbeginn|Leistungsbeginn|Beginn der Laufzeit|beginnt am|ab dem|gültig ab)\s*:?\s*(\d{1,2}\.\d{1,2}\.\d{4})/i,
+    /§\s*\d+[^§]{0,200}?(?:Beginn|Laufzeit)[^§]{0,100}?(\d{1,2}\.\d{1,2}\.\d{4})/i,
+  ];
+  for (var b = 0; b < beginPatterns.length; b++) {
+    var bm = text.match(beginPatterns[b]);
+    if (bm) { vertragsbeginn = toIsoDate(bm[1]); break; }
+  }
+
+  // ── Vertragsende ────────────────────────────────────────────
+  var vertragsende = null;
+  var unbefristet = /unbefristet|auf unbestimmte Zeit|ohne feste Laufzeit/i.test(text);
+
+  if (!unbefristet) {
+    var endPatterns = [
+      /(?:Vertragsende|Laufzeitende|bis zum|endet am|gültig bis)\s*:?\s*(\d{1,2}\.\d{1,2}\.\d{4})/i,
+      /Laufzeit[^.]{0,100}?bis\s+(?:zum\s+)?(\d{1,2}\.\d{1,2}\.\d{4})/i,
+    ];
+    for (var e = 0; e < endPatterns.length; e++) {
+      var em = text.match(endPatterns[e]);
+      if (em) { vertragsende = toIsoDate(em[1]); break; }
+    }
+
+    // Laufzeit in Monaten → Enddatum berechnen
+    if (!vertragsende && vertragsbeginn) {
+      var lzMatch = text.match(/Laufzeit\s*(?:von\s*)?(\d+)\s*Monate?/i);
+      if (lzMatch) {
+        var months = parseInt(lzMatch[1]);
+        var start  = new Date(vertragsbeginn);
+        start.setMonth(start.getMonth() + months);
+        vertragsende = start.toISOString().split('T')[0];
+      }
+    }
+  }
+
+  // ── Monatliches Honorar ─────────────────────────────────────
+  var honorar = null;
+  var honorarPatterns = [
+    /(?:monatliche[sr]?\s+)?(?:Honorar|Vergütung|Pauschalhonorar)\s*(?:von|beträgt|:)?\s*(?:EUR|€)?\s*(\d[\d.,]+)\s*(?:EUR|€)/i,
+    /(\d[\d.,]+)\s*(?:EUR|€)\s*(?:pro|je|\/)\s*(?:Monat|m\.)/i,
+    /(?:EUR|€)\s*(\d[\d.,]+)\s*(?:pro|je|\/)\s*(?:Monat|m\.)/i,
+  ];
+  for (var h = 0; h < honorarPatterns.length; h++) {
+    var hm = text.match(honorarPatterns[h]);
+    if (hm) {
+      var val = parseEuro(hm[1]);
+      if (val && val > 100) { honorar = val; break; }
+    }
+  }
+
+  // ── Setup-Fee ───────────────────────────────────────────────
+  var setupFee = null;
+  var setupPatterns = [
+    /(?:Einrichtungs|Setup|Onboarding|Implementierungs)[^\n.]{0,80}?(\d[\d.,]+)\s*(?:EUR|€)/i,
+    /einmalig[^\n.]{0,80}?(\d[\d.,]+)\s*(?:EUR|€)/i,
+  ];
+  for (var s = 0; s < setupPatterns.length; s++) {
+    var sm = text.match(setupPatterns[s]);
+    if (sm) {
+      var sv = parseEuro(sm[1]);
+      if (sv && sv > 100) { setupFee = sv; break; }
+    }
+  }
+
+  // ── Dienstleistung ──────────────────────────────────────────
+  var dienstleistung = null;
+  var dlPatterns = [
+    /(?:Leistungsgegenstand|Gegenstand der Leistung)[:\s]+([^\n.]{10,120})/i,
+    /erbringt folgende Leistungen?[:\s]+([^\n.]{10,120})/i,
+    /(Advisory[^\n.]{0,80})/i,
+  ];
+  for (var d = 0; d < dlPatterns.length; d++) {
+    var dm = text.match(dlPatterns[d]);
+    if (dm) { dienstleistung = (dm[1] || dm[0]).trim().substring(0, 100); break; }
+  }
+
+  return {
+    customer_id:             'DRIVE-' + folderName.toUpperCase().replace(/[^A-Z0-9]/g, '-'),
+    company_name:            companyName,
+    ansprechpartner:         ansprechpartner || '',
+    emails:                  email ? [email] : [],
+    vertragsbeginn:          vertragsbeginn,
+    vertragsende:            vertragsende,
+    monatliches_honorar:     honorar,
+    setup_fee:               setupFee,
+    gebuchte_dienstleistung: dienstleistung || 'Advisory',
+    mandate_status:          vertragsbeginn ? 'active' : 'onboarding',
+    notes:                   '',
+    source_file:             fileName,
+    source_file_id:          fileId,
+    last_auto_sync:          new Date().toISOString(),
+    manually_edited:         false,
+    vertragsart:             'dienstleistungsvertrag',
+  };
 }
