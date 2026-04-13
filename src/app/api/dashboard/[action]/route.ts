@@ -9,7 +9,7 @@ const CUSTOMER_FALLBACK = [
 ];
 
 /** German short month names */
-const DE_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const DE_MONTHS = ['Jan','Feb','Mär','Ar','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
 // -- In-memory cache for Vercel serverless (survives warm invocations) --
 interface CacheEntry { data: any; ts: number; }
@@ -88,7 +88,7 @@ export async function GET(
     const customer = searchParams.get('customer') || '';
     const period = searchParams.get('period') || '';
     const params_obj: Record<string, string> = { action: action };
-    if (token) { params_obj.token = token; }
+        if (token && (action === 'customers' || action === 'save_tracker' || action.startsWith('admin'))) { params_obj.token = token; }
     if (customer) { params_obj.customer = customer; }
     if (period) { params_obj.period = period; }
 
