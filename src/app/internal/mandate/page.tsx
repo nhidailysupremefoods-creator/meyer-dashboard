@@ -56,6 +56,7 @@ export default function MandatePage() {
     active: 'bg-green-100 text-green-700',
     onboarding: 'bg-blue-100 text-blue-700',
     paused: 'bg-amber-100 text-amber-700',
+    inactive: 'bg-red-100 text-red-700',
     churned: 'bg-red-100 text-red-700',
   };
 
@@ -110,14 +111,13 @@ export default function MandatePage() {
         <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="border-b border-gray-100">
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[18%]">Kunde</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[22%]">Kunde</th>
               <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[12%]">Status</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[16%]">Vertragsart</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[16%]">Dienstleistung</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[11%]">Honorar</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[9%]">Setup</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[9%]">Beginn</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[9%]">Ende</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[18%]">Dienstleistung</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[14%]">Honorar</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[12%]">Setup</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[11%]">Beginn</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[11%]">Ende</th>
             </tr>
           </thead>
           <tbody>
@@ -134,10 +134,9 @@ export default function MandatePage() {
                 </td>
                 <td className="py-3 px-2">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColors[m.mandate_status] || 'bg-gray-100 text-gray-700'}`}>
-                    {capitalizeFirst(m.mandate_status)}
+                    {m.mandate_status === 'churned' ? 'Inactive' : capitalizeFirst(m.mandate_status)}
                   </span>
                 </td>
-                <td className="py-3 px-2 text-xs text-gray-600 truncate">{capitalizeFirst(m.vertragsart)}</td>
                 <td className="py-3 px-2 text-xs text-gray-600 truncate">{m.gebuchte_dienstleistung || '–'}</td>
                 <td className="py-3 px-2 text-xs font-semibold text-navy">{m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}</td>
                 <td className="py-3 px-2 text-xs text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
@@ -239,12 +238,11 @@ function MandateEditModal({
           {/* Contract Details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Vertragsart</label>
-              <select className={inputCls + ' bg-white'} value={form.vertragsart} onChange={e => setForm(f => ({ ...f, vertragsart: e.target.value }))}>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Dienstleistung</label>
+              <select className={inputCls + ' bg-white'} value={form.gebuchte_dienstleistung} onChange={e => setForm(f => ({ ...f, gebuchte_dienstleistung: e.target.value }))}>
                 <option value="">–</option>
-                <option value="Dienstleistungsvertrag">Dienstleistungsvertrag</option>
-                <option value="Rahmenvertrag">Rahmenvertrag</option>
-                <option value="Projektvertrag">Projektvertrag</option>
+                <option value="Advisory">Advisory</option>
+                <option value="Tool only">Tool only</option>
               </select>
             </div>
             <div>
@@ -253,14 +251,9 @@ function MandateEditModal({
                 <option value="active">Active</option>
                 <option value="onboarding">Onboarding</option>
                 <option value="paused">Paused</option>
-                <option value="churned">Churned</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Gebuchte Dienstleistung</label>
-            <input className={inputCls} value={form.gebuchte_dienstleistung} onChange={e => setForm(f => ({ ...f, gebuchte_dienstleistung: e.target.value }))} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
