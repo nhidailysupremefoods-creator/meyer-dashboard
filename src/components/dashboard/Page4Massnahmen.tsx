@@ -15,40 +15,53 @@ const fmtEur = (n: any) =>
 const fmtPct = (n: any) =>
   n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
-function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax }: { label: string; current: number; targetMin: number; targetMid: number; targetMax: number }) {
-  const range = targetMax * 1.2;
+// Fallback-Benchmarks falls API keine Daten liefert
+const FALLBACK_BENCHMARKS = [
+  { kpi_label: 'Produktivität', current: 0, target_min: 0.70, target_mid: 0.80, target_max: 0.90 },
+  { kpi_label: 'Stundensatz (€)', current: 0, target_min: 95, target_mid: 105, target_max: 120 },
+  { kpi_label: 'Personalkostenquote', current: 0, target_min: 0.40, target_mid: 0.45, target_max: 0.55 },
+];
+
+function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax }: {
+  label: string; current: number; targetMin: number; targetMid: number; targetMax: number;
+}) {
+  const range = targetMax * 1.2 || 1;
   const pctCurrent = Math.min((current / range) * 100, 100);
   const pctMin = (targetMin / range) * 100;
   const pctMax = (targetMax / range) * 100;
   const pctMid = (targetMid / range) * 100;
-  const inTarget = current >= targetMin && current <= targetMax;
-  const barColor = current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : '#D49564';
+  const inTarget = current > 0 && current >= targetMin && current <= targetMax;
+  const barColor = current === 0 ? '#ccc' : current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : '#D49564';
+  const fmt = (v: number) => v > 0 && v < 1 ? fmtPct(v) : v > 0 ? String(Math.round(v)) : '–';
   return (
     <div className="card">
       <div className="flex justify-between items-center mb-2">
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-        <span className="text-sm font-bold" style={{ color: inTarget ? '#2E8B57' : barColor }}>
-          {typeof current === 'number' && current < 1 ? fmtPct(current) : `${current}`}
+        <span className="text-sm font-bold" style={{ color: current === 0 ? 'var(--text-secondary)' : inTarget ? '#2E8B57' : barColor }}>
+          {current === 0 ? '–' : current < 1 ? fmtPct(current) : `${Math.round(current)}`}
         </span>
       </div>
       <div className="relative h-3 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
         <div className="absolute h-3 rounded-full" style={{ left: `${pctMin}%`, width: `${pctMax - pctMin}%`, backgroundColor: 'rgba(46,139,87,0.12)' }} />
-        <div className="absolute h-3 rounded-full transition-all" style={{ width: `${pctCurrent}%`, backgroundColor: barColor }} />
-        <div className="absolute top-0 w-0.5 h-3" style={{ left: `${pctMid}%`, backgroundColor: 'var(--text-secondary)' }} />
+        {current > 0 && <div className="absolute h-3 rounded-full transition-all" style={{ width: `${pctCurrent}%`, backgroundColor: barColor }} />}
+        <div className="absolute top-0 w-0.5 h-3" style={{ left: `${pctMid}%`, backgroundColor: 'rgba(0,0,0,0.3)' }} />
       </div>
       <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-        <span>Min: {targetMin < 1 ? fmtPct(targetMin) : targetMin}</span>
-        <span>Ziel: {targetMid < 1 ? fmtPct(targetMid) : targetMid}</span>
-        <span>Max: {targetMax < 1 ? fmtPct(targetMax) : targetMax}</span>
+        <span>Min: {fmt(targetMin)}</span>
+        <span>Ziel: {fmt(targetMid)}</span>
+        <span>Max: {fmt(targetMax)}</span>
       </div>
+      {current === 0 && (
+        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>Istwert nicht verfügbar</div>
+      )}
     </div>
   );
 }
 
 type TrackerStatus = 'Offen' | 'In Bearbeitung' | 'Umgesetzt';
 type EbitTab = 'top' | 'sonstige';
-type PoolTab = 'alle' | 'vertraege' | 'liquiditaet';
-type TrackerTab = 'aktiv' | 'archiv';
+type PoolTab = 'alle' | 'vertraege' | 'benchmarks';
+type TrackerTab = 'aktiv' | 'umgesetzt';
 
 interface TrackerItem {
   key: string;
@@ -67,7 +80,8 @@ const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius:
 
 export default function Page4Massnahmen({ data, customer, period }: Props) {
   const actions: any[] = useMemo(() => (data as any)?.actions || [], [data]);
-  const benchmarks: any[] = (data as any)?.benchmarks || [];
+  const rawBenchmarks: any[] = (data as any)?.benchmarks || [];
+  const benchmarks = rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS;
   const trackerData: any[] = (data as any)?.tracker || [];
 
   const [ebitTab, setEbitTab] = useState<EbitTab>('top');
@@ -98,9 +112,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
   const getImpact = (a: any) => Number(a.impact_eur ?? a.ebit_potential_eur ?? a.ebit_potential ?? 0);
 
   const sortedActions = useMemo(() =>
-    [...actions].sort((a, b) => getImpact(b) - getImpact(a)),
-    [actions]
-  );
+    [...actions].sort((a, b) => getImpact(b) - getImpact(a)), [actions]);
 
   const TOP_N = Math.min(5, sortedActions.length);
   const topActions = sortedActions.slice(0, TOP_N);
@@ -108,10 +120,27 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
   const totalEbitPotential = sortedActions.reduce((s, a) => s + getImpact(a), 0);
   const ebitActions = ebitTab === 'top' ? topActions : sonstigeActions;
 
+  // Benchmark-Maßnahmen (unter Zielwert → im Pool verfügbar)
+  const benchmarkPoolActions = useMemo(() =>
+    benchmarks.map((b: any, i: number) => ({
+      action_key: `bench_${i}`,
+      action_label: b.kpi_label || `Benchmark ${i + 1}`,
+      contract_name: b.kpi_label,
+      category: 'Benchmark-Maßnahme',
+      impact_eur: 0,
+      ebit_potential_eur: 0,
+      isBenchmark: true,
+      belowTarget: Number(b.current ?? 0) > 0 && Number(b.current) < Number(b.target_min ?? b.target_mid ?? 0),
+    })), [benchmarks]);
+
+  const poolContractBase = useMemo(() =>
+    poolTab === 'vertraege' ? sortedActions.slice(0, TOP_N) : sortedActions,
+    [sortedActions, poolTab, TOP_N]);
+
   const poolActions = useMemo(() => {
-    if (poolTab === 'vertraege') return sortedActions.slice(0, TOP_N);
-    return sortedActions;
-  }, [sortedActions, poolTab, TOP_N]);
+    if (poolTab === 'benchmarks') return benchmarkPoolActions;
+    return [...poolContractBase, ...benchmarkPoolActions];
+  }, [poolContractBase, benchmarkPoolActions, poolTab]);
 
   const liqLevers = useMemo(() => {
     const base = totalEbitPotential > 0 ? totalEbitPotential : 10000;
@@ -137,7 +166,8 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
     if (trackerItems.some(t => t.key === key)) return;
     setTrackerItems(prev => [...prev, {
       key, label: action.action_label || action.contract_name || '',
-      description: action.category || '', potenzial: getImpact(action),
+      description: action.category || '',
+      potenzial: getImpact(action),
       month: period, status: 'Offen', realization: 0, note: '', archived: false,
     }]);
   };
@@ -158,11 +188,17 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
     }
   };
 
+  // Auto-Archivierung wenn Status auf "Umgesetzt" gesetzt wird
   const updateItem = (key: string, updates: Partial<TrackerItem>) =>
-    setTrackerItems(prev => prev.map(t => t.key === key ? { ...t, ...updates } : t));
-
-  const archiveItem = (key: string) =>
-    setTrackerItems(prev => prev.map(t => t.key === key ? { ...t, archived: true } : t));
+    setTrackerItems(prev => prev.map(t => {
+      if (t.key !== key) return t;
+      const updated = { ...t, ...updates };
+      if (updates.status === 'Umgesetzt') {
+        updated.archived = true;
+        if (updated.realization < 100) updated.realization = 100;
+      }
+      return updated;
+    }));
 
   const removeItem = (key: string) => {
     setPoolSelected(prev => ({ ...prev, [key]: false }));
@@ -170,12 +206,11 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
   };
 
   const activeItems = trackerItems.filter(t => !t.archived);
-  const archivedItems = trackerItems.filter(t => t.archived);
-  const umgesetztCount = activeItems.filter(t => t.status === 'Umgesetzt').length;
-  const totalPotenzial = activeItems.reduce((s, t) => s + t.potenzial, 0);
-  const totalRealized = activeItems.reduce((s, t) => s + (t.potenzial * t.realization / 100), 0);
+  const umgesetztItems = trackerItems.filter(t => t.archived);
+  const totalPotenzial = trackerItems.reduce((s, t) => s + t.potenzial, 0);
+  const totalRealized = trackerItems.reduce((s, t) => s + (t.potenzial * t.realization / 100), 0);
   const captureRate = totalPotenzial > 0 ? (totalRealized / totalPotenzial) * 100 : 0;
-  const displayItems = trackerTab === 'aktiv' ? activeItems : archivedItems;
+  const displayItems = trackerTab === 'aktiv' ? activeItems : umgesetztItems;
 
   const tabBtn = (active: boolean) => active
     ? { background: '#C8A96E', color: '#fff' }
@@ -189,22 +224,31 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* 1. BENCHMARKVERGLEICH */}
-      {benchmarks.length > 0 && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-1">
-            <span style={DOT} />
-            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
-          </div>
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Branchenvergleich der wichtigsten Kennzahlen</p>
-          <div style={COPPER_LINE} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {benchmarks.map((b: any, i: number) => (
-              <BenchmarkGauge key={i} label={b.kpi_label || `KPI ${i + 1}`} current={Number(b.current ?? 0)} targetMin={Number(b.target_min ?? 0)} targetMid={Number(b.target_mid ?? 0)} targetMax={Number(b.target_max ?? 0)} />
-            ))}
-          </div>
+      {/* 1. BENCHMARKVERGLEICH — immer sichtbar */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-1">
+          <span style={DOT} />
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
+          {rawBenchmarks.length === 0 && (
+            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#FFF8E1', color: '#E65100' }}>Branchenzielwerte</span>
+          )}
         </div>
-      )}
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+          {rawBenchmarks.length > 0 ? 'Branchenvergleich der wichtigsten Kennzahlen' : 'Zielwerte — Istwerte werden nach Datenpflege angezeigt'}
+        </p>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {benchmarks.map((b: any, i: number) => (
+            <BenchmarkGauge key={i}
+              label={b.kpi_label || `KPI ${i + 1}`}
+              current={Number(b.current ?? 0)}
+              targetMin={Number(b.target_min ?? 0)}
+              targetMid={Number(b.target_mid ?? 0)}
+              targetMax={Number(b.target_max ?? 0)}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* 2. EBIT-HEBEL */}
       {sortedActions.length > 0 && (
@@ -289,49 +333,61 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         </div>
       </div>
 
-      {/* 4. MAẞNAHMENPOOL */}
-      {sortedActions.length > 0 && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span style={DOT} />
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>MAẞNAHMENPOOL</span>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--border-color)', color: 'var(--text-secondary)' }}>{sortedActions.length} verfügbar</span>
+      {/* 4. MAẞNAHMENPOOL — Verträge + Benchmarks */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span style={DOT} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>MAẞNAHMENPOOL</span>
           </div>
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Maßnahmen auswählen und in den Tracker übernehmen</p>
-          <div className="flex gap-2 mb-4">
-            {([['alle', `Alle ${sortedActions.length}`], ['vertraege', `Top Verträge ${topActions.length}`], ['liquiditaet', `Liquidität ${liqLevers.length}`]] as [PoolTab, string][]).map(([key, lbl]) => (
-              <button key={key} onClick={() => setPoolTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(poolTab === key)}>{lbl}</button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            {poolActions.map((action: any, idx: number) => {
-              const key = action.action_key || action.contract_id || `a${idx}`;
-              const selected = !!poolSelected[key];
-              const impact = getImpact(action);
-              const isTop = sortedActions.indexOf(action) < TOP_N;
-              return (
-                <div key={key} onClick={() => !savingKey && togglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
-                  <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
-                    {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
-                  </div>
-                  <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: '#FFF3E0', color: '#E65100' }}>VTR</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}</div>
-                    {action.category && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{action.category}</div>}
-                  </div>
-                  <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
-                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
-                    <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
-                    <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>EBIT</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--border-color)', color: 'var(--text-secondary)' }}>{sortedActions.length + benchmarkPoolActions.length} verfügbar</span>
         </div>
-      )}
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Maßnahmen auswählen und in den Tracker übernehmen</p>
+        <div className="flex gap-2 mb-4">
+          {([
+            ['alle', `Alle ${sortedActions.length + benchmarkPoolActions.length}`],
+            ['vertraege', `Verträge ${Math.min(TOP_N, sortedActions.length)}`],
+            ['benchmarks', `Benchmarks ${benchmarkPoolActions.length}`],
+          ] as [PoolTab, string][]).map(([key, lbl]) => (
+            <button key={key} onClick={() => setPoolTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(poolTab === key)}>{lbl}</button>
+          ))}
+        </div>
+        <div className="space-y-2">
+          {poolActions.length === 0 ? (
+            <div className="text-center py-6 text-sm" style={{ color: 'var(--text-secondary)' }}>Keine Maßnahmen in dieser Kategorie</div>
+          ) : poolActions.map((action: any, idx: number) => {
+            const key = action.action_key || action.contract_id || `a${idx}`;
+            const selected = !!poolSelected[key];
+            const impact = getImpact(action);
+            const isTop = !action.isBenchmark && sortedActions.indexOf(action) < TOP_N;
+            const isBench = !!action.isBenchmark;
+            return (
+              <div key={key} onClick={() => !savingKey && togglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
+                <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
+                  {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
+                </div>
+                <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={isBench ? { background: '#E8F5E9', color: '#2E7D32' } : { background: '#FFF3E0', color: '#E65100' }}>
+                  {isBench ? 'BM' : 'VTR'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}</div>
+                  {action.category && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{action.category}</div>}
+                </div>
+                <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
+                  {isBench ? (
+                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: '#E8F5E9', color: '#2E7D32' }}>BENCHMARK</span>
+                  ) : (
+                    <>
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
+                      <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* 5. REALISIERUNGSTRACKER */}
       <div className="card">
@@ -342,7 +398,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
           {[
             { label: 'AKTIV', value: String(activeItems.length), color: 'var(--text-primary)' },
-            { label: 'UMGESETZT', value: String(umgesetztCount), color: '#2E8B57' },
+            { label: 'UMGESETZT', value: String(umgesetztItems.length), color: '#2E8B57' },
             { label: 'POTENZIAL P.M.', value: fmtEur(totalPotenzial), color: 'var(--text-primary)' },
             { label: 'REALISIERT', value: fmtEur(totalRealized), color: totalRealized > 0 ? '#2E8B57' : '#E65100' },
             { label: 'CAPTURE RATE', value: `${captureRate.toFixed(0)}%`, color: captureRate >= 50 ? '#2E8B57' : '#E65100' },
@@ -354,7 +410,10 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
           ))}
         </div>
         <div className="flex gap-2 mb-4">
-          {([['aktiv', `Aktiv ${activeItems.length}`], ['archiv', `Archiv ${archivedItems.length}`]] as [TrackerTab, string][]).map(([key, lbl]) => (
+          {([
+            ['aktiv', `Aktiv ${activeItems.length}`],
+            ['umgesetzt', `Umgesetzt ${umgesetztItems.length}`],
+          ] as [TrackerTab, string][]).map(([key, lbl]) => (
             <button key={key} onClick={() => setTrackerTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(trackerTab === key)}>{lbl}</button>
           ))}
         </div>
@@ -384,16 +443,23 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
                         {item.description && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.description}</div>}
                       </td>
                       <td className="py-3 px-3">
-                        <select value={item.status} onChange={e => updateItem(item.key, { status: e.target.value as TrackerStatus })} className="text-xs rounded-lg px-2 py-1.5 border" style={{ background: '#fff', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}>
-                          <option>Offen</option>
-                          <option>In Bearbeitung</option>
-                          <option>Umgesetzt</option>
-                        </select>
+                        {trackerTab === 'aktiv' ? (
+                          <select value={item.status} onChange={e => updateItem(item.key, { status: e.target.value as TrackerStatus })} className="text-xs rounded-lg px-2 py-1.5 border" style={{ background: '#fff', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}>
+                            <option>Offen</option>
+                            <option>In Bearbeitung</option>
+                            <option>Umgesetzt</option>
+                          </select>
+                        ) : (
+                          <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background: '#E8F5E9', color: '#2E7D32' }}>✓ Umgesetzt</span>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-sm whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{fmtEur(item.potenzial)}</td>
                       <td className="py-3 px-3" style={{ minWidth: 140 }}>
                         <div className="flex items-center gap-2">
-                          <input type="range" min={0} max={100} step={5} value={item.realization} onChange={e => updateItem(item.key, { realization: Number(e.target.value) })} className="flex-1" style={{ accentColor: '#C8A96E' }} />
+                          <input type="range" min={0} max={100} step={5} value={item.realization}
+                            onChange={e => trackerTab === 'aktiv' && updateItem(item.key, { realization: Number(e.target.value) })}
+                            disabled={trackerTab === 'umgesetzt'}
+                            className="flex-1" style={{ accentColor: '#C8A96E' }} />
                           <span className="text-xs font-semibold w-8 text-right" style={{ color: 'var(--text-secondary)' }}>{item.realization}%</span>
                         </div>
                       </td>
@@ -404,11 +470,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
                         <input type="text" value={item.note} onChange={e => updateItem(item.key, { note: e.target.value })} placeholder="–" className="text-xs border rounded px-2 py-1" style={{ width: 80, borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: '#fff' }} />
                       </td>
                       <td className="py-3 pl-1">
-                        {trackerTab === 'aktiv' ? (
-                          <button onClick={() => archiveItem(item.key)} title="Archivieren" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: '#E53935', fontSize: 16, fontWeight: 700 }}>×</button>
-                        ) : (
-                          <button onClick={() => removeItem(item.key)} title="Löschen" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: '#999', fontSize: 14, fontWeight: 700 }}>×</button>
-                        )}
+                        <button onClick={() => removeItem(item.key)} title="Entfernen" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: trackerTab === 'aktiv' ? '#E53935' : '#bbb', fontSize: 16, fontWeight: 700 }}>×</button>
                       </td>
                     </tr>
                   );
@@ -418,7 +480,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
                     <td className="py-3 pr-3" />
                     <td className="py-3 font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Gesamt EBIT-Wirkung</td>
                     <td className="py-3 px-3" />
-                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtEur(totalPotenzial)}</td>
+                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtEur(activeItems.reduce((s, t) => s + t.potenzial, 0))}</td>
                     <td className="py-3 px-3 text-center text-sm font-semibold" style={{ color: '#C8A96E' }}>Ø {captureRate.toFixed(0)}%</td>
                     <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: totalRealized > 0 ? '#2E8B57' : '#E65100' }}>{fmtEur(totalRealized)}</td>
                     <td className="py-3 px-3" /><td className="py-3" />
@@ -430,7 +492,9 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         ) : (
           <div className="text-center py-8 rounded-xl" style={{ background: 'var(--background, #F7F5F2)', border: '1px dashed var(--border-color)' }}>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {trackerTab === 'aktiv' ? 'Noch keine Maßnahmen im Tracker. Maßnahmen aus dem Pool auswählen.' : 'Keine archivierten Maßnahmen.'}
+              {trackerTab === 'aktiv'
+                ? 'Noch keine aktiven Maßnahmen. Maßnahmen aus dem Pool auswählen.'
+                : 'Noch keine umgesetzten Maßnahmen. Status auf "Umgesetzt" setzen um sie hier zu sehen.'}
             </p>
           </div>
         )}
