@@ -64,7 +64,10 @@ export default function CRMPage() {
   useMemo(() => { autoArchive(); }, [autoArchive]);
 
   // ── Filter, Search & Sort ───────────────────────────────
-  const activeLeads = useMemo(() => leads.filter(l => showArchived || !l.is_archived), [leads, showArchived]);
+  const activeLeads = useMemo(() => leads.filter(l => {
+    if (showArchived) return l.pipeline_status === 'verloren';
+    return !l.is_archived;
+  }), [leads, showArchived]);
 
   const filtered = useMemo(() => {
     let result = [...activeLeads];
@@ -205,7 +208,7 @@ export default function CRMPage() {
     return 'bg-red-100 text-red-800';
   }
 
-  const archivedCount = leads.filter(l => l.is_archived).length;
+  const archivedCount = leads.filter(l => l.pipeline_status === 'verloren').length;
 
   return (
     <div>
