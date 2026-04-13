@@ -41,7 +41,7 @@ function setCache(key: string, data: any) {
 function generateFallbackPeriods(count = 14): Array<{period: string; label: string}> {
   const now = new Date();
   const results: Array<{period: string; label: string}> = [];
-  for (let i = 1; i <= count; i++) {
+  for (let i = 3; i <= count; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const y = d.getFullYear();
     const m = d.getMonth();
