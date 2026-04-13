@@ -107,52 +107,46 @@ export default function MandatePage() {
 
       {/* Mandate Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100">
-                {['Kunde', 'E-Mail', 'Status', 'Vertragsart', 'Dienstleistung', 'Honorar/Mon.', 'Setup-Fee', 'Beginn', 'Ende', ''].map(h => (
-                  <th key={h} className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 whitespace-nowrap">{h}</th>
-                ))}
+        <table className="w-full text-sm table-fixed">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[18%]">Kunde</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[12%]">Status</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[16%]">Vertragsart</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[16%]">Dienstleistung</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[11%]">Honorar</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[9%]">Setup</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[9%]">Beginn</th>
+              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[9%]">Ende</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mandates.map(m => (
+              <tr
+                key={m.customer_id}
+                className="border-b border-gray-50 hover:bg-offwhite/50 transition-colors cursor-pointer"
+                onClick={() => setEditingMandate(m)}
+              >
+                <td className="py-3 px-2">
+                  <div className="font-medium text-navy text-xs truncate">{m.company_name}</div>
+                  <div className="text-[11px] text-gray-400 truncate">{m.ansprechpartner}</div>
+                  <div className="text-[11px] text-gray-300 truncate">{m.email || ''}</div>
+                </td>
+                <td className="py-3 px-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColors[m.mandate_status] || 'bg-gray-100 text-gray-700'}`}>
+                    {capitalizeFirst(m.mandate_status)}
+                  </span>
+                </td>
+                <td className="py-3 px-2 text-xs text-gray-600 truncate">{capitalizeFirst(m.vertragsart)}</td>
+                <td className="py-3 px-2 text-xs text-gray-600 truncate">{m.gebuchte_dienstleistung || '–'}</td>
+                <td className="py-3 px-2 text-xs font-semibold text-navy">{m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}</td>
+                <td className="py-3 px-2 text-xs text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
+                <td className="py-3 px-2 text-[11px] text-gray-500">{formatDate(m.vertragsbeginn)}</td>
+                <td className="py-3 px-2 text-[11px] text-gray-500">{m.vertragsende ? formatDate(m.vertragsende) : 'unbefr.'}</td>
               </tr>
-            </thead>
-            <tbody>
-              {mandates.map(m => (
-                <tr key={m.customer_id} className="border-b border-gray-50 hover:bg-offwhite/50 transition-colors">
-                  <td className="py-3 px-3">
-                    <div className="font-medium text-navy">{m.company_name}</div>
-                    <div className="text-xs text-gray-400">{m.ansprechpartner}</div>
-                  </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px] truncate">
-                    {m.email || '–'}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[m.mandate_status] || 'bg-gray-100 text-gray-700'}`}>
-                      {m.mandate_status}
-                      {m.manually_edited && <span title="Manuell bearbeitet" className="text-[10px]">✏</span>}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-xs text-gray-600">{capitalizeFirst(m.vertragsart)}</td>
-                  <td className="py-3 px-3 text-xs text-gray-600 max-w-[180px] truncate">{m.gebuchte_dienstleistung || '–'}</td>
-                  <td className="py-3 px-3 font-semibold text-navy">
-                    {m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}
-                  </td>
-                  <td className="py-3 px-3 text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
-                  <td className="py-3 px-3 text-xs">{formatDate(m.vertragsbeginn)}</td>
-                  <td className="py-3 px-3 text-xs">{m.vertragsende ? formatDate(m.vertragsende) : 'unbefristet'}</td>
-                  <td className="py-3 px-3">
-                    <button
-                      onClick={() => setEditingMandate(m)}
-                      className="px-3 py-1 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 hover:border-copper/30 transition-colors"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
 
         {mandates.length === 0 && (
           <div className="text-center py-12 text-gray-400">Keine Mandate vorhanden</div>

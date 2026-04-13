@@ -174,7 +174,7 @@ export default function CRMPage() {
     if (wasArchived) {
       setToast('Lead als "verloren" archiviert – sichtbar im Archiv');
       setShowArchived(true);
-      setFilterStatus('verloren');
+      setFilterStatus('');
     } else {
       setToast(editingLead ? 'Lead gespeichert' : 'Neuer Lead erstellt');
     }
@@ -276,40 +276,40 @@ export default function CRMPage() {
             <option value="umsatz">Sort: Umsatz</option>
             <option value="company_name">Sort: Name</option>
           </select>
-          <button
-            onClick={() => setShowArchived(!showArchived)}
-            className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
-              showArchived ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Archiv ({archivedCount})
-          </button>
         </div>
 
         {/* Pipeline Filter Tabs */}
         <div className="flex gap-1.5 flex-wrap">
           <button
-            onClick={() => setFilterStatus('')}
+            onClick={() => { setFilterStatus(''); setShowArchived(false); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              !filterStatus ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              !filterStatus && !showArchived ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            Alle ({activeLeads.length})
+            Alle ({nonArchived.length})
           </button>
-          {PIPELINE_STAGES.map(stage => {
-            const count = activeLeads.filter(l => l.pipeline_status === stage.value).length;
+          {PIPELINE_STAGES.filter(s => s.value !== 'verloren').map(stage => {
+            const count = nonArchived.filter(l => l.pipeline_status === stage.value).length;
             return (
               <button
                 key={stage.value}
-                onClick={() => setFilterStatus(stage.value)}
+                onClick={() => { setFilterStatus(stage.value); setShowArchived(false); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  filterStatus === stage.value ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  filterStatus === stage.value && !showArchived ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 {stage.label} ({count})
               </button>
             );
           })}
+          <button
+            onClick={() => { setShowArchived(true); setFilterStatus(''); }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              showArchived ? 'bg-red-700 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Archiv ({archivedCount})
+          </button>
         </div>
       </div>
 
