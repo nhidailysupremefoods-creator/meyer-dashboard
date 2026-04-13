@@ -23,7 +23,7 @@ const fmtEurK = (n: any) => {
 };
 
 const fmtPct = (n: any) =>
-  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
+  n != null ? `$x(Number(n) * 100).toFixed(1)} %` : '–';
 
 const fmtPctSigned = (n: any) => {
   if (n == null) return '–';
@@ -189,178 +189,184 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* ── EBIT Hero Card — full-width, dark navy, old-dashboard style ── */}
-      <div
-        className="rounded-xl"
-        style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', overflow: 'hidden' }}
-      >
-        <div className="flex flex-col sm:flex-row">
-          {/* ── Left: EBIT details ── */}
-          <div className="flex-1 p-5 pb-4">
-            <div
-              className="text-xs font-bold uppercase tracking-widest mb-3"
-              style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
-            >
-              EBIT – MONATSERGEBNIS
-            </div>
+      {/* ── Hero + 4 KPI Tiles — Side by Side ── */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch">
 
-            {/* Big EBIT number in copper/gold */}
-            <div
-              className="text-4xl font-extrabold mb-1 leading-none"
-              style={{ color: ebit < 0 ? '#E88080' : '#D49564' }}
-            >
-              {fmtEur(ebit)}
-            </div>
-
-            {/* Sparkline */}
-            {sparklineData.length >= 2 && (
-              <div className="my-2">
-                <Sparkline data={sparklineData} width={180} height={30} />
-              </div>
-            )}
-
-            {/* MoM comparison */}
-            {profitMom !== 0 && (
+        {/* ── EBIT Hero Card ── */}
+        <div
+          className="rounded-xl"
+          style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', overflow: 'hidden', flexShrink: 0 }}
+        >
+          <div className="flex flex-col sm:flex-row">
+            {/* ── Left: EBIT details ── */}
+            <div className="flex-1 p-5 pb-4">
               <div
-                className="text-sm font-semibold mb-3"
-                style={{ color: profitMom >= 0 ? '#6ECF91' : '#E88080' }}
-              >
-                {momArrow(profitMom)} {fmtPctSigned(profitMom)} ggü. Vormonat
-              </div>
-            )}
-
-            {/* Marge + Abstand pill */}
-            <div
-              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
-              style={{
-                backgroundColor: pillColor.bg,
-                color: pillColor.text,
-                border: `1px solid ${pillColor.border}`,
-              }}
-            >
-              {fmtPct(marginPct)} EBIT-Marge
-              {ebitGap !== 0 && (
-                <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 6px' }}>·</span>
-              )}
-              {ebitGap !== 0 && (
-                <span>Abstand: {fmtEur(Math.abs(ebitGap))}</span>
-              )}
-            </div>
-          </div>
-
-          {/* ── Vertical Divider ── */}
-          <div
-            className="hidden sm:block"
-            style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.10)', margin: '20px 0' }}
-          />
-          <div className="block sm:hidden mx-5" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)' }} />
-
-          {/* ── Right: STATUS + HEBELPOTENZIAL ── */}
-          <div
-            className="p-5 flex flex-row sm:flex-col justify-around sm:justify-center gap-4"
-            style={{ minWidth: 180 }}
-          >
-            {/* Status */}
-            <div>
-              <div
-                className="text-xs font-bold uppercase tracking-widest mb-1"
+                className="text-xs font-bold uppercase tracking-widest mb-3"
                 style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
               >
-                STATUS
+                EBIT – MONATSERGEBNIS
               </div>
+
+              {/* Big EBIT number in copper/gold */}
               <div
-                className="text-lg font-extrabold uppercase"
-                style={{ color: st.color }}
+                className="text-4xl font-extrabold mb-1 leading-none"
+                style={{ color: ebit < 0 ? '#E88080' : '#D49564' }}
               >
-                {st.label}
+                {fmtEur(ebit)}
+              </div>
+
+              {/* Sparkline */}
+              {sparklineData.length >= 2 && (
+                <div className="my-2">
+                  <Sparkline data={sparklineData} width={180} height={30} />
+                </div>
+              )}
+
+              {/* MoM comparison */}
+              {profitMom !== 0 && (
+                <div
+                  className="text-sm font-semibold mb-3"
+                  style={{ color: profitMom >= 0 ? '#6ECF91' : '#E88080' }}
+                >
+                  {momArrow(profitMom)} {fmtPctSigned(profitMom)} ggü. Vormonat
+                </div>
+              )}
+
+              {/* Marge + Abstand pill */}
+              <div
+                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
+                style={{
+                  backgroundColor: pillColor.bg,
+                  color: pillColor.text,
+                  border: `1px solid ${pillColor.border}`,
+                }}
+              >
+                {fmtPct(marginPct)} EBIT-Marge
+                {ebitGap !== 0 && (
+                  <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 6px' }}>·</span>
+                )}
+                {ebitGap !== 0 && (
+                  <span>Abstand: {fmtEur(Math.abs(ebitGap))}</span>
+                )}
               </div>
             </div>
 
-            {/* Hebelpotenzial */}
-            {ebitPotential > 0 && (
+            {/* ── Vertical Divider ── */}
+            <div
+              className="hidden sm:block"
+              style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.10)', margin: '20px 0' }}
+            />
+            <div className="block sm:hidden mx-5" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)' }} />
+
+            {/* ── Right: STATUS + HEBELPOTENZIAL ── */}
+            <div
+              className="p-5 flex flex-row sm:flex-col justify-around sm:justify-center gap-4"
+              style={{ minWidth: 180 }}
+            >
+              {/* Status */}
               <div>
                 <div
                   className="text-xs font-bold uppercase tracking-widest mb-1"
                   style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
                 >
-                  HEBELPOTENZIAL
+                  STATUS
                 </div>
-                <div className="flex items-baseline gap-1">
-                  <span
-                    className="text-xl font-extrabold"
-                    style={{ color: '#6ECF91' }}
-                  >
-                    +{fmtEur(ebitPotential)}
-                  </span>
-                  <span
-                    className="text-xs"
-                    style={{ color: 'rgba(255,255,255,0.45)' }}
-                  >
-                    / Monat
-                  </span>
+                <div
+                  className="text-lg font-extrabold uppercase"
+                  style={{ color: st.color }}
+                >
+                  {st.label}
                 </div>
+              </div>
+
+              {/* Hebelpotenzial */}
+              {ebitPotential > 0 && (
+                <div>
+                  <div
+                    className="text-xs font-bold uppercase tracking-widest mb-1"
+                    style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
+                  >
+                    HEBELPOTENZIAL
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className="text-xl font-extrabold"
+                      style={{ color: '#6ECF91' }}
+                    >
+                      +{fmtEur(ebitPotential)}
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: 'rgba(255,255,255,0.45)' }}
+                    >
+                      / Monat
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 4 KPI Tiles 2×2 ── */}
+        <div className="grid grid-cols-2 gap-3 flex-1">
+
+          {/* Monatsumsatz */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
+              Monatsumsatz
+            </div>
+            <div className="text-3xl font-bold leading-none mb-2" style={{ color: 'var(--text-primary)' }}>
+              {fmtEur(revenue)}
+            </div>
+            {revenueMom !== 0 && (
+              <div className="text-sm font-semibold" style={{ color: momColor(revenueMom) }}>
+                {momArrow(revenueMom)} {fmtPctSigned(revenueMom)} Vormonat
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* ── 4-Column KPI Grid ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Monatsumsatz */}
-        <div className="card text-center">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-            Monatsumsatz (MRR)
+          {/* Produktivität */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
+            <div className="text-3xl font-bold leading-none mb-2" style={{ color: prodVsZiel >= 0 ? '#2E8B57' : 'var(--text-primary)' }}>{prodDisplay}</div>
+            {prodVsZiel !== 0 && (
+              <div className="text-sm font-semibold" style={{ color: prodVsZiel > 0 ? '#2E8B57' : '#C43830' }}>
+                {momArrow(prodVsZiel)} {fmtPctSigned(prodVsZiel)} vs. Ziel
+              </div>
+            )}
           </div>
-          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            {fmtEur(revenue)}
+
+          {/* Kostenquote */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Kostenquote</div>
+            <div className="text-3xl font-bold leading-none mb-2" style={{
+              color: costRatioDisplay > 0.95 ? 'var(--danger)' : costRatioDisplay > 0.88 ? 'var(--warning)' : 'var(--text-primary)'
+            }}>
+              {fmtPct(costRatioDisplay)}
+            </div>
+            {costMom !== 0 && (
+              <div className="text-sm font-semibold" style={{ color: momColor(-costMom) }}>
+                {momArrow(-costMom)} {fmtPctSigned(-costMom)} Vormonat
+              </div>
+            )}
           </div>
-          {revenueMom !== 0 && (
-            <div className="text-xs mt-1" style={{ color: momColor(revenueMom) }}>
-              {momArrow(revenueMom)} {fmtPctSigned(revenueMom)} Vormonat
-            </div>
-          )}
-        </div>
 
-        {/* Produktivität */}
-        <div className="card text-center">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
-          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{prodDisplay}</div>
-          {prodVsZiel !== 0 && (
-            <div className="text-xs mt-1" style={{ color: prodVsZiel > 0 ? '#2E8B57' : '#C43830' }}>
-              {momArrow(prodVsZiel)} {fmtPctSigned(prodVsZiel)} vs. Ziel
-            </div>
-          )}
-        </div>
-
-        {/* Kostenquote */}
-        <div className="card text-center">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Kostenquote</div>
-          <div className="text-xl font-bold" style={{
-            color: costRatioDisplay > 0.95 ? 'var(--danger)' : costRatioDisplay > 0.88 ? 'var(--warning)' : 'var(--text-primary)'
-          }}>
-            {fmtPct(costRatioDisplay)}
+          {/* Personalkosten */}
+          <div className="card">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Personalkosten</div>
+            <div className="text-3xl font-bold leading-none mb-2" style={{ color: 'var(--text-primary)' }}>{payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}</div>
+            {payrollMom !== 0 ? (
+              <div className="text-sm font-semibold" style={{ color: momColor(-payrollMom) }}>
+                {momArrow(-payrollMom)} {fmtPctSigned(-payrollMom)} Vormonat
+              </div>
+            ) : payrollPctDelta !== 0 ? (
+              <div className="text-sm font-semibold" style={{ color: momColor(-payrollPctDelta) }}>
+                {momArrow(-payrollPctDelta)} {payrollPctDelta > 0 ? '+' : ''}{(payrollPctDelta * 100).toFixed(1)} %p Vormonat
+              </div>
+            ) : null}
           </div>
-          {costMom !== 0 && (
-            <div className="text-xs mt-1" style={{ color: momColor(-costMom) }}>
-              {momArrow(-costMom)} {fmtPctSigned(-costMom)} Vormonat
-            </div>
-          )}
-        </div>
 
-        {/* Personalkosten */}
-        <div className="card text-center">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Personalkosten</div>
-          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}</div>
-          {payrollMom !== 0 ? (
-            <div className="text-xs mt-1" style={{ color: momColor(-payrollMom) }}>
-              {momArrow(-payrollMom)} {fmtPctSigned(-payrollMom)} Vormonat
-            </div>
-          ) : payrollPctDelta !== 0 ? (
-            <div className="text-xs mt-1" style={{ color: momColor(-payrollPctDelta) }}>
-              {momArrow(-payrollPctDelta)} {payrollPctDelta > 0 ? '+' : ''}{(payrollPctDelta * 100).toFixed(1)} %p Vormonat
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -437,8 +443,8 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mb-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 14, height: 10, backgroundColor: 'rgba(212,149,106,0.4)', borderRadius: 2 }} /> Umsatz</span>
-            <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 14, height: 2, backgroundColor: 'var(--navy)' }} /> EBIT</span>
+            <span className="flex items-center gap-1"><span style={ display: 'inline-block', width: 14, height: 10, backgroundColor: 'rgba(212,149,106,0.4)', borderRadius: 2 }} /> Umsatz</span>
+            <span className="flex items-center gap-1"><span style={ display: 'inline-block', width: 14, height: 2, backgroundColor: 'var(--navy)' }} /> EBIT</span>
           </div>
           <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
             {/* Y-axis labels */}
@@ -447,7 +453,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               const val = maxRev * f;
               return (
                 <g key={`yL${i}`}>
-                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidth="0.5" />
+                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidta="0.5" />
                   <text x="46" y={y + 3} textAnchor="end" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>
                 </g>
               );
@@ -464,7 +470,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               const ebitVal = Number(row.profit ?? row.ebit ?? 0);
               const barH = maxRev > 0 ? (rev / maxRev) * 170 : 0;
               const colW = 635 / chartData.length;
-              const x = 55 + i * colW + colW * 0.15;
+              const x = 55 + i * colW + colW * 0.5M;
               const barW = colW * 0.7;
               const lineY = 190 - (maxEbit > 0 ? (Math.abs(ebitVal) / maxEbit) * 170 : 0);
               const label = row.month_label_short || row.month_label || '';
@@ -476,7 +482,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                     const prevY = 190 - (maxEbit > 0 ? (prevEbit / maxEbit) * 170 : 0);
                     const prevX = 55 + (i - 1) * colW + colW * 0.5;
                     const curX = x + barW / 2;
-                    return <line x1={prevX} y1={prevY} x2={curX} y2={lineY} stroke="var(--navy)" strokeWidth="2" />;
+                    return <line x1={prevX} y1={prevY} x2={curX} y2={lineY} stroke="var(--navy)" strokeWidta="2" />;
                   })()}
                   <circle cx={x + barW / 2} cy={lineY} r="3" fill="var(--navy)" />
                   <text x={x + barW / 2} y="207" textAnchor="middle" fontSize="8" fill="var(--text-secondary)">{label}</text>
