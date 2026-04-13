@@ -165,6 +165,22 @@ export default function DashboardPage() {
     };
   }, [selectedCustomer, selectedPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
+
+  // -- Auto-advance: if newest period has no KPI data, try next period --
+  useEffect(() => {
+    if (!selectedCustomer || !selectedPeriod || !periods.length) return;
+    const key = pageKey(1, selectedCustomer, selectedPeriod);
+    const pData = pageData[key];
+    if (!pData || loadingPages.has(1)) return;
+    const kpis = pData.data || {};
+    if (!kpis.revenue && !kpis.ebit) {
+      const currentIdx = periods.findIndex((p) => p.period === selectedPeriod);
+      const nextPeriod = periods[currentIdx + 1];
+      if (nextPeriod && !pageData[pageKey(1, selectedCustomer, nextPeriod.period)]) {
+        setSelectedPeriod(nextPeriod.period);
+      }
+    }
+  }, [pageData, selectedCustomer, selectedPeriod, periods, loadingPages]); // eslint-disable-line react-hooks/exhaustive-deps
   // -- When switching tabs: load if not cached --
   useEffect(() => {
     if (!selectedCustomer || !selectedPeriod) return;
