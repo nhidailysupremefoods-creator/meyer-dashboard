@@ -32,19 +32,20 @@
   font-weight: 400;
 }
 
-/* ── Hero Section ── */
+/* ── Hero Section — rounded card, constrained width ── */
 .heroSection {
   background: linear-gradient(135deg, #192231 0%, #1e2a3a 50%, #243447 100%);
   padding: 2rem 2rem 1.75rem;
-  margin-bottom: 2rem;
+  margin: 0 auto 2rem;
+  max-width: 1200px;
+  border-radius: 12px;
 }
 
 .heroTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  max-width: 1200px;
-  margin: 0 auto 1rem;
+  margin-bottom: 1rem;
 }
 
 .heroLabel {
@@ -73,8 +74,7 @@
 }
 
 .heroMain {
-  max-width: 1200px;
-  margin: 0 auto 0.75rem;
+  margin-bottom: 0.75rem;
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
@@ -94,8 +94,6 @@
 }
 
 .heroStatus {
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -150,7 +148,7 @@
 }
 
 .kpiCardRed {
-  border-left: 4px solid #E53935;
+  /* border accent removed — values are now colored instead */
 }
 
 .kpiLabel {
@@ -555,6 +553,8 @@
     font-size: 1.3rem;
   }
   .heroSection {
+    margin-left: 1rem;
+    margin-right: 1rem;
     padding: 1.5rem 1.25rem 1.25rem;
   }
   .heroCount {
@@ -585,9 +585,6 @@
 }
 
 @media (max-width: 480px) {
-  .heroSection {
-    border-radius: 0;
-  }
   .tabBar {
     flex-direction: column;
   }
