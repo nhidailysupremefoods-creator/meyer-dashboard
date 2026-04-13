@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Lead, Branche, PipelineStatus } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
+import { useCurrentUser } from '@/lib/internal-os/user-context';
 import {
   computeICPScore,
   BRANCHEN_LABELS,
@@ -23,6 +24,7 @@ function loadLeads(): Lead[] {
 }
 
 export default function CRMPage() {
+  const { currentUser } = useCurrentUser();
   const [leads, setLeads] = useState<Lead[]>(loadLeads);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -155,7 +157,7 @@ export default function CRMPage() {
         lead_source: '',
         created_at: now,
         updated_at: now,
-        created_by: 'gregory@meyerdecision.com',
+        created_by: currentUser,
         is_archived: false,
         archived_at: null,
         duplicate_flag: false,
@@ -387,7 +389,7 @@ export default function CRMPage() {
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-[10px] text-gray-300">{lead.next_action_date}</span>
                         <a
-                          href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`[CRM] ${lead.company_name}: ${lead.next_action}`)}&dates=${lead.next_action_date.replace(/-/g,'')}/${lead.next_action_date.replace(/-/g,'')}&details=${encodeURIComponent(`Ansprechpartner: ${lead.ansprechpartner}\nPipeline: ${lead.pipeline_status}\nICP Score: ${lead.icp_score}`)}`}
+                          href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`[CRM] ${lead.company_name}: ${lead.next_action}`)}&dates=${lead.next_action_date.replace(/-/g,'')}/${lead.next_action_date.replace(/-/g,'')}&details=${encodeURIComponent(`Ansprechpartner: ${lead.ansprechpartner}\nPipeline: ${lead.pipeline_status}\nICP Score: ${lead.icp_score}`)}&src=${encodeURIComponent(currentUser)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={e => e.stopPropagation()}
@@ -493,6 +495,7 @@ function LeadFormModal({
   onSave: (data: Partial<Lead>) => void;
   onDelete?: () => void;
 }) {
+  const { currentUser } = useCurrentUser();
   const [form, setForm] = useState({
     company_name: lead?.company_name || '',
     branche: lead?.branche || '' as Branche | '',
@@ -698,7 +701,7 @@ function LeadFormModal({
                 <input className={inputCls} type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} />
                 {form.next_action_date && (
                   <a
-                    href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`[CRM] ${form.company_name}: ${form.next_action}`)}&dates=${form.next_action_date.replace(/-/g,'')}/${form.next_action_date.replace(/-/g,'')}&details=${encodeURIComponent(`Ansprechpartner: ${form.ansprechpartner}\nPipeline: ${form.pipeline_status}`)}`}
+                    href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`[CRM] ${form.company_name}: ${form.next_action}`)}&dates=${form.next_action_date.replace(/-/g,'')}/${form.next_action_date.replace(/-/g,'')}&details=${encodeURIComponent(`Ansprechpartner: ${form.ansprechpartner}\nPipeline: ${form.pipeline_status}`)}&src=${encodeURIComponent(currentUser)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     title="In Google Kalender eintragen"

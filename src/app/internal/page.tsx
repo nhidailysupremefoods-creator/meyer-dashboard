@@ -1,14 +1,34 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Lead } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
 import { SEED_MANDATES } from '@/lib/internal-os/demo-data';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
 import { formatCurrency } from '@/lib/internal-os/utils';
 
+const LEADS_STORAGE_KEY = 'meyer-internal-os-leads';
+
+function loadLeads(): Lead[] {
+  if (typeof window === 'undefined') return SEED_LEADS;
+  try {
+    const stored = localStorage.getItem(LEADS_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return SEED_LEADS;
+}
+
 export default function DashboardHome() {
+  const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
+
+  // Load from localStorage on mount (client-side only)
+  useEffect(() => {
+    setLeads(loadLeads());
+  }, []);
+
   // ── CRM KPIs ────────────────────────────────────────────
-  const activeLeads = SEED_LEADS.filter(l => !l.is_archived);
+  const activeLeads = leads.filter(l => !l.is_archived && l.pipeline_status !== 'verloren');
   const hotLeads = activeLeads.filter(l => l.icp_score >= 70);
   const inPipeline = activeLeads.filter(l =>
     ['kontaktiert', 'qualifiziert', 'angebot', 'verhandlung'].includes(l.pipeline_status)

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { UserProvider, useCurrentUser } from '@/lib/internal-os/user-context';
 
 // Internal OS eigene Styles – isoliert vom Kunden-Dashboard
 const styles = `
@@ -20,8 +20,16 @@ const NAV_ITEMS = [
 ];
 
 export default function InternalOSLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <UserProvider>
+      <InternalOSLayoutInner>{children}</InternalOSLayoutInner>
+    </UserProvider>
+  );
+}
+
+function InternalOSLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [currentUser, setCurrentUser] = useState('gregory@meyerdecision.com');
+  const { currentUser, setCurrentUser } = useCurrentUser();
 
   return (
     <>
