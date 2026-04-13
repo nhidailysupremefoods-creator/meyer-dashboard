@@ -92,6 +92,22 @@ export default function MandatePage() {
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
   const totalSetup = mandates.reduce((s, m) => s + (m.setup_fee || 0), 0);
 
+  // ARR: Honorar × tatsächliche Vertragslaufzeit in Monaten (nicht immer 12)
+  // Falls kein Enddatum gesetzt, werden 12 Monate angenommen.
+  const totalARR = activeMandates.reduce((s, m) => {
+    const honorar = m.monatliches_honorar || 0;
+    if (m.vertragsbeginn && m.vertragsende) {
+      const start = new Date(m.vertragsbeginn);
+      const end = new Date(m.vertragsende);
+      const months =
+        (end.getFullYear() - start.getFullYear()) * 12 +
+        (end.getMonth() - start.getMonth());
+      return s + honorar * Math.max(months, 1);
+    }
+    // Kein Enddatum → 12 Monate als Standard
+    return s + honorar * 12;
+  }, 0);
+
   return (
     <div>
       {/* Toast */}
@@ -138,8 +154,8 @@ export default function MandatePage() {
           <div className="text-sm text-gray-400 mt-1">Aktive Mandate</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalMRR * 12)}</div>
-          <div className="text-sm text-gray-400 mt-1">ARR (hochgerechnet)</div>
+          <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalARR)}</div>
+          <div className="text-sm text-gray-400 mt-1">ARR (Vertragslaufzeit)</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalSetup)}</div>
