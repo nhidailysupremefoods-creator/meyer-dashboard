@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { OperationsCustomer, DocumentType, EmailPreview } from '@/lib/internal-os/types';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
-import { formatCurrency, formatDate } from '@/lib/internal-os/utils';
+import { formatDate } from '@/lib/internal-os/utils';
 
 // ── Workflow Steps ──────────────────────────────────────
 
@@ -327,7 +327,12 @@ export default function OperationsPage() {
   const gruen = customers.filter(c => c.ampel_status === 'GRUEN').length;
   const gelb = customers.filter(c => c.ampel_status === 'GELB').length;
   const rot = customers.filter(c => c.ampel_status === 'ROT').length;
-  const totalMRR = customers.reduce((s, c) => s + (c.monatliches_honorar || 0), 0);
+  // Check if today is past the 10th → show upload warning for customers without data
+  const today = new Date();
+  const isPastDeadline = today.getDate() > 10;
+  const customersNeedingData = isPastDeadline
+    ? customers.filter(c => !c.daten_erhalten)
+    : [];
 
   const ampelStyles = {
     GRUEN: 'bg-green-500',
@@ -369,7 +374,7 @@ export default function OperationsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-lg">{gruen}</div>
           <div>
@@ -391,11 +396,27 @@ export default function OperationsPage() {
             <div className="text-xs text-gray-400">Keine Daten</div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-2xl font-bold text-copper">{formatCurrency(totalMRR)}</div>
-          <div className="text-xs text-gray-400 mt-1">MRR aktive Kunden</div>
-        </div>
       </div>
+
+      {/* Upload-Deadline Warnung */}
+      {customersNeedingData.length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl px-6 py-4 flex items-start gap-3">
+          <span className="text-red-500 text-xl mt-0.5">⚠️</span>
+          <div>
+            <div className="font-manrope font-bold text-red-700 text-sm">Daten-Upload überfällig</div>
+            <p className="text-xs text-red-600 mt-1">
+              Folgende Kunden haben ihre Daten für diesen Monat noch nicht bis zum 10. hochgeladen:
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {customersNeedingData.map(c => (
+                <span key={c.customer_id} className="bg-red-100 text-red-700 px-2.5 py-1 rounded-lg text-xs font-medium">
+                  {c.company_name}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Customer Cards */}
       <div className="space-y-3">
@@ -446,11 +467,6 @@ export default function OperationsPage() {
                     {customer.last_upload_date && (
                       <div className="text-[10px] text-gray-300">{formatDate(customer.last_upload_date)}</div>
                     )}
-                  </div>
-
-                  {/* Honorar */}
-                  <div className="text-sm font-semibold text-navy min-w-[80px] text-right">
-                    {customer.monatliches_honorar ? formatCurrency(customer.monatliches_honorar) : '–'}
                   </div>
 
                   {/* Expand Arrow */}
