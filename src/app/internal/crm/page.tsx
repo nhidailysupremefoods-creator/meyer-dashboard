@@ -172,7 +172,7 @@ export default function CRMPage() {
     setShowForm(false);
     setEditingLead(null);
     if (wasArchived) {
-      setToast('Lead als "verloren" archiviert – sichtbar im Archiv');
+      setToast('Lead als "verloren" markiert');
       setShowArchived(true);
       setFilterStatus('');
     } else {
@@ -212,7 +212,7 @@ export default function CRMPage() {
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-[60] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${
-          toast.includes('archiviert') ? 'bg-amber-600' : toast.includes('gelöscht') ? 'bg-red-600' : 'bg-green-600'
+          toast.includes('verloren') ? 'bg-amber-600' : toast.includes('gelöscht') ? 'bg-red-600' : 'bg-green-600'
         }`}>
           {toast}
         </div>
@@ -308,7 +308,7 @@ export default function CRMPage() {
               showArchived ? 'bg-red-700 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
             }`}
           >
-            Archiv ({archivedCount})
+            Verloren ({archivedCount})
           </button>
         </div>
       </div>
@@ -342,7 +342,7 @@ export default function CRMPage() {
                       <div className="text-[10px] text-amber-600 font-medium mt-0.5">Mögliches Duplikat</div>
                     )}
                     {lead.is_archived && (
-                      <div className="text-[10px] text-red-500 font-medium mt-0.5">Archiviert</div>
+                      <div className="text-[10px] text-red-500 font-medium mt-0.5">Verloren</div>
                     )}
                   </td>
                   <td className="py-3 px-3 text-xs text-gray-500 max-w-[120px] truncate">
