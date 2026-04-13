@@ -266,7 +266,7 @@ export default function OperationsPage() {
 
       // Fallback: Try Next.js API route (which could use Gmail MCP)
       try {
-        const res = await fetch('/api/send-email', {
+        const res = await fetch('/api/internal/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(emailPreview),
