@@ -165,6 +165,10 @@ export default function Page1Gesamtlage({ data }: Props) {
     ? { bg: 'rgba(232,168,56,0.25)', text: '#E8C050', border: 'rgba(232,168,56,0.40)' }
     : { bg: 'rgba(46,139,87,0.25)', text: '#6ECF91', border: 'rgba(46,139,87,0.40)' };
 
+  // Chart layout constants
+  const BASELINE = 200;   // y-coordinate of the x-axis baseline (shifted down for label room)
+  const CHART_H = 165;    // height of chart area in SVG units
+
   return (
     <div className="space-y-5">
       {/* ── Section Title ── */}
@@ -396,7 +400,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ── 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT) ── */}
+      {/* ── 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT + Datenbeschriftungen) ── */}
       {chartData.length > 0 && (
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
@@ -414,7 +418,8 @@ export default function Page1Gesamtlage({ data }: Props) {
               EBIT
             </span>
           </div>
-          <svg viewBox="0 0 700 220" style={{ width: '100%', height: 'auto' }}>
+          {/* viewBox expanded to 240 height; BASELINE=200, CHART_H=165 */}
+          <svg viewBox="0 0 700 240" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
             <defs>
               <linearGradient id="p1barGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="rgba(212,149,106,1)" stopOpacity="0.72" />
@@ -425,9 +430,10 @@ export default function Page1Gesamtlage({ data }: Props) {
                 <stop offset="100%" stopColor="#43A047" stopOpacity="0.01" />
               </linearGradient>
             </defs>
-            {/* Dashed grid lines */}
+
+            {/* Dashed grid lines (baseline=200, chart_h=165) */}
             {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
-              const y = 190 - f * 170;
+              const y = BASELINE - f * CHART_H;
               const val = maxRev * f;
               return (
                 <g key={`yL${i}`}>
@@ -436,33 +442,54 @@ export default function Page1Gesamtlage({ data }: Props) {
                 </g>
               );
             })}
-            {/* Right Y-axis (EBIT) */}
+
+            {/* Right Y-axis (EBIT scale) */}
             {[0, 0.5, 1].map((f, i) => {
-              const y = 190 - f * 170;
+              const y = BASELINE - f * CHART_H;
               const val = maxEbit * f;
               return <text key={`yR${i}`} x="694" y={y + 3} textAnchor="start" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>;
             })}
-            {/* Revenue bars with gradient fill */}
+
+            {/* Revenue bars with gradient fill + Umsatz-Datenbeschriftung */}
             {chartData.map((row: any, i: number) => {
               const rev = Math.abs(Number(row.revenue ?? 0));
-              const barH = maxRev > 0 ? (rev / maxRev) * 170 : 0;
+              const barH = maxRev > 0 ? (rev / maxRev) * CHART_H : 0;
               const colW = 635 / chartData.length;
               const x = 55 + i * colW + colW * 0.15;
               const barW = colW * 0.70;
+              const barTop = BASELINE - Math.max(barH, 0);
               const label = row.month_label_short || row.month_label || '';
+              const cx = x + barW / 2;
               return (
                 <g key={`bar${i}`}>
-                  <rect x={x} y={190 - Math.max(barH, 0)} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3" />
-                  <text x={x + barW / 2} y="207" textAnchor="middle" fontSize="8" fill="var(--text-secondary)">{label}</text>
+                  <rect x={x} y={barTop} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3" />
+                  {/* Umsatz-Label: rotiert über dem Balken */}
+                  {barH > 5 && (
+                    <text
+                      x={cx}
+                      y={barTop - 4}
+                      textAnchor="end"
+                      fontSize="8"
+                      fontWeight="500"
+                      fill="rgba(212,149,106,0.95)"
+                      transform={`rotate(-60, ${cx}, ${barTop - 4})`}
+                    >
+                      {fmtEurK(rev)}
+                    </text>
+                  )}
+                  {/* Monatsbezeichnung unten */}
+                  <text x={cx} y={BASELINE + 17} textAnchor="middle" fontSize="8" fill="var(--text-secondary)">{label}</text>
                 </g>
               );
             })}
-            {/* EBIT smooth Catmull-Rom bezier curve + area fill */}
+
+            {/* EBIT smooth Catmull-Rom bezier curve + area fill + Datenbeschriftungen */}
             {chartData.length >= 2 && (() => {
               const colW = 635 / chartData.length;
               const pts = chartData.map((row: any, i: number) => ({
                 x: 55 + i * colW + colW * 0.5,
-                y: 190 - (maxEbit > 0 ? (Math.abs(Number(row.profit ?? row.ebit ?? 0)) / maxEbit) * 170 : 0),
+                y: BASELINE - (maxEbit > 0 ? (Math.abs(Number(row.profit ?? row.ebit ?? 0)) / maxEbit) * CHART_H : 0),
+                val: Number(row.profit ?? row.ebit ?? 0),
               }));
               const pathParts: string[] = [`M ${pts[0].x} ${pts[0].y}`];
               for (let i = 0; i < pts.length - 1; i++) {
@@ -479,14 +506,33 @@ export default function Page1Gesamtlage({ data }: Props) {
               const linePath = pathParts.join(' ');
               const last = pts[pts.length - 1];
               const first = pts[0];
-              const areaPath = `${linePath} L ${last.x} 190 L ${first.x} 190 Z`;
+              const areaPath = `${linePath} L ${last.x} ${BASELINE} L ${first.x} ${BASELINE} Z`;
               return (
                 <g>
                   <path d={areaPath} fill="url(#p1ebitGrad)" />
                   <path d={linePath} fill="none" stroke="#43A047" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-                  {pts.map((pt, idx) => (
-                    <circle key={idx} cx={pt.x} cy={pt.y} r="3.5" fill="#43A047" stroke="#fff" strokeWidth="1.5" />
-                  ))}
+                  {pts.map((pt, idx) => {
+                    // Label-Position: oberhalb des Dots, mindestens y=12
+                    const labelY = Math.max(pt.y - 7, 12);
+                    // Abwechselnd oben/unten bei dicht beieinander liegenden Werten
+                    const anchor = idx % 2 === 0 ? 'middle' : 'middle';
+                    return (
+                      <g key={idx}>
+                        <circle cx={pt.x} cy={pt.y} r="3.5" fill="#43A047" stroke="#fff" strokeWidth="1.5" />
+                        {/* EBIT-Datenbeschriftung */}
+                        <text
+                          x={pt.x}
+                          y={labelY}
+                          textAnchor={anchor}
+                          fontSize="7.5"
+                          fontWeight="600"
+                          fill="#43A047"
+                        >
+                          {fmtEurK(pt.val)}
+                        </text>
+                      </g>
+                    );
+                  })}
                 </g>
               );
             })()}
