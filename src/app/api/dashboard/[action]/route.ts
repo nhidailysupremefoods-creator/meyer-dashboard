@@ -9,7 +9,7 @@ const CUSTOMER_FALLBACK = [
 ];
 
 /** German short month names */
-const DE_MONTHS = ['Jan','Feb','Mär','Ar','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const DE_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 
 // -- In-memory cache for Vercel serverless (survives warm invocations) --
 interface CacheEntry { data: any; ts: number; }
