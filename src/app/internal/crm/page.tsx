@@ -168,9 +168,16 @@ export default function CRMPage() {
       }
       setLeads(prev => [...prev, newLead]);
     }
+    const wasArchived = data.pipeline_status === 'verloren';
     setShowForm(false);
     setEditingLead(null);
-    setToast(editingLead ? 'Lead gespeichert' : 'Neuer Lead erstellt');
+    if (wasArchived) {
+      setToast('Lead als "verloren" archiviert – sichtbar im Archiv');
+      setShowArchived(true);
+      setFilterStatus('verloren');
+    } else {
+      setToast(editingLead ? 'Lead gespeichert' : 'Neuer Lead erstellt');
+    }
   }
 
   function handleDelete(leadId: string) {
@@ -204,7 +211,9 @@ export default function CRMPage() {
     <div>
       {/* Toast */}
       {toast && (
-        <div className="fixed top-6 right-6 z-[60] bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium animate-pulse">
+        <div className={`fixed top-6 right-6 z-[60] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${
+          toast.includes('archiviert') ? 'bg-amber-600' : toast.includes('gelöscht') ? 'bg-red-600' : 'bg-green-600'
+        }`}>
           {toast}
         </div>
       )}
