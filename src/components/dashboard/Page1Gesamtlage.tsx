@@ -97,6 +97,8 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ebit = Number(d.ebit ?? d.profit ?? 0);
   const marginPct = Number(d.margin_pct ?? 0);
   const costRatio = Number(d.cost_ratio ?? d.cost_pct ?? 0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const ebitda = Number(d.ebitda ?? 0);
 
   const payrollCost = Math.abs(Number(d.payroll_cost ?? 0));
   const costFixed = Math.abs(Number(d.cost_fixed ?? 0));
