@@ -55,6 +55,38 @@ const momArrow = (n: any) => {
   return val > 0.001 ? '▲' : val < -0.001 ? '▼' : '→';
 };
 
+// ── Sparkline helper ────────────────────────────────────────────────────
+function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?: number; height?: number }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = data[data.length - 1];
+  const isPositive = last >= 0;
+  return (
+    <svg width={width} height={height} style={{ display: 'block' }}>
+      <polyline
+        points={pts.join(' ')}
+        fill="none"
+        stroke={isPositive ? '#D49564' : '#E88080'}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {/* Last dot */}
+      {(() => {
+        const lastPt = pts[pts.length - 1].split(',');
+        return <circle cx={lastPt[0]} cy={lastPt[1]} r="2.5" fill={isPositive ? '#D49564' : '#E88080'} />;
+      })()}
+    </svg>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────
 export default function Page1Gesamtlage({ data }: Props) {
   const d = (data as any)?.data || {};
@@ -106,6 +138,13 @@ export default function Page1Gesamtlage({ data }: Props) {
       : (productivity - 80) / 80
     : 0;
 
+  // Payroll pct MoM — computed from trend if payrollMom not in backend data
+  const prevM = trend.length >= 2 ? trend[trend.length - 2] : null;
+  const prevPayrollCost = prevM ? Math.abs(Number(prevM.payroll_cost ?? 0)) : 0;
+  const prevRevForPayroll = prevM ? Math.abs(Number(prevM.revenue ?? 0)) : 0;
+  const prevPayrollPct = prevRevForPayroll > 0 && prevPayrollCost > 0 ? prevPayrollCost / prevRevForPayroll : 0;
+  const payrollPctDelta = payrollPct > 0 && prevPayrollPct > 0 ? payrollPct - prevPayrollPct : 0;
+
   // Advisory / Einschätzung text
   const advisory = d.advisory_text || d.monatliche_einschaetzung || '';
 
@@ -126,6 +165,16 @@ export default function Page1Gesamtlage({ data }: Props) {
   const maxRev = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.revenue ?? 0))), 1);
   const maxEbit = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.profit ?? r.ebit ?? 0))), 1);
 
+  // Sparkline data (EBIT values for last 12 months)
+  const sparklineData = chartData.map((r: any) => Number(r.profit ?? r.ebit ?? 0));
+
+  // Pill color based on margin
+  const pillColor = marginPct < 0.05
+    ? { bg: 'rgba(196,56,48,0.30)', text: '#E88080', border: 'rgba(196,56,48,0.45)' }
+    : marginPct < 0.10
+    ? { bg: 'rgba(232,168,56,0.25)', text: '#E8C050', border: 'rgba(232,168,56,0.40)' }
+    : { bg: 'rgba(46,139,87,0.25)', text: '#6ECF91', border: 'rgba(46,139,87,0.40)' };
+
   return (
     <div className="space-y-5">
       {/* ── Section Title ── */}
@@ -139,132 +188,178 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* ── Hero Row: EBIT Card (left) + 2×2 KPI Grid (right) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* EBIT Hero Card — dark navy background */}
-        <div
-          className="lg:col-span-2 rounded-xl p-5"
-          style={{
-            backgroundColor: 'var(--navy)',
-            color: '#FFFFFF',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Status badge top-right */}
-          <div
-            className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold"
-            style={{
-              backgroundColor: st.color + '30',
-              color: st.color,
-            }}
-          >
-            {st.label}
-          </div>
-
-          <div className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            EBIT (Monat)
-          </div>
-          <div className="text-3xl font-extrabold mb-1" style={{ color: ebit < 0 ? '#E88080' : '#FFFFFF' }}>
-            {fmtEur(ebit)}
-          </div>
-          {ebit < 0 && (
-            <div className="text-xs font-semibold mb-2" style={{ color: '#E88080' }}>
-              Verlust
+      {/* ── EBIT Hero Card — full-width, dark navy, old-dashboard style ── */}
+      <div
+        className="rounded-xl"
+        style={{ backgroundColor: 'var(--navy)', color: '#FFFFFF', overflow: 'hidden' }}
+      >
+        <div className="flex flex-col sm:flex-row">
+          {/* ── Left: EBIT details ── */}
+          <div className="flex-1 p-5 pb-4">
+            <div
+              className="text-xs font-bold uppercase tracking-widest mb-3"
+              style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
+            >
+              EBIT – MONATSERGEBNIS
             </div>
-          )}
 
-          {/* Margin badge */}
-          <div className="flex items-center gap-2 mb-3">
-            <span
-              className="px-2 py-0.5 rounded text-xs font-bold"
+            {/* Big EBIT number in copper/gold */}
+            <div
+              className="text-4xl font-extrabold mb-1 leading-none"
+              style={{ color: ebit < 0 ? '#E88080' : '#D49564' }}
+            >
+              {fmtEur(ebit)}
+            </div>
+
+            {/* Sparkline */}
+            {sparklineData.length >= 2 && (
+              <div className="my-2">
+                <Sparkline data={sparklineData} width={180} height={30} />
+              </div>
+            )}
+
+            {/* MoM comparison */}
+            {profitMom !== 0 && (
+              <div
+                className="text-sm font-semibold mb-3"
+                style={{ color: profitMom >= 0 ? '#6ECF91' : '#E88080' }}
+              >
+                {momArrow(profitMom)} {fmtPctSigned(profitMom)} ggü. Vormonat
+              </div>
+            )}
+
+            {/* Marge + Abstand pill */}
+            <div
+              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
               style={{
-                backgroundColor: marginPct < 0.05 ? 'rgba(196,56,48,0.25)' : marginPct < 0.10 ? 'rgba(232,168,56,0.25)' : 'rgba(46,139,87,0.25)',
-                color: marginPct < 0.05 ? '#E88080' : marginPct < 0.10 ? '#E8A838' : '#6ECF91',
+                backgroundColor: pillColor.bg,
+                color: pillColor.text,
+                border: `1px solid ${pillColor.border}`,
               }}
             >
-              {fmtPct(marginPct)} Marge
-            </span>
-            {profitMom !== 0 && (
-              <span className="text-xs" style={{ color: momColor(profitMom) }}>
-                {momArrow(profitMom)} {fmtPctSigned(profitMom)} MoM
-              </span>
-            )}
+              {fmtPct(marginPct)} EBIT-Marge
+              {ebitGap !== 0 && (
+                <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 6px' }}>·</span>
+              )}
+              {ebitGap !== 0 && (
+                <span>Abstand: {fmtEur(Math.abs(ebitGap))}</span>
+              )}
+            </div>
           </div>
 
-          {/* Hebelpotenzial */}
-          {ebitPotential > 0 && (
-            <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <div className="text-xs uppercase tracking-wider mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Hebelpotenzial
+          {/* ── Vertical Divider ── */}
+          <div
+            className="hidden sm:block"
+            style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.10)', margin: '20px 0' }}
+          />
+          <div className="block sm:hidden mx-5" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.10)' }} />
+
+          {/* ── Right: STATUS + HEBELPOTENZIAL ── */}
+          <div
+            className="p-5 flex flex-row sm:flex-col justify-around sm:justify-center gap-4"
+            style={{ minWidth: 180 }}
+          >
+            {/* Status */}
+            <div>
+              <div
+                className="text-xs font-bold uppercase tracking-widest mb-1"
+                style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
+              >
+                STATUS
               </div>
-              <div className="text-xl font-bold" style={{ color: '#6ECF91' }}>
-                +{fmtEur(ebitPotential)}
+              <div
+                className="text-lg font-extrabold uppercase"
+                style={{ color: st.color }}
+              >
+                {st.label}
               </div>
             </div>
-          )}
 
-          {/* EBITDA if available */}
-          {ebitda > 0 && (
-            <div className="text-xs mt-2" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              EBITDA: {fmtEur(ebitda)}
+            {/* Hebelpotenzial */}
+            {ebitPotential > 0 && (
+              <div>
+                <div
+                  className="text-xs font-bold uppercase tracking-widest mb-1"
+                  style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
+                >
+                  HEBELPOTENZIAL
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span
+                    className="text-xl font-extrabold"
+                    style={{ color: '#6ECF91' }}
+                  >
+                    +{fmtEur(ebitPotential)}
+                  </span>
+                  <span
+                    className="text-xs"
+                    style={{ color: 'rgba(255,255,255,0.45)' }}
+                  >
+                    / Monat
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4-Column KPI Grid ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Monatsumsatz */}
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Monatsumsatz (MRR)
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {fmtEur(revenue)}
+          </div>
+          {revenueMom !== 0 && (
+            <div className="text-xs mt-1" style={{ color: momColor(revenueMom) }}>
+              {momArrow(revenueMom)} {fmtPctSigned(revenueMom)} Vormonat
             </div>
           )}
         </div>
 
-        {/* 2×2 KPI Grid */}
-        <div className="lg:col-span-3 grid grid-cols-2 gap-3">
-          {/* Monatsumsatz */}
-          <div className="card text-center">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>
-              Monatsumsatz (MRR)
+        {/* Produktivität */}
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{prodDisplay}</div>
+          {prodVsZiel !== 0 && (
+            <div className="text-xs mt-1" style={{ color: prodVsZiel > 0 ? '#2E8B57' : '#C43830' }}>
+              {momArrow(prodVsZiel)} {fmtPctSigned(prodVsZiel)} vs. Ziel
             </div>
-            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              {fmtEur(revenue)}
+          )}
+        </div>
+
+        {/* Kostenquote */}
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Kostenquote</div>
+          <div className="text-xl font-bold" style={{
+            color: costRatioDisplay > 0.95 ? 'var(--danger)' : costRatioDisplay > 0.88 ? 'var(--warning)' : 'var(--text-primary)'
+          }}>
+            {fmtPct(costRatioDisplay)}
+          </div>
+          {costMom !== 0 && (
+            <div className="text-xs mt-1" style={{ color: momColor(-costMom) }}>
+              {momArrow(-costMom)} {fmtPctSigned(-costMom)} Vormonat
             </div>
-            {revenueMom !== 0 && (
-              <div className="text-xs mt-1" style={{ color: momColor(revenueMom) }}>
-                {momArrow(revenueMom)} {fmtPctSigned(revenueMom)} Vormonat
-              </div>
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Produktivität */}
-          <div className="card text-center">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
-            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{prodDisplay}</div>
-            {prodVsZiel !== 0 && (
-              <div className="text-xs mt-1" style={{ color: prodVsZiel > 0 ? '#2E8B57' : '#C43830' }}>
-                {momArrow(prodVsZiel)} {fmtPctSigned(prodVsZiel)} vs. Ziel
-              </div>
-            )}
-          </div>
-
-          {/* Kostenquote */}
-          <div className="card text-center">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Kostenquote</div>
-            <div className="text-xl font-bold" style={{
-              color: costRatioDisplay > 0.95 ? 'var(--danger)' : costRatioDisplay > 0.88 ? 'var(--warning)' : 'var(--text-primary)'
-            }}>
-              {fmtPct(costRatioDisplay)}
+        {/* Personalkosten */}
+        <div className="card text-center">
+          <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Personalkosten</div>
+          <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}</div>
+          {payrollMom !== 0 ? (
+            <div className="text-xs mt-1" style={{ color: momColor(-payrollMom) }}>
+              {momArrow(-payrollMom)} {fmtPctSigned(-payrollMom)} Vormonat
             </div>
-            {costMom !== 0 && (
-              <div className="text-xs mt-1" style={{ color: momColor(-costMom) }}>
-                {momArrow(-costMom)} {fmtPctSigned(-costMom)} Vormonat
-              </div>
-            )}
-          </div>
-
-          {/* Personalkosten */}
-          <div className="card text-center">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-secondary)' }}>Personalkosten</div>
-            <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}</div>
-            {payrollMom !== 0 && (
-              <div className="text-xs mt-1" style={{ color: momColor(-payrollMom) }}>
-                {momArrow(-payrollMom)} {fmtPctSigned(-payrollMom)} Vormonat
-              </div>
-            )}
-          </div>
+          ) : payrollPctDelta !== 0 ? (
+            <div className="text-xs mt-1" style={{ color: momColor(-payrollPctDelta) }}>
+              {momArrow(-payrollPctDelta)} {payrollPctDelta > 0 ? '+' : ''}{(payrollPctDelta * 100).toFixed(1)} %p Vormonat
+            </div>
+          ) : null}
         </div>
       </div>
 
