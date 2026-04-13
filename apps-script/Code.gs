@@ -4,12 +4,26 @@
  * Handles email dispatch for the Operations workflow.
  *
  * Deploy as Web App:  Execute as "Me", Access "Anyone"
- * Set Script Property: DRIVE_FOLDER_ID = 1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg
+ * Set Script Properties:
+ *   DRIVE_FOLDER_ID      = 1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg
+ *   KUNDEN_UPLOAD_FOLDER = (ID of the root folder containing per-customer upload folders)
  */
 
 // ── Config ─────────────────────────────────────────────
-const DRIVE_FOLDER_ID = PropertiesService.getScriptProperties().getProperty('DRIVE_FOLDER_ID')
+const PROPS = PropertiesService.getScriptProperties();
+const DRIVE_FOLDER_ID = PROPS.getProperty('DRIVE_FOLDER_ID')
   || '1kmVU2amSfn6JwTtVZfmqpV-VA7CPe0Rg';
+
+// Root folder that contains per-customer subfolders for monthly data uploads
+// Structure: KUNDEN_UPLOAD_FOLDER / [Kundenname] / [YYYY-MM] / files...
+// If not set, falls back to DRIVE_FOLDER_ID / 04_Datenupload / [Kundenname]
+const KUNDEN_UPLOAD_FOLDER = PROPS.getProperty('KUNDEN_UPLOAD_FOLDER') || '';
+
+// Expected file types per monthly upload (substring match)
+const EXPECTED_FILES = ['BWA', 'SuSa'];
+
+// Deadline: data must be uploaded by this day of the month
+const UPLOAD_DEADLINE_DAY = 10;
 
 // Map workflow type → subfolder name inside the Drive folder
 const SUBFOLDER_MAP = {
@@ -54,6 +68,12 @@ function doPost(e) {
         break;
       case 'ops_send':
         result = handleSend(payload);
+        break;
+      case 'check_uploads':
+        result = handleCheckUploads(payload);
+        break;
+      case 'validate_data':
+        result = handleValidateData(payload);
         break;
       case 'health':
         result = { status: 'ok', timestamp: new Date().toISOString() };
@@ -133,6 +153,249 @@ function handleSend(payload) {
     message: 'E-Mail gesendet an ' + to,
     attachmentCount: attachmentBlobs.length,
   };
+}
+
+// ── CHECK UPLOADS: Scan Drive for customer data ─────────
+// Checks if each customer has uploaded their monthly data files
+// Returns per-customer status: { daten_erhalten, file_count, last_upload_date, files }
+function handleCheckUploads(payload) {
+  var customers = payload.customers || []; // [{customer_id, company_name}]
+  var now = new Date();
+  var currentMonth = Utilities.formatDate(now, 'Europe/Berlin', 'yyyy-MM');
+  var dayOfMonth = now.getDate();
+  var isOverdue = dayOfMonth > UPLOAD_DEADLINE_DAY;
+
+  var results = {};
+
+  for (var c = 0; c < customers.length; c++) {
+    var cust = customers[c];
+    var custId = cust.customer_id;
+    var companyName = cust.company_name;
+
+    try {
+      var customerFolder = findCustomerUploadFolder(companyName);
+      if (!customerFolder) {
+        results[custId] = {
+          daten_erhalten: false,
+          file_count: 0,
+          last_upload_date: null,
+          files: [],
+          folder_found: false,
+          is_overdue: isOverdue,
+          current_month: currentMonth,
+        };
+        continue;
+      }
+
+      // Look for files in the customer folder (or month-subfolder)
+      var monthFolder = findMonthSubfolder(customerFolder, currentMonth);
+      var targetFolder = monthFolder || customerFolder;
+
+      var fileInfos = [];
+      var latestDate = null;
+      var filesIter = targetFolder.getFiles();
+
+      while (filesIter.hasNext()) {
+        var file = filesIter.next();
+        var lastUpdated = file.getLastUpdated();
+        var fileMonth = Utilities.formatDate(lastUpdated, 'Europe/Berlin', 'yyyy-MM');
+
+        // Only count files from the current month (if no month subfolder)
+        if (!monthFolder && fileMonth !== currentMonth) continue;
+
+        var info = {
+          name: file.getName(),
+          size: formatFileSize(file.getSize()),
+          date: lastUpdated.toISOString(),
+          mimeType: file.getMimeType(),
+        };
+        fileInfos.push(info);
+
+        if (!latestDate || lastUpdated > latestDate) {
+          latestDate = lastUpdated;
+        }
+      }
+
+      results[custId] = {
+        daten_erhalten: fileInfos.length > 0,
+        file_count: fileInfos.length,
+        last_upload_date: latestDate ? latestDate.toISOString() : null,
+        files: fileInfos,
+        folder_found: true,
+        is_overdue: isOverdue && fileInfos.length === 0,
+        current_month: currentMonth,
+      };
+
+    } catch (err) {
+      Logger.log('Error checking uploads for ' + companyName + ': ' + err.message);
+      results[custId] = {
+        daten_erhalten: false,
+        file_count: 0,
+        last_upload_date: null,
+        files: [],
+        folder_found: false,
+        error: err.message,
+        is_overdue: isOverdue,
+        current_month: currentMonth,
+      };
+    }
+  }
+
+  return { data: results, checked_at: new Date().toISOString() };
+}
+
+// ── VALIDATE DATA: Check completeness of uploaded files ──
+// Validates that expected file types (BWA, SuSa) are present
+function handleValidateData(payload) {
+  var customers = payload.customers || [];
+  var now = new Date();
+  var currentMonth = Utilities.formatDate(now, 'Europe/Berlin', 'yyyy-MM');
+  var results = {};
+
+  for (var c = 0; c < customers.length; c++) {
+    var cust = customers[c];
+    var custId = cust.customer_id;
+    var companyName = cust.company_name;
+
+    try {
+      var customerFolder = findCustomerUploadFolder(companyName);
+      if (!customerFolder) {
+        results[custId] = {
+          daten_valide: false,
+          missing_files: EXPECTED_FILES.slice(),
+          issues: ['Kein Upload-Ordner gefunden'],
+        };
+        continue;
+      }
+
+      var monthFolder = findMonthSubfolder(customerFolder, currentMonth);
+      var targetFolder = monthFolder || customerFolder;
+
+      // Collect filenames from the current month
+      var fileNames = [];
+      var filesIter = targetFolder.getFiles();
+      while (filesIter.hasNext()) {
+        var file = filesIter.next();
+        var lastUpdated = file.getLastUpdated();
+        var fileMonth = Utilities.formatDate(lastUpdated, 'Europe/Berlin', 'yyyy-MM');
+        if (!monthFolder && fileMonth !== currentMonth) continue;
+        fileNames.push(file.getName());
+      }
+
+      // Check which expected files are present
+      var missing = [];
+      var issues = [];
+      for (var i = 0; i < EXPECTED_FILES.length; i++) {
+        var expected = EXPECTED_FILES[i];
+        var found = false;
+        for (var j = 0; j < fileNames.length; j++) {
+          if (fileNames[j].indexOf(expected) !== -1) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          missing.push(expected);
+        }
+      }
+
+      if (fileNames.length === 0) {
+        issues.push('Keine Dateien hochgeladen');
+      } else if (missing.length > 0) {
+        issues.push('Fehlende Dateien: ' + missing.join(', '));
+      }
+
+      // Check file sizes (warn on very small files < 1KB)
+      filesIter = targetFolder.getFiles();
+      while (filesIter.hasNext()) {
+        var f = filesIter.next();
+        if (f.getSize() < 1024) {
+          issues.push('Verdächtig kleine Datei: ' + f.getName());
+        }
+      }
+
+      results[custId] = {
+        daten_valide: missing.length === 0 && fileNames.length > 0,
+        missing_files: missing,
+        issues: issues,
+        checked_files: fileNames.length,
+      };
+
+    } catch (err) {
+      results[custId] = {
+        daten_valide: false,
+        missing_files: EXPECTED_FILES.slice(),
+        issues: ['Fehler: ' + err.message],
+      };
+    }
+  }
+
+  return { data: results, validated_at: new Date().toISOString() };
+}
+
+// ── Helper: Find customer upload folder ─────────────────
+function findCustomerUploadFolder(companyName) {
+  // Strategy 1: Dedicated upload root folder (KUNDEN_UPLOAD_FOLDER)
+  if (KUNDEN_UPLOAD_FOLDER) {
+    try {
+      var uploadRoot = DriveApp.getFolderById(KUNDEN_UPLOAD_FOLDER);
+      var folders = uploadRoot.getFoldersByName(companyName);
+      if (folders.hasNext()) return folders.next();
+
+      // Try partial match (company name might differ slightly)
+      folders = uploadRoot.getFolders();
+      while (folders.hasNext()) {
+        var f = folders.next();
+        if (f.getName().indexOf(companyName) !== -1 || companyName.indexOf(f.getName()) !== -1) {
+          return f;
+        }
+      }
+    } catch (err) {
+      Logger.log('Error accessing KUNDEN_UPLOAD_FOLDER: ' + err.message);
+    }
+  }
+
+  // Strategy 2: Look in DRIVE_FOLDER_ID / 04_Datenupload / [Kundenname]
+  try {
+    var root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    var datenupload = root.getFoldersByName('04_Datenupload');
+    if (datenupload.hasNext()) {
+      var uploadDir = datenupload.next();
+      var custFolders = uploadDir.getFoldersByName(companyName);
+      if (custFolders.hasNext()) return custFolders.next();
+
+      // Partial match
+      custFolders = uploadDir.getFolders();
+      while (custFolders.hasNext()) {
+        var cf = custFolders.next();
+        if (cf.getName().indexOf(companyName) !== -1 || companyName.indexOf(cf.getName()) !== -1) {
+          return cf;
+        }
+      }
+    }
+  } catch (err) {
+    Logger.log('Error in Strategy 2: ' + err.message);
+  }
+
+  return null;
+}
+
+// ── Helper: Find month-specific subfolder (YYYY-MM) ─────
+function findMonthSubfolder(parentFolder, monthStr) {
+  try {
+    var folders = parentFolder.getFoldersByName(monthStr);
+    if (folders.hasNext()) return folders.next();
+
+    // Also try German month names like "2026-04 April"
+    folders = parentFolder.getFolders();
+    while (folders.hasNext()) {
+      var f = folders.next();
+      if (f.getName().indexOf(monthStr) !== -1) return f;
+    }
+  } catch (err) {
+    // No month subfolder found
+  }
+  return null;
 }
 
 // ── Helper: Get attachment metadata (name + size) ──────

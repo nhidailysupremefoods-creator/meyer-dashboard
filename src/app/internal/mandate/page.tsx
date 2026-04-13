@@ -236,7 +236,7 @@ export default function MandatePage() {
                 <td className="py-3 px-2">
                   <div className="font-medium text-navy text-xs truncate">{m.company_name}</div>
                   <div className="text-[11px] text-gray-400 truncate">{m.ansprechpartner}</div>
-                  <div className="text-[11px] text-gray-300 truncate">{m.email || ''}</div>
+                  <div className="text-[11px] text-gray-300 truncate">{m.emails[0] || ''}</div>
                 </td>
                 <td className="py-3 px-2">
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[m.mandate_status] || 'bg-gray-100 text-gray-700'}`}>
@@ -298,7 +298,7 @@ function MandateEditModal({
   const [form, setForm] = useState({
     company_name: mandate.company_name || '',
     ansprechpartner: mandate.ansprechpartner || '',
-    email: mandate.email || '',
+    email: (mandate.emails && mandate.emails[0]) || '',
     gebuchte_dienstleistung: mandate.gebuchte_dienstleistung || '',
     monatliches_honorar: mandate.monatliches_honorar ?? '',
     setup_fee: mandate.setup_fee ?? '',
@@ -326,7 +326,7 @@ function MandateEditModal({
             onSave({
               company_name: form.company_name,
               ansprechpartner: form.ansprechpartner,
-              email: form.email,
+              emails: [form.email],
               gebuchte_dienstleistung: form.gebuchte_dienstleistung,
               monatliches_honorar: form.monatliches_honorar ? Number(form.monatliches_honorar) : null,
               setup_fee: form.setup_fee ? Number(form.setup_fee) : null,

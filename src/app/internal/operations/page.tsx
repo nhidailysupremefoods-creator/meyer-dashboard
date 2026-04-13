@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { OperationsCustomer, DocumentType, EmailPreview } from '@/lib/internal-os/types';
+import { useState, useEffect, useCallback } from 'react';
+import { OperationsCustomer, DocumentType, EmailPreview, UploadCheckResult, ValidationResult } from '@/lib/internal-os/types';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
 import { formatDate } from '@/lib/internal-os/utils';
 
@@ -31,11 +31,95 @@ export default function OperationsPage() {
   const [preparing, setPreparing] = useState<string | null>(null);
   // Empfänger-E-Mail pro Kunde (Standard: erste E-Mail aus der Liste)
   const [selectedRecipients, setSelectedRecipients] = useState<Record<string, string>>({});
+  const [autoCheckRunning, setAutoCheckRunning] = useState(false);
+  const [lastAutoCheck, setLastAutoCheck] = useState<string | null>(null);
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   }
+
+  // ── AUTO-CHECK: Scan Drive for uploads & validate ──────
+  const runAutoCheck = useCallback(async () => {
+    const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+    if (!API_BASE) return;
+
+    setAutoCheckRunning(true);
+    try {
+      // Step 1: Check uploads
+      const customerList = customers.map(c => ({ customer_id: c.customer_id, company_name: c.company_name }));
+
+      const uploadRes = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'check_uploads', customers: customerList }),
+      });
+      const uploadJson = await uploadRes.json();
+      const uploadData: Record<string, UploadCheckResult> = uploadJson.data || {};
+
+      // Step 2: Validate data
+      const validateRes = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_data', customers: customerList }),
+      });
+      const validateJson = await validateRes.json();
+      const validateData: Record<string, ValidationResult> = validateJson.data || {};
+
+      // Step 3: Update customers (respect manual overrides)
+      setCustomers(prev => prev.map(c => {
+        const upload = uploadData[c.customer_id];
+        const validation = validateData[c.customer_id];
+        if (!upload && !validation) return c;
+
+        const updated = { ...c };
+
+        // Auto-set daten_erhalten (only if not manually overridden)
+        if (upload && !c.override_daten_erhalten) {
+          updated.daten_erhalten = upload.daten_erhalten;
+          updated.file_count = upload.file_count;
+          updated.last_upload_date = upload.last_upload_date;
+          updated.upload_status = upload.file_count > 0 ? 'uploaded' : 'pending';
+          updated.auto_check_files = upload.files;
+          updated.is_overdue = upload.is_overdue;
+        }
+
+        // Auto-set daten_valide (only if not manually overridden)
+        if (validation && !c.override_daten_valide) {
+          updated.daten_valide = validation.daten_valide;
+          updated.auto_check_missing = validation.missing_files;
+          updated.auto_check_issues = validation.issues;
+        }
+
+        // Auto-update Ampel based on new data
+        if (updated.daten_erhalten && updated.daten_valide && updated.call_durchgefuehrt) {
+          updated.ampel_status = 'GRUEN';
+        } else if (updated.daten_erhalten) {
+          updated.ampel_status = 'GELB';
+        } else {
+          updated.ampel_status = 'ROT';
+        }
+
+        updated.auto_checked_at = new Date().toISOString();
+        return updated;
+      }));
+
+      setLastAutoCheck(new Date().toISOString());
+      showToast('Auto-Check abgeschlossen', 'success');
+    } catch (err) {
+      console.error('Auto-Check error:', err);
+      showToast('Auto-Check fehlgeschlagen', 'error');
+    } finally {
+      setAutoCheckRunning(false);
+    }
+  }, [customers]);
+
+  // Run auto-check on page load
+  useEffect(() => {
+    const timer = setTimeout(() => { runAutoCheck(); }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── PREPARE: Generate Preview via Backend ───────────────
   async function handlePrepare(type: DocumentType, customer: OperationsCustomer) {
@@ -315,6 +399,14 @@ export default function OperationsPage() {
     setCustomers(prev => prev.map(c => {
       if (c.customer_id !== customerId) return c;
       const updated = { ...c, [field]: !c[field] };
+
+      // Set manual override flag when user clicks daten_erhalten or daten_valide
+      if (field === 'daten_erhalten') {
+        updated.override_daten_erhalten = true;
+      } else if (field === 'daten_valide') {
+        updated.override_daten_valide = true;
+      }
+
       if (updated.daten_erhalten && updated.daten_valide && updated.call_durchgefuehrt) {
         updated.ampel_status = 'GRUEN';
       } else if (updated.daten_erhalten) {
@@ -324,6 +416,16 @@ export default function OperationsPage() {
       }
       return updated;
     }));
+  }
+
+  // Reset manual override (let auto-check take over again)
+  function resetOverride(customerId: string, field: 'override_daten_erhalten' | 'override_daten_valide') {
+    setCustomers(prev => prev.map(c => {
+      if (c.customer_id !== customerId) return c;
+      return { ...c, [field]: false };
+    }));
+    // Re-run auto-check after resetting
+    setTimeout(() => runAutoCheck(), 100);
   }
 
   // ── KPIs ────────────────────────────────────────────────
@@ -363,6 +465,28 @@ export default function OperationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => runAutoCheck()}
+            disabled={autoCheckRunning}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
+              autoCheckRunning
+                ? 'border-copper/30 bg-copper/5 text-copper cursor-wait'
+                : 'border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-200 hover:text-green-700'
+            }`}
+            title={lastAutoCheck ? `Letzter Check: ${formatDate(lastAutoCheck)}` : 'Noch nicht geprüft'}
+          >
+            {autoCheckRunning ? (
+              <>
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                Prüfe Drive...
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Auto-Check
+              </>
+            )}
+          </button>
           <label className="text-xs text-gray-500">Absender:</label>
           <select
             value={senderEmail}
@@ -463,22 +587,48 @@ export default function OperationsPage() {
                   {/* Monthly Status Checkboxes */}
                   <div className="flex gap-2">
                     {[
-                      { field: 'daten_erhalten' as const, label: 'Daten', value: customer.daten_erhalten },
-                      { field: 'daten_valide' as const, label: 'Validiert', value: customer.daten_valide },
-                      { field: 'call_durchgefuehrt' as const, label: 'Call', value: customer.call_durchgefuehrt },
-                    ].map(item => (
-                      <button
-                        key={item.field}
-                        onClick={e => { e.stopPropagation(); toggleStatus(customer.customer_id, item.field); }}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
-                          item.value
-                            ? 'bg-green-50 border-green-200 text-green-700'
-                            : 'bg-gray-50 border-gray-200 text-gray-400'
-                        }`}
-                      >
-                        {item.value ? '✓' : '○'} {item.label}
-                      </button>
-                    ))}
+                      { field: 'daten_erhalten' as const, label: 'Daten', value: customer.daten_erhalten, overrideField: 'override_daten_erhalten' as const, isOverridden: customer.override_daten_erhalten },
+                      { field: 'daten_valide' as const, label: 'Validiert', value: customer.daten_valide, overrideField: 'override_daten_valide' as const, isOverridden: customer.override_daten_valide },
+                      { field: 'call_durchgefuehrt' as const, label: 'Call', value: customer.call_durchgefuehrt, overrideField: null, isOverridden: false },
+                    ].map(item => {
+                      const isAuto = !item.isOverridden && item.field !== 'call_durchgefuehrt' && customer.auto_checked_at;
+                      const tooltip = item.isOverridden
+                        ? 'Manuell gesetzt – Klicke erneut zum Umschalten'
+                        : isAuto
+                          ? `Automatisch geprüft (${customer.auto_checked_at ? formatDate(customer.auto_checked_at) : ''})`
+                          : 'Klicke zum Umschalten';
+                      return (
+                        <div key={item.field} className="relative group">
+                          <button
+                            onClick={e => { e.stopPropagation(); toggleStatus(customer.customer_id, item.field); }}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border ${
+                              item.value
+                                ? item.isOverridden
+                                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                                  : 'bg-green-50 border-green-200 text-green-700'
+                                : customer.is_overdue && item.field === 'daten_erhalten'
+                                  ? 'bg-red-50 border-red-200 text-red-500 animate-pulse'
+                                  : 'bg-gray-50 border-gray-200 text-gray-400'
+                            }`}
+                            title={tooltip}
+                          >
+                            {item.value ? '✓' : '○'} {item.label}
+                            {isAuto && item.value && <span className="ml-0.5 text-[8px] opacity-60">⚡</span>}
+                            {item.isOverridden && <span className="ml-0.5 text-[8px] opacity-60">✏️</span>}
+                          </button>
+                          {/* Reset override button (appears on hover) */}
+                          {item.isOverridden && item.overrideField && (
+                            <button
+                              onClick={e => { e.stopPropagation(); resetOverride(customer.customer_id, item.overrideField!); }}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gray-400 text-white rounded-full text-[8px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400"
+                              title="Manuelle Überschreibung zurücksetzen"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Upload Info */}
@@ -498,9 +648,60 @@ export default function OperationsPage() {
                 </div>
               </div>
 
-              {/* Expanded: Workflow Buttons */}
+              {/* Expanded: Auto-Check Details + Workflow Buttons */}
               {expanded && (
                 <div className="px-6 pb-6 pt-2 border-t border-gray-100">
+                  {/* Auto-Check Info Bar */}
+                  {customer.auto_checked_at && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      {/* Upload status */}
+                      <div className={`text-[11px] px-3 py-1.5 rounded-lg border ${
+                        customer.daten_erhalten
+                          ? 'bg-green-50 border-green-100 text-green-700'
+                          : customer.is_overdue
+                            ? 'bg-red-50 border-red-200 text-red-600'
+                            : 'bg-amber-50 border-amber-100 text-amber-700'
+                      }`}>
+                        {customer.daten_erhalten
+                          ? `⚡ ${customer.file_count} Dateien erkannt (Drive)`
+                          : customer.is_overdue
+                            ? '⚠ Überfällig – Keine Daten bis zum 10. hochgeladen'
+                            : '○ Noch keine Daten für diesen Monat'}
+                        {customer.override_daten_erhalten && <span className="ml-1 opacity-60">(manuell überschrieben)</span>}
+                      </div>
+
+                      {/* Validation status */}
+                      {customer.daten_erhalten && (
+                        <div className={`text-[11px] px-3 py-1.5 rounded-lg border ${
+                          customer.daten_valide
+                            ? 'bg-green-50 border-green-100 text-green-700'
+                            : 'bg-amber-50 border-amber-100 text-amber-700'
+                        }`}>
+                          {customer.daten_valide
+                            ? '⚡ Daten validiert (BWA + SuSa vorhanden)'
+                            : `⚠ Validierung: ${customer.auto_check_issues?.join(', ') || 'Fehlende Dateien'}`}
+                          {customer.override_daten_valide && <span className="ml-1 opacity-60">(manuell überschrieben)</span>}
+                        </div>
+                      )}
+
+                      {/* File list (collapsible) */}
+                      {customer.auto_check_files && customer.auto_check_files.length > 0 && (
+                        <details className="w-full mt-1">
+                          <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600">
+                            Dateien anzeigen ({customer.auto_check_files.length})
+                          </summary>
+                          <div className="mt-1 grid grid-cols-2 gap-1">
+                            {customer.auto_check_files.map((f, i) => (
+                              <div key={i} className="text-[10px] text-gray-500 bg-gray-50 rounded px-2 py-1">
+                                📄 {f.name} <span className="text-gray-300">({f.size})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-5 gap-4">
                     {WORKFLOW_STEPS.map(step => {
                       const isSent = customer[step.sentKey] as boolean;

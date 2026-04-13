@@ -40,7 +40,7 @@ export interface MandateTracking {
   customer_id: string;
   company_name: string;
   ansprechpartner: string;
-  email: string;
+  emails: string[];
   vertragsbeginn: string | null;
   vertragsende: string | null;
   vertragsart: string;
@@ -73,6 +73,33 @@ export interface OperationsCustomer {
   vertrag_sent: boolean;
   unterlagen_sent: boolean;
   rechnung_sent: boolean;
+  // Auto-Check: manual override flags (when true, auto-check won't overwrite user's value)
+  override_daten_erhalten?: boolean;
+  override_daten_valide?: boolean;
+  // Auto-Check metadata
+  auto_check_files?: { name: string; size: string; date: string }[];
+  auto_check_missing?: string[];
+  auto_check_issues?: string[];
+  auto_checked_at?: string | null;
+  is_overdue?: boolean;
+}
+
+export interface UploadCheckResult {
+  daten_erhalten: boolean;
+  file_count: number;
+  last_upload_date: string | null;
+  files: { name: string; size: string; date: string; mimeType?: string }[];
+  folder_found: boolean;
+  is_overdue: boolean;
+  current_month: string;
+  error?: string;
+}
+
+export interface ValidationResult {
+  daten_valide: boolean;
+  missing_files: string[];
+  issues: string[];
+  checked_files?: number;
 }
 
 export interface EmailPreview {
