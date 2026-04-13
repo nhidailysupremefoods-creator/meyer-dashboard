@@ -26,17 +26,12 @@ interface Page2Props {
 
 const formatCurrency = (value: number | undefined): string => {
   if (value === undefined || value === null) return '0 €';
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
 };
 
 const formatPct = (value: number | undefined): string => {
-  if (value === undefined || value === null) return '0,0 %';
-  return (value * 100).toFixed(1).replace('.', ',') + ' %';
+  if (value === undefined || value === null) return '0,0 %';
+  return (value * 100).toFixed(1).replace('.', ',') + ' %';
 };
 
 const getMarginStatus = (c: Contract): 'ROT' | 'GELB' | 'GRUEN' => {
@@ -49,21 +44,14 @@ const getMarginStatus = (c: Contract): 'ROT' | 'GELB' | 'GRUEN' => {
   return 'GRUEN';
 };
 
-const statusColors: Record<string, string> = {
-  ROT: '#E53935',
-  GELB: '#F9A825',
-  GRUEN: '#43A047',
-};
+const statusColors: Record<string, string> = { ROT: '#E53935', GELB: '#F9A825', GRUEN: '#43A047' };
 
 const getDiagnose = (c: Contract): string => {
   if (c.diagnose) return c.diagnose;
   if (c.action_label) return c.action_label;
-  const status = getMarginStatus(c);
-  if (status === 'ROT') {
-    if (c.profit < 0) return 'Verlustvertrag — sofortiger Handlungsbedarf';
-    return 'Kritische Marge — Nachverhandlung empfohlen';
-  }
-  if (status === 'GELB') return 'Marge unter Zielwert — Optimierungspotenzial';
+  const s = getMarginStatus(c);
+  if (s === 'ROT') return c.profit < 0 ? 'Verlustvertrag — sofortiger Handlungsbedarf' : 'Kritische Marge — Nachverhandlung empfohlen';
+  if (s === 'GELB') return 'Marge unter Zielwert — Optimierungspotenzial';
   return 'Vertrag im Zielbereich';
 };
 
@@ -71,70 +59,77 @@ type FilterTab = 'kritisch' | 'beobachten' | 'gut';
 
 export default function Page2Vertragsanalyse({ data }: Page2Props) {
   const [activeTab, setActiveTab] = useState<FilterTab>('kritisch');
-
   const { total_contracts = 0, contracts = [] } = data || {};
 
-  const allContracts: Contract[] = useMemo(() => {
-    if (!Array.isArray(contracts)) return [];
-    return contracts;
-  }, [contracts]);
+  const allContracts: Contract[] = useMemo(() => Array.isArray(contracts) ? contracts : [], [contracts]);
 
   const counts = useMemo(() => {
-    const result = { ROT: 0, GELB: 0, GRUEN: 0 };
-    allContracts.forEach((c) => { result[getMarginStatus(c)]++; });
-    return result;
+    const r = { ROT: 0, GELB: 0, GRUEN: 0 };
+    allContracts.forEach((c) => { r[getMarginStatus(c)]++; });
+    return r;
   }, [allContracts]);
 
   const totalCount = allContracts.length || total_contracts || 0;
 
   const kpis = useMemo(() => {
     const critical = allContracts.filter((c) => getMarginStatus(c) === 'ROT');
-    const criticalRevenue = critical.reduce((s, c) => s + (c.revenue || 0), 0);
-    const criticalEbit = critical.reduce((s, c) => s + (c.profit || 0), 0);
-    const avgMargin = allContracts.length > 0
-      ? allContracts.reduce((s, c) => s + (c.margin_pct || 0), 0) / allContracts.length
-      : 0;
-    return { criticalRevenue, criticalEbit, avgMargin };
+    return {
+      criticalRevenue: critical.reduce((s, c) => s + (c.revenue || 0), 0),
+      criticalEbit: critical.reduce((s, c) => s + (c.profit || 0), 0),
+      avgMargin: allContracts.length > 0 ? allContracts.reduce((s, c) => s + (c.margin_pct || 0), 0) / allContracts.length : 0,
+    };
   }, [allContracts]);
 
   const filteredContracts = useMemo(() => {
-    const mapping: Record<FilterTab, 'ROT' | 'GELB' | 'GRUEN'> = {
-      kritisch: 'ROT', beobachten: 'GELB', gut: 'GRUEN',
-    };
-    return allContracts.filter((c) => getMarginStatus(c) === mapping[activeTab]);
+    const map: Record<FilterTab, 'ROT' | 'GELB' | 'GRUEN'> = { kritisch: 'ROT', beobachten: 'GELB', gut: 'GRUEN' };
+    return allContracts.filter((c) => getMarginStatus(c) === map[activeTab]);
   }, [allContracts, activeTab]);
 
-  const sortedContracts = useMemo(() => {
-    return [...filteredContracts].sort((a, b) => {
-      const aLoss = a.profit < 0 ? 1 : 0;
-      const bLoss = b.profit < 0 ? 1 : 0;
-      if (aLoss !== bLoss) return bLoss - aLoss;
-      if ((b.risk_score || 0) !== (a.risk_score || 0)) return (b.risk_score || 0) - (a.risk_score || 0);
-      return (b.revenue || 0) - (a.revenue || 0);
-    });
-  }, [filteredContracts]);
+  const sortedContracts = useMemo(() => [...filteredContracts].sort((a, b) => {
+    const al = a.profit < 0 ? 1 : 0, bl = b.profit < 0 ? 1 : 0;
+    if (al !== bl) return bl - al;
+    if ((b.risk_score || 0) !== (a.risk_score || 0)) return (b.risk_score || 0) - (a.risk_score || 0);
+    return (b.revenue || 0) - (a.revenue || 0);
+  }), [filteredContracts]);
 
   const healthPcts = useMemo(() => {
     const t = totalCount || 1;
     return { gruen: (counts.GRUEN / t) * 100, gelb: (counts.GELB / t) * 100, rot: (counts.ROT / t) * 100 };
   }, [counts, totalCount]);
 
-  const negativeMarginCount = useMemo(() => {
-    return allContracts.filter((c) => c.margin_pct < 0 || c.profit < 0).length;
-  }, [allContracts]);
+  const negativeCount = useMemo(() => allContracts.filter((c) => c.margin_pct < 0 || c.profit < 0).length, [allContracts]);
 
   return (
     <div className={styles.page2Container}>
+
+      {/* ── Page Title ── */}
+      <div className={styles.pageHeader}>
+        <h2 className={styles.pageTitle}>Vertragsanalyse</h2>
+        <p className={styles.pageSubtitle}>Margen-Diagnose, Risikobewertung und Handlungsempfehlungen je Vertrag</p>
+      </div>
+
+      {/* ── Hero Section ── */}
       <section className={styles.heroSection}>
-        <div className={styles.heroContent}>
-          <div className={styles.heroLeft}>
-            <h1 className={styles.heroTitle}>VERTRAGSPORTFOLIO</h1>
-            <p className={styles.heroSubtitle}>{counts.ROT + counts.GELB} / {totalCount} Verträge</p>
-          </div>
-          {counts.ROT > 0 && <div className={styles.heroBadge}>HANDLUNGSBEDARF</div>}
+        <div className={styles.heroTop}>
+          <span className={styles.heroLabel}>VERTRAGSPORTFOLIO</span>
+          {counts.ROT > 0 && <span className={styles.heroBadge}>HANDLUNGSBEDARF</span>}
+        </div>
+        <div className={styles.heroMain}>
+          <span className={styles.heroCount}>{counts.ROT}</span>
+          <span className={styles.heroTotal}>&nbsp;/ {totalCount} Verträge</span>
+        </div>
+        <div className={styles.heroStatus}>
+          {counts.ROT > 0 && (
+            <span className={styles.heroStatusRot}>{counts.ROT} Kritisch (Marge &lt;7%)</span>
+          )}
+          {counts.ROT > 0 && counts.GELB > 0 && <span className={styles.heroStatusDot}>·</span>}
+          {counts.GELB > 0 && (
+            <span className={styles.heroStatusGelb}>{counts.GELB} Beobachten (7–12%)</span>
+          )}
         </div>
       </section>
 
+      {/* ── KPI Cards ── */}
       <section className={styles.kpiSection}>
         <div className={styles.kpiGrid}>
           <div className={`${styles.kpiCard} ${styles.kpiCardRed}`}>
@@ -155,6 +150,7 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
         </div>
       </section>
 
+      {/* ── Portfolio-Gesundheit ── */}
       <section className={styles.healthSection}>
         <div className={styles.healthHeader}>
           <h3 className={styles.healthTitle}>Portfolio-Gesundheit</h3>
@@ -171,15 +167,17 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
         </div>
       </section>
 
-      {negativeMarginCount > 0 && (
+      {/* ── Warning ── */}
+      {negativeCount > 0 && (
         <section className={styles.warningSection}>
           <div className={styles.warningBox}>
             <span className={styles.warningIcon}>&#9888;</span>
-            <span><strong>{negativeMarginCount} Verträge</strong> mit negativer Marge — sofortiger Handlungsbedarf</span>
+            <span><strong>{negativeCount} Verträge</strong> mit negativer Marge — sofortiger Handlungsbedarf</span>
           </div>
         </section>
       )}
 
+      {/* ── Tabs ── */}
       <section className={styles.filterSection}>
         <div className={styles.tabBar}>
           <button className={`${styles.tab} ${styles.tabRot} ${activeTab === 'kritisch' ? styles.active : ''}`} onClick={() => setActiveTab('kritisch')}>Kritisch ({counts.ROT})</button>
@@ -188,6 +186,7 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
         </div>
       </section>
 
+      {/* ── Table ── */}
       <section className={styles.tableSection}>
         {sortedContracts.length > 0 ? (
           <div className={styles.tableWrapper}>
@@ -205,12 +204,11 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
               <tbody>
                 {sortedContracts.map((contract, idx) => {
                   const status = getMarginStatus(contract);
-                  const marginPctNum = (contract.margin_pct || 0) * 100;
-                  const barWidth = Math.min(100, Math.max(0, Math.abs(marginPctNum) * 2.5));
+                  const barWidth = Math.min(100, Math.max(0, Math.abs((contract.margin_pct || 0) * 100) * 2.5));
                   const barColor = statusColors[status];
-                  const isNegative = contract.profit < 0;
+                  const isNeg = contract.profit < 0;
                   return (
-                    <tr key={contract.contract_id || idx} className={`${styles.dataRow} ${isNegative ? styles.rowLoss : ''}`}>
+                    <tr key={contract.contract_id || idx} className={`${styles.dataRow} ${isNeg ? styles.rowLoss : ''}`}>
                       <td className={styles.cellPrio}>
                         {contract.rank_priority ? <span className={styles.prioBadge}>!</span> : <span className={styles.prioNormal}>{idx + 1}</span>}
                       </td>
@@ -222,7 +220,7 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
                         </div>
                       </td>
                       <td className={styles.cellNumeric}>{formatCurrency(contract.revenue)}</td>
-                      <td className={`${styles.cellNumeric} ${isNegative ? styles.textRed : ''}`}><strong>{formatCurrency(contract.profit)}</strong></td>
+                      <td className={`${styles.cellNumeric} ${isNeg ? styles.textRed : ''}`}><strong>{formatCurrency(contract.profit)}</strong></td>
                       <td className={styles.cellMarge}>
                         <div className={styles.margeBarContainer}><div className={styles.margeBarFill} style={{ width: `${barWidth}%`, backgroundColor: barColor }} /></div>
                         <span className={styles.margeValue} style={{ color: barColor }}>{formatPct(contract.margin_pct)}</span>
