@@ -273,7 +273,7 @@ export default function CRMPage() {
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as typeof sortBy)}
-            className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-600 outline-none"
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-600 outline-none w-36 shrink-0"
           >
             <option value="icp_score">Sort: ICP Score</option>
             <option value="umsatz">Sort: Umsatz</option>
