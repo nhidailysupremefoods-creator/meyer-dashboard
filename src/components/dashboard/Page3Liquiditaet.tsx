@@ -1,5 +1,4 @@
 'use client';
-
 import React from 'react';
 import styles from './Page3Liquiditaet.module.css';
 
@@ -36,7 +35,9 @@ interface Page3Data {
   stress?: StressRow | StressRow[];
 }
 
-interface Props { data: Page3Data | null | undefined; }
+interface Props {
+  data: Page3Data | null | undefined;
+}
 
 function fmt(n?: number): string {
   if (n == null || isNaN(n)) return '—';
@@ -69,50 +70,56 @@ function BankChart({ trend }: { trend: TrendRow[] }) {
   const W = 760; const H = 180;
   const pl = 64; const pr = 12; const pt = 14; const pb = 36;
   const iW = W - pl - pr; const iH = H - pt - pb;
+
   const vals = rows.map(r => r.bank_balance_eur as number);
   const maxV = Math.max(...vals, 1);
   const minV = Math.min(...vals, 0);
   const rng = maxV - minV || 1;
+
   const cx = (i: number) => pl + (i / (rows.length - 1)) * iW;
   const cy = (v: number) => pt + ((maxV - v) / rng) * iH;
   const zeroY = cy(0);
 
-  const ptStr = rows.map((r, i) => cx(i).toFixed(1) + ',' + cy(r.bank_balance_eur as number).toFixed(1)).join(' L ');
-  const first = rows[0];
-  const last = rows[rows.length - 1];
-  const fillD = 'M ' + cx(0).toFixed(1) + ',' + zeroY.toFixed(1)
-    + ' L ' + cx(0).toFixed(1) + ',' + cy(first.bank_balance_eur as number).toFixed(1)
-    + ' L ' + ptStr
-    + ' L ' + cx(rows.length - 1).toFixed(1) + ',' + zeroY.toFixed(1) + ' Z';
+  const ptStr = rows.map((r, i) =>
+    cx(i).toFixed(1) + ',' + cy(r.bank_balance_eur as number).toFixed(1)
+  ).join(' L ');
+
+  const first = rows[0]!;
+  const fillD =
+    'M ' + cx(0).toFixed(1) + ',' + zeroY.toFixed(1) +
+    ' L ' + cx(0).toFixed(1) + ',' + cy(first.bank_balance_eur as number).toFixed(1) +
+    ' L ' + ptStr +
+    ' L ' + cx(rows.length - 1).toFixed(1) + ',' + zeroY.toFixed(1) + ' Z';
   const lineD = 'M ' + ptStr;
+
   const ticks = [minV, minV + rng * 0.5, maxV];
 
   return (
     <svg viewBox={'0 0 ' + W + ' ' + H} className={styles.bankChart}>
       <defs>
-        <linearGradient id='bg3' x1='0' y1='0' x2='0' y2='1'>
-          <stop offset='0%' stopColor='#43A047' stopOpacity={0.3} />
-          <stop offset='100%' stopColor='#43A047' stopOpacity={0.03} />
+        <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#43A047" stopOpacity={0.3} />
+          <stop offset="100%" stopColor="#43A047" stopOpacity={0.03} />
         </linearGradient>
       </defs>
       {ticks.map((v, i) => (
         <g key={i}>
-          <line x1={pl} y1={cy(v)} x2={W - pr} y2={cy(v)} stroke='#e0ddd9' strokeWidth={1} strokeDasharray='4 3' />
-          <text x={pl - 6} y={cy(v) + 4} textAnchor='end' fontSize={10} fill='#999'>
+          <line x1={pl} y1={cy(v)} x2={W - pr} y2={cy(v)} stroke="#e0ddd9" strokeWidth={1} strokeDasharray="4 3" />
+          <text x={pl - 6} y={cy(v) + 4} textAnchor="end" fontSize={10} fill="#999">
             {v >= 1000 || v <= -1000 ? (v / 1000).toFixed(0) + 'k' : v.toFixed(0)}
           </text>
         </g>
       ))}
-      {minV < 0 && <line x1={pl} y1={zeroY} x2={W - pr} y2={zeroY} stroke='#E53935' strokeWidth={1.5} />}
-      <path d={fillD} fill='url(#bg3)' />
-      <path d={lineD} fill='none' stroke='#43A047' strokeWidth={2.5} strokeLinejoin='round' strokeLinecap='round' />
+      {minV < 0 && <line x1={pl} y1={zeroY} x2={W - pr} y2={zeroY} stroke="#E53935" strokeWidth={1.5} />}
+      <path d={fillD} fill="url(#bg3)" />
+      <path d={lineD} fill="none" stroke="#43A047" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
       {rows.map((r, i) => (
-        <circle key={i} cx={cx(i)} cy={cy(r.bank_balance_eur as number)} r={3.5} fill='#fff' stroke='#43A047' strokeWidth={2} />
+        <circle key={i} cx={cx(i)} cy={cy(r.bank_balance_eur as number)} r={3.5} fill="#fff" stroke="#43A047" strokeWidth={2} />
       ))}
       {rows.map((r, i) => {
         if (rows.length > 8 && i % 2 !== 0) return null;
         const lbl = (r.month_label_short || r.month_label || r.month_id || '').substring(0, 6);
-        return <text key={i} x={cx(i)} y={H - 6} textAnchor='middle' fontSize={10} fill='#888'>{lbl}</text>;
+        return <text key={i} x={cx(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#888">{lbl}</text>;
       })}
     </svg>
   );
@@ -133,13 +140,16 @@ export default function Page3Liquiditaet({ data }: Props) {
   const score = Number(s.stability_score ?? 0);
   const cov = Number(s.cost_coverage_pct ?? 0);
   const covDisplay = Math.abs(cov) > 1 ? cov : cov * 100;
+
   const st = getStatus(s.status_color, liq);
   const stLabel = st === 'rot' ? 'KRITISCH' : st === 'gelb' ? 'ANGESPANNT' : 'STABIL';
   const luecke = Math.max(0, tgt - liq);
   const pct = Math.min(100, (liq / tgt) * 100);
+
   const scoreColor = score >= 70 ? '#43A047' : score >= 45 ? '#F9A825' : '#E53935';
   const scoreLabel = score >= 70 ? 'STABIL' : score >= 45 ? 'ANGESPANNT' : 'KRITISCH';
   const covOk = covDisplay >= 120;
+
   const impact = Number(x.net_cashflow_impact_eur ?? x.net_impact_eur ?? 0);
   const revImp = Number(x.revenue_impact_eur ?? 0);
   const varRel = Number(x.variable_cost_relief_eur ?? 0);
@@ -172,7 +182,10 @@ export default function Page3Liquiditaet({ data }: Props) {
           &nbsp;&middot;&nbsp;Bankbestand: {fmt(bank)}&nbsp;€
         </div>
         <div className={styles.heroProgressBar}>
-          <div style={{ width: pct + '%' }} className={st === 'rot' ? styles.heroFillRot : st === 'gelb' ? styles.heroFillGelb : styles.heroFillGruen} />
+          <div
+            style={{ width: pct + '%' }}
+            className={st === 'rot' ? styles.heroFillRot : st === 'gelb' ? styles.heroFillGelb : styles.heroFillGruen}
+          />
         </div>
       </section>
 
