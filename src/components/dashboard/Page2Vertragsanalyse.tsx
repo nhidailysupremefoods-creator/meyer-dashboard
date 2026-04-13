@@ -30,8 +30,8 @@ const formatCurrency = (value: number | undefined): string => {
 };
 
 const formatPct = (value: number | undefined): string => {
-  if (value === undefined || value === null) return '0,0 %';
-  return (value * 100).toFixed(1).replace('.', ',') + ' %';
+  if (value === undefined || value === null) return '0,0 %';
+  return (value * 100).toFixed(1).replace('.', ',') + ' %';
 };
 
 const getMarginStatus = (c: Contract): 'ROT' | 'GELB' | 'GRUEN' => {
@@ -99,6 +99,8 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
 
   const negativeCount = useMemo(() => allContracts.filter((c) => c.margin_pct < 0 || c.profit < 0).length, [allContracts]);
 
+  const avgMarginColor = kpis.avgMargin < 0.07 ? '#E53935' : kpis.avgMargin < 0.12 ? '#F9A825' : '#43A047';
+
   return (
     <div className={styles.page2Container}>
 
@@ -132,19 +134,19 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
       {/* ── KPI Cards ── */}
       <section className={styles.kpiSection}>
         <div className={styles.kpiGrid}>
-          <div className={`${styles.kpiCard} ${styles.kpiCardRed}`}>
+          <div className={styles.kpiCard}>
             <div className={styles.kpiLabel}>Umsatz — Kritische Verträge</div>
-            <div className={styles.kpiValue}>{formatCurrency(kpis.criticalRevenue)}</div>
+            <div className={styles.kpiValue} style={{ color: counts.ROT > 0 ? '#E53935' : 'var(--primary, #192231)' }}>{formatCurrency(kpis.criticalRevenue)}</div>
             <div className={styles.kpiSub}>{counts.ROT} Verträge</div>
           </div>
           <div className={styles.kpiCard}>
             <div className={styles.kpiLabel}>Ø Vertragsmarge</div>
-            <div className={styles.kpiValue}>{formatPct(kpis.avgMargin)}</div>
+            <div className={styles.kpiValue} style={{ color: avgMarginColor }}>{formatPct(kpis.avgMargin)}</div>
             <div className={styles.kpiSub}>{totalCount} Verträge gesamt</div>
           </div>
-          <div className={`${styles.kpiCard} ${styles.kpiCardRed}`}>
+          <div className={styles.kpiCard}>
             <div className={styles.kpiLabel}>EBIT — Kritische Verträge</div>
-            <div className={styles.kpiValue}>{formatCurrency(kpis.criticalEbit)}</div>
+            <div className={styles.kpiValue} style={{ color: kpis.criticalEbit < 0 ? '#E53935' : '#F9A825' }}>{formatCurrency(kpis.criticalEbit)}</div>
             <div className={styles.kpiSub}>Verlustpotenzial</div>
           </div>
         </div>
