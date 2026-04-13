@@ -115,8 +115,8 @@ export default function DashboardPage() {
           return; // don't clear loading state yet
         }
       } catch {
-        if (retryCount < 1) {
-          setTimeout(() => loadSinglePage(page, customer, period, loadId, retryCount + 1), 1500);
+        if (retryCount < 3) {
+          setTimeout(() => loadSinglePage(page, customer, period, loadId, retryCount + 1), 4000);
           return;
         }
       }
