@@ -92,29 +92,45 @@ export default function MandatePage() {
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
   const totalSetup = mandates.reduce((s, m) => s + (m.setup_fee || 0), 0);
 
-  // Hilfsfunktion: tatsächliche Vertragslaufzeit in Monaten
-  const calcMonths = (m: (typeof activeMandates)[0]) => {
+  // ARR: Umsatz im laufenden Kalenderjahr (1. Jan – 31. Dez)
+  // Pro Vertrag: Anzahl Monate, die in das aktuelle Jahr fallen
+  const currentYear = new Date().getFullYear();
+  const yearStart = new Date(currentYear, 0, 1);   // 1. Jan
+  const yearEnd   = new Date(currentYear, 11, 31); // 31. Dez
+
+  const calcARRMonths = (m: (typeof activeMandates)[0]) => {
+    const start = m.vertragsbeginn ? new Date(m.vertragsbeginn) : yearStart;
+    const end   = m.vertragsende  ? new Date(m.vertragsende)   : yearEnd;
+
+    const effectiveStart = start < yearStart ? yearStart : start;
+    const effectiveEnd   = end   > yearEnd   ? yearEnd   : end;
+
+    if (effectiveEnd <= effectiveStart) return 0;
+
+    const months =
+      (effectiveEnd.getFullYear()  - effectiveStart.getFullYear())  * 12 +
+      (effectiveEnd.getMonth()     - effectiveStart.getMonth());
+    return Math.max(months, 1);
+  };
+
+  // Gesamtvolumen: volle Vertragslaufzeit ohne Jahresbeschränkung
+  const calcTotalMonths = (m: (typeof activeMandates)[0]) => {
     if (m.vertragsbeginn && m.vertragsende) {
       const start = new Date(m.vertragsbeginn);
-      const end = new Date(m.vertragsende);
+      const end   = new Date(m.vertragsende);
       const months =
         (end.getFullYear() - start.getFullYear()) * 12 +
-        (end.getMonth() - start.getMonth());
+        (end.getMonth()    - start.getMonth());
       return Math.max(months, 1);
     }
     return 12; // kein Enddatum → 12 Monate Fallback
   };
 
-  // ARR: jährliche Kennzahl → Laufzeit auf max. 12 Monate gekappt
-  const totalARR = activeMandates.reduce((s, m) => {
-    const honorar = m.monatliches_honorar || 0;
-    return s + honorar * Math.min(calcMonths(m), 12);
-  }, 0);
+  const totalARR = activeMandates.reduce((s, m) =>
+    s + (m.monatliches_honorar || 0) * calcARRMonths(m), 0);
 
-  // Gesamtvolumen: volle Vertragslaufzeit ohne Deckel
-  const totalVolumen = activeMandates.reduce((s, m) => {
-    return s + (m.monatliches_honorar || 0) * calcMonths(m);
-  }, 0);
+  const totalVolumen = activeMandates.reduce((s, m) =>
+    s + (m.monatliches_honorar || 0) * calcTotalMonths(m), 0);
 
   return (
     <div>
@@ -163,7 +179,7 @@ export default function MandatePage() {
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalARR)}</div>
-          <div className="text-sm text-gray-400 mt-1">ARR (max. 12 Mon.)</div>
+          <div className="text-sm text-gray-400 mt-1">ARR {currentYear}</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalVolumen)}</div>
