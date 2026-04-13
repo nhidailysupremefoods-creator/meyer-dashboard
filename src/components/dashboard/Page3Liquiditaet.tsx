@@ -107,6 +107,10 @@ export default function Page3Liquiditaet({ data }: Props) {
     .map((r: any) => Number(r.bank_balance_eur ?? 0));
 
   // liquidity months trend
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const liqTrendData = trend
+    .slice(-12)
+    .map((r: any) => Number(r.liquidity_months ?? 0));
 
   // score description
   const dimensions = [
@@ -187,7 +191,7 @@ export default function Page3Liquiditaet({ data }: Props) {
               }}
             >
               {bankBalance < 20000
-                ? '⚠ Liquiditätsengpass'
+                ? '⚠ Liquiditäsengpass'
                 : bankBalance < 50000
                 ? '→ Bestand gering'
                 : '✓ Bestand stabil'}
@@ -247,7 +251,7 @@ export default function Page3Liquiditaet({ data }: Props) {
         {/* Alert strip if critical */}
         {liqMonths < 1.5 && (
           <div
-            className="px-5 py-2.5 flex items-center gap-2"
+            className="px-5 py-2.5 flex items-centerr gap-2"
             style={{
               backgroundColor: 'rgba(232,128,128,0.12)',
               borderTop: '1px solid rgba(232,128,128,0.2)',
