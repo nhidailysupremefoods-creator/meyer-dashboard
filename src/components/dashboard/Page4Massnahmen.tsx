@@ -342,7 +342,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
                     style={{
                       borderColor: realized ? '#2E8B57' : 'var(--border-color)',
                     backgroundColor: realized ? '#2E8B57' : 'transparent',
-                    color: realized ? '#FFFFFF' : 'var(--text-secondary)'ry)',
+                    color: realized ? '#FFFFFF' : 'var(--text-secondary)',
                     }}
                   >
                     {isSaving ? '…' : realized ? '✓' : ''}
