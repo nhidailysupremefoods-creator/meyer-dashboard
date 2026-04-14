@@ -47,7 +47,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--background)' }}>
-      {/* ── Original-Style Dark Navy Header ── */}
+      {/* ── Dark Navy Header ── */}
       <header
         className="print:hidden"
         style={{
@@ -58,20 +58,40 @@ export default function DashboardLayout({
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Logo + Title */}
+            {/* Logo */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <span
-                style={{
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '5px 13px',
+                borderRadius: '8px',
+                border: '1.5px solid rgba(200, 169, 110, 0.45)',
+                background: 'rgba(200, 169, 110, 0.08)',
+              }}>
+                <span style={{
                   fontFamily: "'Manrope', sans-serif",
                   fontWeight: 800,
-                  fontSize: '1.1rem',
-                  letterSpacing: '0.04em',
+                  fontSize: '1.05rem',
+                  letterSpacing: '0.07em',
                   color: '#FFFFFF',
-                }}
-              >
-                MEYER<span style={{ color: 'var(--copper)', margin: '0 2px' }}>|</span>DECISION
-              </span>
+                }}>MEYER</span>
+                <span style={{
+                  color: 'var(--copper)',
+                  margin: '0 5px',
+                  fontWeight: 300,
+                  fontSize: '1.2rem',
+                  lineHeight: 1,
+                }}>|</span>
+                <span style={{
+                  fontFamily: "'Manrope', sans-serif",
+                  fontWeight: 800,
+                  fontSize: '1.05rem',
+                  letterSpacing: '0.07em',
+                  color: '#FFFFFF',
+                }}>DECISION</span>
+              </div>
               <span
+                className="hidden sm:inline"
                 style={{
                   fontSize: '0.7rem',
                   fontWeight: 500,
