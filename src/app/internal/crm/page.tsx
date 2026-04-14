@@ -13,12 +13,35 @@ import {
 
 const PAGE_SIZE = 50;
 const STORAGE_KEY = 'meyer-internal-os-leads';
+const CRM_SYNC_KEY = 'meyer-crm-sync';
+
+// Pipeline stage order – used to never go backwards
+const STAGE_ORDER: PipelineStatus[] = ['neu','kontaktiert','qualifiziert','angebot','verhandlung','gewonnen'];
+function isLaterOrEqual(a: string, b: string) {
+  return STAGE_ORDER.indexOf(a as PipelineStatus) >= STAGE_ORDER.indexOf(b as PipelineStatus);
+}
 
 function loadLeads(): Lead[] {
   if (typeof window === 'undefined') return SEED_LEADS;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    const base: Lead[] = stored ? JSON.parse(stored) : SEED_LEADS;
+
+    // Apply any pending CRM sync events from Operations
+    const syncRaw = localStorage.getItem(CRM_SYNC_KEY);
+    if (!syncRaw) return base;
+    const syncEvents: Array<{ company_name: string; pipeline_stage: string; sent_at: string }> = JSON.parse(syncRaw);
+    if (!syncEvents.length) return base;
+
+    return base.map(lead => {
+      const event = syncEvents.find(e =>
+        e.company_name.toLowerCase() === lead.company_name.toLowerCase()
+      );
+      if (!event) return lead;
+      // Only advance, never go backwards
+      if (isLaterOrEqual(lead.pipeline_status, event.pipeline_stage)) return lead;
+      return { ...lead, pipeline_status: event.pipeline_stage as PipelineStatus, updated_at: event.sent_at };
+    });
   } catch {}
   return SEED_LEADS;
 }
@@ -27,6 +50,26 @@ export default function CRMPage() {
   const { currentUser } = useCurrentUser();
   const [leads, setLeads] = useState<Lead[]>(loadLeads);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Re-apply CRM sync events whenever page gets focus (cross-tab sync)
+  useEffect(() => {
+    function onFocus() {
+      setLeads(prev => {
+        try {
+          const syncRaw = localStorage.getItem(CRM_SYNC_KEY);
+          if (!syncRaw) return prev;
+          const syncEvents: Array<{ company_name: string; pipeline_stage: string; sent_at: string }> = JSON.parse(syncRaw);
+          return prev.map(lead => {
+            const event = syncEvents.find(e => e.company_name.toLowerCase() === lead.company_name.toLowerCase());
+            if (!event || isLaterOrEqual(lead.pipeline_status, event.pipeline_stage)) return lead;
+            return { ...lead, pipeline_status: event.pipeline_stage as PipelineStatus, updated_at: event.sent_at };
+          });
+        } catch { return prev; }
+      });
+    }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   // Persist leads to localStorage on every change
   useEffect(() => {

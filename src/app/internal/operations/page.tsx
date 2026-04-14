@@ -21,8 +21,27 @@ const SENDERS = [
   { email: 'nhi@meyerdecision.com', name: 'Nhi Meyer' },
 ];
 
+const OPS_STORAGE_KEY = 'meyer-internal-os-operations';
+export const CRM_SYNC_KEY = 'meyer-crm-sync';
+
+function loadOperations(): OperationsCustomer[] {
+  if (typeof window === 'undefined') return SEED_OPERATIONS;
+  try {
+    const stored = localStorage.getItem(OPS_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return SEED_OPERATIONS;
+}
+
+// Map email type → CRM pipeline stage
+const TYPE_TO_PIPELINE: Partial<Record<DocumentType, string>> = {
+  angebot: 'angebot',
+  vertrag: 'verhandlung',
+  unterlagen: 'gewonnen',
+};
+
 export default function OperationsPage() {
-  const [customers, setCustomers] = useState<OperationsCustomer[]>(SEED_OPERATIONS);
+  const [customers, setCustomers] = useState<OperationsCustomer[]>(loadOperations);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<EmailPreview | null>(null);
   const [editDraft, setEditDraft] = useState<EmailPreview | null>(null);
@@ -122,6 +141,11 @@ export default function OperationsPage() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Persist Operations customers to localStorage ────────
+  useEffect(() => {
+    try { localStorage.setItem(OPS_STORAGE_KEY, JSON.stringify(customers)); } catch {}
+  }, [customers]);
 
   // ── Sync editDraft when preview opens ───────────────────
   useEffect(() => {
@@ -407,6 +431,24 @@ export default function OperationsPage() {
       setCustomers(prev => prev.map(c =>
         c.customer_id === customerId ? { ...c, [sentKey]: true } : c
       ));
+    }
+
+    // ── CRM Pipeline auto-sync ──────────────────────────────
+    // When an email type that progresses the sales stage is sent,
+    // write a sync event so the CRM page can advance the pipeline.
+    const targetStage = TYPE_TO_PIPELINE[type];
+    if (targetStage) {
+      try {
+        const customer = customers.find(c => c.customer_id === customerId);
+        if (customer) {
+          const existing: Array<{ company_name: string; pipeline_stage: string; sent_at: string }> =
+            JSON.parse(localStorage.getItem(CRM_SYNC_KEY) || '[]');
+          // Remove stale entry for same company, add fresh one
+          const updated = existing.filter(e => e.company_name !== customer.company_name);
+          updated.push({ company_name: customer.company_name, pipeline_stage: targetStage, sent_at: new Date().toISOString() });
+          localStorage.setItem(CRM_SYNC_KEY, JSON.stringify(updated));
+        }
+      } catch {}
     }
   }
 

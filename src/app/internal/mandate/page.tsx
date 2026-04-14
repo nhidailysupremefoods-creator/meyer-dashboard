@@ -1,9 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MandateTracking } from '@/lib/internal-os/types';
 import { SEED_MANDATES } from '@/lib/internal-os/demo-data';
 import { formatCurrency, formatDate } from '@/lib/internal-os/utils';
+
+const MANDATE_STORAGE_KEY = 'meyer-internal-os-mandates';
+
+function loadMandates(): MandateTracking[] {
+  if (typeof window === 'undefined') return SEED_MANDATES;
+  try {
+    const stored = localStorage.getItem(MANDATE_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return SEED_MANDATES;
+}
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Aktiv',
@@ -22,11 +33,23 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function MandatePage() {
-  const [mandates, setMandates] = useState<MandateTracking[]>(SEED_MANDATES);
+  const [mandates, setMandates] = useState<MandateTracking[]>(loadMandates);
   const [syncing, setSyncing] = useState(false);
   const [editingMandate, setEditingMandate] = useState<MandateTracking | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Persist mandates to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem(MANDATE_STORAGE_KEY, JSON.stringify(mandates)); } catch {}
+  }, [mandates]);
+
+  // Auto-sync from Apps Script on mount if backend available
+  useEffect(() => {
+    const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+    if (API_BASE) handleSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Toast auto-dismiss
   useMemo(() => {
