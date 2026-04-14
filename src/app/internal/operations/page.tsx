@@ -55,6 +55,25 @@ export default function OperationsPage() {
   const [autoCheckRunning, setAutoCheckRunning] = useState(false);
   const [lastAutoCheck, setLastAutoCheck] = useState<string | null>(null);
 
+  // ── Monat-Selektor ───────────────────────────────────────
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  // Generate last 12 months as options
+  const monthOptions = (() => {
+    const opts: { value: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      opts.push({ value, label });
+    }
+    return opts;
+  })();
+
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
@@ -496,9 +515,13 @@ export default function OperationsPage() {
   const gruen = customers.filter(c => c.ampel_status === 'GRUEN').length;
   const gelb = customers.filter(c => c.ampel_status === 'GELB').length;
   const rot = customers.filter(c => c.ampel_status === 'ROT').length;
-  // Check if today is past the 10th → show upload warning for customers without data
+  // Check upload deadline relative to selected month
   const today = new Date();
-  const isPastDeadline = today.getDate() > 10;
+  const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
+  const isCurrentMonth = selYear === today.getFullYear() && selMonthNum === today.getMonth() + 1;
+  const isPastDeadline = isCurrentMonth
+    ? today.getDate() > 10
+    : today > new Date(selYear, selMonthNum - 1, 10); // past month → always past deadline
   const customersNeedingData = isPastDeadline
     ? customers.filter(c => !c.daten_erhalten)
     : [];
@@ -529,6 +552,16 @@ export default function OperationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Monat-Selektor */}
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-700 outline-none focus:ring-2 focus:ring-copper/20"
+          >
+            {monthOptions.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
           <button
             onClick={() => runAutoCheck()}
             disabled={autoCheckRunning}
@@ -607,7 +640,7 @@ export default function OperationsPage() {
               </button>
             </div>
             <p className="text-xs text-red-600 mt-1">
-              Folgende Kunden haben ihre Daten für diesen Monat noch nicht bis zum 10. hochgeladen:
+              Folgende Kunden haben ihre Daten für {monthOptions.find(o => o.value === selectedMonth)?.label ?? selectedMonth} noch nicht bis zum 10. hochgeladen:
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {customersNeedingData.map(c => (

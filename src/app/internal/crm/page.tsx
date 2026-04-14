@@ -162,6 +162,22 @@ export default function CRMPage() {
     ['kontaktiert', 'qualifiziert', 'angebot', 'verhandlung'].includes(l.pipeline_status)
   ).length;
 
+  // ── Conversion-Rate KPI ──────────────────────────────────
+  const wonLeadsAll = leads.filter(l => l.pipeline_status === 'gewonnen');
+  const lostLeadsAll = leads.filter(l => l.pipeline_status === 'verloren');
+  const processedLeads = wonLeadsAll.length + lostLeadsAll.length;
+  const conversionRate = processedLeads > 0
+    ? Math.round((wonLeadsAll.length / processedLeads) * 100)
+    : null;
+  // Average days in pipeline for won leads (created_at → updated_at)
+  const avgPipelineDays = wonLeadsAll.length > 0
+    ? Math.round(wonLeadsAll.reduce((sum, l) => {
+        const start = l.created_at ? new Date(l.created_at).getTime() : 0;
+        const end = l.updated_at ? new Date(l.updated_at).getTime() : Date.now();
+        return sum + (end - start) / 86400000;
+      }, 0) / wonLeadsAll.length)
+    : null;
+
   // ── Handlers ────────────────────────────────────────────
   function handleSave(data: Partial<Lead>) {
     const now = new Date().toISOString();
@@ -305,20 +321,35 @@ export default function CRMPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          { value: totalLeads, label: 'Leads gesamt', accent: false },
-          { value: avgICP, label: '\u2300 ICP Score', accent: false },
-          { value: hotLeads, label: 'Hot Leads (\u226570)', accent: true },
-          { value: inPipeline, label: 'In Pipeline', accent: false },
-        ].map((kpi, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className={`font-manrope text-3xl font-bold ${kpi.accent ? 'text-copper' : 'text-navy'}`}>
-              {kpi.value}
-            </div>
-            <div className="text-sm text-gray-400 mt-1">{kpi.label}</div>
+      <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="font-manrope text-3xl font-bold text-navy">{totalLeads}</div>
+          <div className="text-sm text-gray-400 mt-1">Leads gesamt</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="font-manrope text-3xl font-bold text-navy">{avgICP}</div>
+          <div className="text-sm text-gray-400 mt-1">⌀ ICP Score</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="font-manrope text-3xl font-bold text-copper">{hotLeads}</div>
+          <div className="text-sm text-gray-400 mt-1">Hot Leads (≥70)</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="font-manrope text-3xl font-bold text-navy">{inPipeline}</div>
+          <div className="text-sm text-gray-400 mt-1">In Pipeline</div>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="font-manrope text-3xl font-bold text-green-600">
+            {conversionRate !== null ? `${conversionRate}%` : '–'}
           </div>
-        ))}
+          <div className="text-sm text-gray-400 mt-1">Conversion-Rate</div>
+          {avgPipelineDays !== null && (
+            <div className="text-xs text-gray-300 mt-0.5">⌀ {avgPipelineDays}d Pipeline</div>
+          )}
+          {conversionRate !== null && (
+            <div className="text-xs text-gray-300 mt-0.5">{wonLeadsAll.length}/{processedLeads} gewonnen</div>
+          )}
+        </div>
       </div>
 
       {/* Search + Filter + Sort */}

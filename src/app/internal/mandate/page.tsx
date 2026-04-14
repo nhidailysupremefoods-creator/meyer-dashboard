@@ -219,6 +219,20 @@ export default function MandatePage() {
   const totalVolumen = activeMandates.reduce((s, m) =>
     s + (m.monatliches_honorar || 0) * calcTotalMonths(m), 0);
 
+  // ── Churn-Risk-Indikator ──────────────────────────────────
+  function daysUntilExpiry(vertragsende: string | null | undefined): number | null {
+    if (!vertragsende) return null;
+    const end = new Date(vertragsende);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  const churnRiskMandates = activeMandates
+    .map(m => ({ m, days: daysUntilExpiry(m.vertragsende) }))
+    .filter(({ days }) => days !== null && days <= 90)
+    .sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
+
   return (
     <div>
       {/* Toast */}
@@ -306,6 +320,38 @@ export default function MandatePage() {
         </div>
       </div>
 
+      {/* Churn-Risk-Warnung */}
+      {churnRiskMandates.length > 0 && !showArchived && (
+        <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-amber-500 text-lg">⚠️</span>
+            <span className="font-manrope font-bold text-amber-800 text-sm">
+              {churnRiskMandates.length} Mandat{churnRiskMandates.length > 1 ? 'e' : ''} läuft bald aus
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {churnRiskMandates.map(({ m, days }) => (
+              <div
+                key={m.customer_id}
+                className={`flex items-center justify-between rounded-xl px-3 py-2 cursor-pointer hover:opacity-80 ${
+                  (days ?? 999) <= 30 ? 'bg-red-100' : 'bg-amber-100'
+                }`}
+                onClick={() => setEditingMandate(m)}
+              >
+                <div>
+                  <span className="text-sm font-medium text-navy">{m.company_name}</span>
+                  <span className="text-xs text-gray-500 ml-2">{m.gebuchte_dienstleistung}</span>
+                </div>
+                <div className={`text-xs font-bold ${(days ?? 999) <= 30 ? 'text-red-700' : 'text-amber-700'}`}>
+                  {days === 0 ? 'Heute!' : days! < 0 ? `${Math.abs(days!)}d überfällig` : `noch ${days}d`}
+                  {' '}· {m.vertragsende ? formatDate(m.vertragsende) : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div className="flex gap-1.5 mb-5">
         <button
@@ -362,7 +408,25 @@ export default function MandatePage() {
                 <td className="py-3 px-2 text-xs font-semibold text-navy">{m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}</td>
                 <td className="py-3 px-2 text-xs text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
                 <td className="py-3 px-2 text-[11px] text-gray-500">{formatDate(m.vertragsbeginn)}</td>
-                <td className="py-3 px-2 text-[11px] text-gray-500">{m.vertragsende ? formatDate(m.vertragsende) : 'unbefr.'}</td>
+                <td className="py-3 px-2 text-[11px] text-gray-500">
+                  {m.vertragsende ? (
+                    <span className={`inline-flex items-center gap-1 ${
+                      (daysUntilExpiry(m.vertragsende) ?? 999) <= 30 ? 'text-red-600 font-semibold' :
+                      (daysUntilExpiry(m.vertragsende) ?? 999) <= 90 ? 'text-amber-600 font-medium' : ''
+                    }`}>
+                      {formatDate(m.vertragsende)}
+                      {(daysUntilExpiry(m.vertragsende) ?? 999) <= 90 && (
+                        <span className={`px-1 py-0.5 rounded text-[10px] ${
+                          (daysUntilExpiry(m.vertragsende) ?? 999) <= 30
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {daysUntilExpiry(m.vertragsende)! <= 0 ? '!' : `${daysUntilExpiry(m.vertragsende)}d`}
+                        </span>
+                      )}
+                    </span>
+                  ) : 'unbefr.'}
+                </td>
                 <td className="py-3 px-2 text-center">
                   <button
                     onClick={e => { e.stopPropagation(); handleDelete(m.customer_id); }}

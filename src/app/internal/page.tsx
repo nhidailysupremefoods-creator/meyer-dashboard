@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Lead } from '@/lib/internal-os/types';
+import { Lead, MandateTracking } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
 import { SEED_MANDATES } from '@/lib/internal-os/demo-data';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
-import { formatCurrency } from '@/lib/internal-os/utils';
+import { formatCurrency, formatDate } from '@/lib/internal-os/utils';
 
 const LEADS_STORAGE_KEY = 'meyer-internal-os-leads';
+const MANDATE_STORAGE_KEY = 'meyer-internal-os-mandates';
 
 function loadLeads(): Lead[] {
   if (typeof window === 'undefined') return SEED_LEADS;
@@ -19,12 +20,23 @@ function loadLeads(): Lead[] {
   return SEED_LEADS;
 }
 
+function loadMandates(): MandateTracking[] {
+  if (typeof window === 'undefined') return SEED_MANDATES;
+  try {
+    const stored = localStorage.getItem(MANDATE_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return SEED_MANDATES;
+}
+
 export default function DashboardHome() {
   const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
+  const [mandates, setMandates] = useState<MandateTracking[]>(SEED_MANDATES);
 
   // Load from localStorage on mount (client-side only)
   useEffect(() => {
     setLeads(loadLeads());
+    setMandates(loadMandates());
   }, []);
 
   // ── CRM KPIs ────────────────────────────────────────────
@@ -36,7 +48,7 @@ export default function DashboardHome() {
   const wonLeads = activeLeads.filter(l => l.pipeline_status === 'gewonnen');
 
   // ── Mandate KPIs ────────────────────────────────────────
-  const activeMandates = SEED_MANDATES.filter(m => m.mandate_status === 'active');
+  const activeMandates = mandates.filter(m => m.mandate_status === 'active');
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
 
   // ARR = Honorar × Monate innerhalb des laufenden Kalenderjahres (max. 12)
@@ -55,6 +67,18 @@ export default function DashboardHome() {
   }
   const totalARR = activeMandates.reduce((s, m) =>
     s + (m.monatliches_honorar || 0) * calcARRMonths(m), 0);
+
+  // ── Churn-Risk ───────────────────────────────────────────
+  function daysUntilExpiry(vertragsende: string | null | undefined): number | null {
+    if (!vertragsende) return null;
+    const end = new Date(vertragsende);
+    const now = new Date(); now.setHours(0,0,0,0);
+    return Math.floor((end.getTime() - now.getTime()) / 86400000);
+  }
+  const churnRiskMandates = activeMandates
+    .map(m => ({ m, days: daysUntilExpiry(m.vertragsende) }))
+    .filter(({ days }) => days !== null && days <= 90)
+    .sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
 
   // ── Operations KPIs ─────────────────────────────────────
   const opsGruen = SEED_OPERATIONS.filter(c => c.ampel_status === 'GRUEN').length;
@@ -185,6 +209,32 @@ export default function DashboardHome() {
         </div>
       </div>
 
+      {/* Churn-Risk-Warnung */}
+      {churnRiskMandates.length > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-500 text-lg">⚠️</span>
+              <span className="font-manrope font-bold text-amber-800 text-sm">
+                Churn-Risiko: {churnRiskMandates.length} Mandat{churnRiskMandates.length > 1 ? 'e' : ''} läuft bald aus
+              </span>
+            </div>
+            <Link href="/mandate" className="text-xs text-amber-700 font-medium hover:underline">Details &rarr;</Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {churnRiskMandates.map(({ m, days }) => (
+              <div key={m.customer_id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
+                (days ?? 999) <= 30 ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+              }`}>
+                <span>{m.company_name}</span>
+                <span className="opacity-70">·</span>
+                <span>{days! <= 0 ? 'abgelaufen' : `${days}d`}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Mandate Overview Row */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
@@ -192,16 +242,25 @@ export default function DashboardHome() {
           <Link href="/mandate" className="text-xs text-copper hover:text-copper/80 font-medium">Alle anzeigen &rarr;</Link>
         </div>
         <div className="grid grid-cols-5 gap-3">
-          {activeMandates.map(m => (
-            <div key={m.customer_id} className="bg-offwhite/50 rounded-xl p-4">
-              <div className="text-sm font-semibold text-navy leading-tight">{m.company_name}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{m.gebuchte_dienstleistung || '–'}</div>
-              <div className="font-manrope text-lg font-bold text-copper mt-2">
-                {m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}
+          {activeMandates.map(m => {
+            const days = daysUntilExpiry(m.vertragsende);
+            const isRisk = days !== null && days <= 90;
+            return (
+              <div key={m.customer_id} className={`rounded-xl p-4 ${isRisk ? (days! <= 30 ? 'bg-red-50 border border-red-200' : 'bg-amber-50 border border-amber-200') : 'bg-offwhite/50'}`}>
+                <div className="text-sm font-semibold text-navy leading-tight">{m.company_name}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{m.gebuchte_dienstleistung || '–'}</div>
+                <div className="font-manrope text-lg font-bold text-copper mt-2">
+                  {m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}
+                </div>
+                <div className="text-[10px] text-gray-300">pro Monat</div>
+                {isRisk && (
+                  <div className={`text-[10px] font-semibold mt-1 ${days! <= 30 ? 'text-red-600' : 'text-amber-600'}`}>
+                    {days! <= 0 ? 'Abgelaufen' : `Läuft ab in ${days}d`}
+                  </div>
+                )}
               </div>
-              <div className="text-[10px] text-gray-300">pro Monat</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
