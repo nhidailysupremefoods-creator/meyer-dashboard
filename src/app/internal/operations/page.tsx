@@ -148,7 +148,7 @@ export default function OperationsPage() {
       // Don't toast on success (too noisy on page load)
     } catch (err) {
       console.warn('Auto-Check error:', err);
-      // Show subtle inline warning instead of alarming red toast
+      showToast('Auto-Check: Backend nicht erreichbar – Bitte Apps Script prüfen', 'error');
     } finally {
       setAutoCheckRunning(false);
     }
