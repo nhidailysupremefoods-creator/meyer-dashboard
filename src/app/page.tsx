@@ -173,7 +173,6 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          {/* SVG Logo */}
           <div className="flex justify-center mb-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.svg" alt="Meyer Decision" style={{ height: 48, width: 'auto' }} />
@@ -239,10 +238,9 @@ export default function LoginPage() {
                 {isLoading ? 'Wird eingeloggt...' : 'Einloggen'}
               </button>
 
-              {/* Links */}
               <div className="space-y-2 text-sm text-center">
                 <button
-      2           type="button"
+                  type="button"
                   onClick={() => {
                     setView('reset');
                     setError(null);
@@ -359,7 +357,7 @@ export default function LoginPage() {
                 }}
                 className="w-full text-sm font-medium" style={{color: 'var(--accent)'}}
               >
-                ← Zurück zum Login
+                &larr; Zurück zum Login
               </button>
             </form>
           )}
@@ -421,4 +419,41 @@ export default function LoginPage() {
                       type="password"
                       value={resetPassword}
                       onChange={(e) => setResetPassword(e.target.value)}
-                      placeholder="••••••••" �&WV�&V@�F�6&�VC׶�4��F��wТ����F�cࠢ�'WGF��G�S�'7V&֗B �F�6&�VC׶�4��F��wТ6�74��S�&'F��&��'�r�gV�� ����4��F��r�uv�&Bv\:F�FW'B���r�u77v�'B:F�FW&�wТ��'WGF�������Р��'WGF��G�S�&'WGF�� ���6Ɩ6�ײ������6WEf�Wr�v��v��r���6WE&W6WE7FW�vV���r���6WDW'&�"��V���6WE7V66W72��V���6WE&W6WDV��rr���6WE&W6WD6�FR�rr���6WE&W6WE77v�&B�rr����Т6�74��S�'r�gV��FW�B�6�f��B��VF�V�"7G��S׷�6���#�wf"���66V�B�w�Т�(i�W,;�6��V���v����'WGF�����f�&���Т��F�cࠢ��f��FW"��Т�F�b6�74��S�'FW�B�6V�FW"�BӂFW�B�w&��CFW�B�6�#����W�W"FV6�6���v�$�����6�74��S�&�B�#�7FWVW'V�w2�F6�&�&Bcc�����F�c���F�c���F�c�����
+                      placeholder="••••••••"
+                      required
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="btn-primary w-full"
+                  >
+                    {isLoading ? 'Wird gesetzt...' : 'Passwort zurücksetzen'}
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setView('login');
+                  setError(null);
+                  setSuccess(null);
+                  setResetStep('email');
+                  setResetEmail('');
+                  setResetCode('');
+                  setResetPassword('');
+                }}
+                className="w-full text-sm font-medium" style={{color: 'var(--accent)'}}
+              >
+                &larr; Zurück zum Login
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
