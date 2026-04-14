@@ -402,10 +402,10 @@ export default function OperationsPage() {
     const key = `${emailPreview.type}-${emailPreview.customer_id}`;
     setSendingKey(key);
 
-    try {
-      // Try backend API first (Apps Script → GmailApp.sendEmail)
-      const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
-      if (API_BASE) {
+    // Try backend API first (Apps Script → GmailApp.sendEmail)
+    const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+    if (API_BASE) {
+      try {
         const res = await fetch(API_BASE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -432,20 +432,17 @@ export default function OperationsPage() {
           setSendingKey(null);
           return;
         }
+      } catch {
+        // Network/CORS error – fall through to Gmail compose fallback
       }
-
-      // Fallback: Open Gmail compose directly in new tab
-      openGmailCompose(emailPreview);
-      updateSentStatus(emailPreview.type, emailPreview.customer_id);
-      showToast(`Gmail geöffnet – bitte E-Mail an ${emailPreview.to} jetzt senden`, 'success');
-      setSendingKey(null);
-      setPreview(null);
-      return;
-    } catch (err) {
-      showToast(`Fehler beim Senden: ${err instanceof Error ? err.message : 'Unbekannt'}`, 'error');
     }
 
+    // Fallback: Open Gmail compose directly in new tab
+    openGmailCompose(emailPreview);
+    updateSentStatus(emailPreview.type, emailPreview.customer_id);
+    showToast(`Gmail geöffnet – bitte E-Mail an ${emailPreview.to} jetzt senden`, 'success');
     setSendingKey(null);
+    setPreview(null);
   }
 
   function updateSentStatus(type: DocumentType, customerId: string) {
