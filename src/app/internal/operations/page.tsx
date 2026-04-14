@@ -151,15 +151,21 @@ export default function OperationsPage() {
   useEffect(() => {
     if (preview) {
       setEditDraft({ ...preview });
-      // Set contentEditable body after render
-      setTimeout(() => {
-        if (bodyRef.current) bodyRef.current.innerHTML = preview.body;
-      }, 0);
     } else {
       setEditDraft(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview?.customer_id, preview?.type]);
+
+  // ── Populate contentEditable body AFTER modal is rendered ─
+  // editDraft being set means the modal div is now in the DOM
+  useEffect(() => {
+    if (editDraft && bodyRef.current) {
+      bodyRef.current.innerHTML = editDraft.body;
+    }
+  // Only on new preview open, not on every editDraft field change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editDraft?.customer_id, editDraft?.type]);
 
   // ── PREPARE: Generate Preview via Backend ───────────────
   async function handlePrepare(type: DocumentType, customer: OperationsCustomer) {
