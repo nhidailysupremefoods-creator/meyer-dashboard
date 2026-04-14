@@ -6,7 +6,7 @@ import { Lead, MandateTracking } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
 import { SEED_MANDATES } from '@/lib/internal-os/demo-data';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
-import { formatCurrency, formatDate } from '@/lib/internal-os/utils';
+import { formatCurrency } from '@/lib/internal-os/utils';
 
 const LEADS_STORAGE_KEY = 'meyer-internal-os-leads';
 const MANDATE_STORAGE_KEY = 'meyer-internal-os-mandates';
