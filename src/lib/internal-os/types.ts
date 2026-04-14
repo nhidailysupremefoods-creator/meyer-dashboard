@@ -1,5 +1,5 @@
 // ============================================================
-// MEYER DECISION – INTERNAL OS – TypeScript Types
+// MEYER DECISION â INTERNAL OS â TypeScript Types
 // ============================================================
 
 export type Branche = 'industrienahe_service' | 'technische_wartung' | 'b2b_contracting';
@@ -51,6 +51,7 @@ export interface MandateTracking {
   notes: string;
   last_auto_sync: string;
   manually_edited: boolean;
+  laufzeit_monate?: number | string | null;
 }
 
 export interface OperationsCustomer {
