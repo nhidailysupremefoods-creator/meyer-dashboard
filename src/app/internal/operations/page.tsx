@@ -206,7 +206,8 @@ export default function OperationsPage() {
           }),
         });
         const json = await res.json();
-        if (json.data) {
+        // Only use backend response if it actually has a non-empty body
+        if (json.data && json.data.body && json.data.body.trim().length > 0) {
           setPreview(json.data as EmailPreview);
           setPreparing(null);
           return;
