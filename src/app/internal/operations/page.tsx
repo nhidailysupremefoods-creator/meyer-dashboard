@@ -149,7 +149,7 @@ export default function OperationsPage() {
       // Don't toast on success (too noisy on page load)
     } catch (err) {
       console.warn('Auto-Check error:', err);
-      showToast('Auto-Check: Backend nicht erreichbar – Bitte Apps Script prüfen', 'error');
+      // Backend not reachable (CORS) – fail silently, manual data still works
     } finally {
       setAutoCheckRunning(false);
     }
