@@ -226,13 +226,6 @@ export default function DashboardPage() {
         </div>
       ) : currentPageData ? (
         <div>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Seite {currentPage}: {PAGE_TITLES[currentPage]}</h2>
-              {selectedPeriod && (<p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{selectedCustomer} {'\u00b7'} {selectedPeriod.replace(/_/g, '/')}</p>)}
-            </div>
-            <button onClick={() => loadPageData(currentPage, selectedCustomer, selectedPeriod)} className="px-3 py-1.5 rounded-lg text-xs font-medium transition" style={{ backgroundColor: 'var(--background)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }} title="Daten aktualisieren">↻</button>
-          </div>
           {renderPage()}
         </div>
       ) : !loading && selectedCustomer && selectedPeriod ? (
