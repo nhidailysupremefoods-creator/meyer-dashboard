@@ -259,11 +259,11 @@ export default function PrintPage() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          PAGE 4: Maßnahmen & Aktionsplan
+          PAGE 4: Maßnahmen
       ══════════════════════════════════════════════ */}
       <div className="page-break-after">
         <h2 style={{ fontSize: '1.3rem', fontWeight: 'bold', borderBottom: '3px solid #B08A6A', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
-          Seite 4 – Maßnahmen & Aktionsplan
+          Seite 4 – Maßnahmen
         </h2>
 
         {/* Monatsfokus */}

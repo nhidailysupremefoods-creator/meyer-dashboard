@@ -14,7 +14,7 @@ const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
   3: 'Liquiditätsstabilität',
-  4: 'Maßnahmen & Benchmarks',
+  4: 'Maßnahmen',
 };
 
 export default function DashboardPage() {

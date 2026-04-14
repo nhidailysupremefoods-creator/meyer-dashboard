@@ -242,7 +242,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Maßnahmen & Benchmarks</h2>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Maßnahmen</h2>
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Optimierungspotenziale und Umsetzungstracking</p>
         <div className="copper-line" />
       </div>

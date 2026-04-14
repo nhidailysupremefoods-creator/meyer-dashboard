@@ -43,7 +43,7 @@ export const PAGES = {
   1: { id: 1, label: 'Gesamtlage', slug: 'overview' },
   2: { id: 2, label: 'Vertragsanalyse', slug: 'contracts' },
   3: { id: 3, label: 'Liquiditätsstabilität', slug: 'liquidity' },
-  4: { id: 4, label: 'Maßnahmen & Benchmarks', slug: 'measures' },
+  4: { id: 4, label: 'Maßnahmen', slug: 'measures' },
   5: { id: 5, label: 'Gesprächsleitfaden', slug: 'advisory' },
 } as const;
 
@@ -51,7 +51,7 @@ export const PAGE_NAMES: Record<number, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
   3: 'Liquiditätsstabilität',
-  4: 'Maßnahmen & Benchmarks',
+  4: 'Maßnahmen',
   5: 'Gesprächsleitfaden',
 };
 
