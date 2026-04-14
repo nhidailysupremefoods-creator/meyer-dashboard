@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { OperationsCustomer, DocumentType, EmailPreview, UploadCheckResult, ValidationResult } from '@/lib/internal-os/types';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
 import { formatDate } from '@/lib/internal-os/utils';
@@ -25,6 +25,8 @@ export default function OperationsPage() {
   const [customers, setCustomers] = useState<OperationsCustomer[]>(SEED_OPERATIONS);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<EmailPreview | null>(null);
+  const [editDraft, setEditDraft] = useState<EmailPreview | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [sendingKey, setSendingKey] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [senderEmail, setSenderEmail] = useState(SENDERS[0].email);
@@ -120,6 +122,20 @@ export default function OperationsPage() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Sync editDraft when preview opens ───────────────────
+  useEffect(() => {
+    if (preview) {
+      setEditDraft({ ...preview });
+      // Set contentEditable body after render
+      setTimeout(() => {
+        if (bodyRef.current) bodyRef.current.innerHTML = preview.body;
+      }, 0);
+    } else {
+      setEditDraft(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview?.customer_id, preview?.type]);
 
   // ── PREPARE: Generate Preview via Backend ───────────────
   async function handlePrepare(type: DocumentType, customer: OperationsCustomer) {
@@ -796,28 +812,62 @@ export default function OperationsPage() {
       </div>
 
       {/* Email Preview Modal */}
-      {preview && (
+      {preview && editDraft && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setPreview(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center rounded-t-2xl z-10">
               <div>
-                <h2 className="font-manrope text-lg font-bold text-navy">E-Mail Vorschau</h2>
-                <p className="text-xs text-gray-400">Prüfe die E-Mail vor dem Versand</p>
+                <h2 className="font-manrope text-lg font-bold text-navy">E-Mail bearbeiten &amp; senden</h2>
+                <p className="text-xs text-gray-400">Alle Felder können vor dem Versand angepasst werden</p>
               </div>
-              <button onClick={() => setPreview(null)} className="text-gray-300 hover:text-gray-600 text-2xl">&times;</button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setEditDraft({ ...preview });
+                    setTimeout(() => { if (bodyRef.current) bodyRef.current.innerHTML = preview.body; }, 0);
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                >
+                  Zurücksetzen
+                </button>
+                <button onClick={() => setPreview(null)} className="text-gray-300 hover:text-gray-600 text-2xl">&times;</button>
+              </div>
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Email Meta */}
-              <div className="bg-offwhite rounded-xl p-4 space-y-2 text-sm">
-                <div className="flex gap-2"><span className="font-medium text-gray-400 w-16">Von:</span><span className="text-navy font-medium">{preview.from}</span></div>
-                <div className="flex gap-2"><span className="font-medium text-gray-400 w-16">An:</span><span>{preview.to}</span></div>
-                <div className="flex gap-2"><span className="font-medium text-gray-400 w-16">Betreff:</span><span className="font-semibold">{preview.subject}</span></div>
-                {preview.attachments.length > 0 && (
+              {/* Editable Email Meta */}
+              <div className="bg-offwhite rounded-xl p-4 space-y-3 text-sm">
+                {/* Von (read-only) */}
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-400 w-16 shrink-0">Von:</span>
+                  <span className="text-navy font-medium">{editDraft.from}</span>
+                </div>
+                {/* An (editable) */}
+                <div className="flex items-center gap-2">
+                  <label className="font-medium text-gray-400 w-16 shrink-0">An:</label>
+                  <input
+                    type="email"
+                    value={editDraft.to}
+                    onChange={e => setEditDraft(d => d ? { ...d, to: e.target.value } : d)}
+                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                  />
+                </div>
+                {/* Betreff (editable) */}
+                <div className="flex items-center gap-2">
+                  <label className="font-medium text-gray-400 w-16 shrink-0">Betreff:</label>
+                  <input
+                    type="text"
+                    value={editDraft.subject}
+                    onChange={e => setEditDraft(d => d ? { ...d, subject: e.target.value } : d)}
+                    className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                  />
+                </div>
+                {/* Anhänge */}
+                {editDraft.attachments.length > 0 && (
                   <div className="flex gap-2">
-                    <span className="font-medium text-gray-400 w-16">Anhänge:</span>
+                    <span className="font-medium text-gray-400 w-16 shrink-0">Anhänge:</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {preview.attachments.map((a, i) => (
+                      {editDraft.attachments.map((a, i) => (
                         <span key={i} className="bg-white border border-gray-200 px-2 py-0.5 rounded text-xs text-gray-600">
                           📎 {a.name} ({a.size})
                         </span>
@@ -827,24 +877,26 @@ export default function OperationsPage() {
                 )}
               </div>
 
-              {/* Email Body */}
+              {/* Editable Email Body */}
               <div className="border border-gray-200 rounded-xl overflow-hidden">
-                {/* Email-like header bar */}
                 <div className="bg-gray-50 border-b border-gray-100 px-5 py-2 flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-red-300 inline-block" />
                   <span className="w-3 h-3 rounded-full bg-amber-300 inline-block" />
                   <span className="w-3 h-3 rounded-full bg-green-300 inline-block" />
-                  <span className="ml-3 text-[11px] text-gray-400 font-medium tracking-wide uppercase">E-Mail Inhalt</span>
+                  <span className="ml-3 text-[11px] text-gray-400 font-medium tracking-wide uppercase">E-Mail Text</span>
+                  <span className="ml-auto text-[10px] text-gray-400 italic">direkt bearbeitbar</span>
                 </div>
                 <div
-                  className="p-6 text-sm leading-relaxed text-gray-800
+                  ref={bodyRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="p-6 text-sm leading-relaxed text-gray-800 outline-none focus:bg-amber-50/30
                     [&_p]:mb-4 [&_p:last-child]:mb-0
                     [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:space-y-1
                     [&_li]:text-gray-700
                     [&_strong]:font-semibold [&_strong]:text-gray-900
                     [&_a]:text-copper [&_a]:underline [&_a]:underline-offset-2
                     [&_table]:text-sm [&_table]:mt-3 [&_td]:pr-8 [&_td]:align-top [&_td]:pb-1"
-                  dangerouslySetInnerHTML={{ __html: preview.body }}
                 />
               </div>
 
@@ -866,8 +918,12 @@ export default function OperationsPage() {
                 </button>
                 <button
                   onClick={() => {
-                    if (window.confirm(`E-Mail jetzt senden?\n\nVon: ${preview.from}\nAn: ${preview.to}\nBetreff: ${preview.subject}`)) {
-                      handleSend(preview);
+                    const finalDraft = {
+                      ...editDraft,
+                      body: bodyRef.current?.innerHTML || editDraft.body,
+                    };
+                    if (window.confirm(`E-Mail jetzt senden?\n\nVon: ${finalDraft.from}\nAn: ${finalDraft.to}\nBetreff: ${finalDraft.subject}`)) {
+                      handleSend(finalDraft);
                     }
                   }}
                   disabled={sendingKey !== null}
