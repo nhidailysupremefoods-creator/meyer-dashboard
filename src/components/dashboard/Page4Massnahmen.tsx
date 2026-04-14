@@ -1,316 +1,387 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 
-interface FokusAction {
-  action_key: string;
-  action_label: string;
-  impact_eur: number;
-  ebit_potential_eur?: number;
-  priority_score?: number;
-  fokus_score?: number;
-  description?: string;
-  deadline?: string;
-  owner?: string;
-  period_date?: string;
-}
-
-interface BenchmarkMetric {
-  metric: string;
-  current: number;
-  target_min: number;
-  target_mid: number;
-  target_max: number;
-  gap: number;
-  unit: string;
-}
-
-interface WirkungData {
-  profit: number;
-  margin_pct: number;
-  high_risk_count: number;
-  portfolio_ebit: number;
-}
-
-interface Action {
-  action_key: string;
-  action_label: string;
-  contract_name?: string;
-  impact_eur?: number;
-  ebit_potential_eur?: number;
-  priority_score?: number;
-  fokus_score?: number;
-  action_rank?: number;
-  focus_rank?: number;
-  is_monatsfokus?: boolean;
-  is_in_focus?: boolean;
-  month_label?: string;
-}
-
-interface TrackerEntry {
-  action_key: string;
-  action_label: string;
-  target_ebit_eur: number;
-  actual_ebit_eur: number;
-  month_label: string;
-  status: string;
-  is_realization: boolean;
-}
-
-interface Page4Props {
-  data: {
-    fokus?: FokusAction;
-    benchmark?: BenchmarkMetric[];
-    wirkung?: WirkungData;
-    actions?: Action[];
-    tracker?: TrackerEntry[];
-    riskContracts?: any[];
-    liquidityActions?: any[];
-  };
+interface Props {
+  data: any;
   customer: string;
   period: string;
 }
 
-const Page4Massnahmen: React.FC<Page4Props> = ({ data, customer, period }) => {
-  const [activePool, setActivePool] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
+const fmtEur = (n: any) =>
+  n != null ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(n)) : '–';
 
-  const numberFormatter = new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+const fmtPct = (n: any) =>
+  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
+
+// Fallback-Benchmarks falls API keine Daten liefert
+const FALLBACK_BENCHMARKS = [
+  { kpi_label: 'Produktivität', current: 0, target_min: 0.70, target_mid: 0.80, target_max: 0.90 },
+  { kpi_label: 'Stundensatz (€)', current: 0, target_min: 95, target_mid: 105, target_max: 120 },
+  { kpi_label: 'Personalkostenquote', current: 0, target_min: 0.40, target_mid: 0.45, target_max: 0.55 },
+];
+
+function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax }: {
+  label: string; current: number; targetMin: number; targetMid: number; targetMax: number;
+}) {
+  const range = targetMax * 1.2 || 1;
+  const pctCurrent = Math.min((current / range) * 100, 100);
+  const pctMin = (targetMin / range) * 100;
+  const pctMax = (targetMax / range) * 100;
+  const pctMid = (targetMid / range) * 100;
+  const inTarget = current > 0 && current >= targetMin && current <= targetMax;
+  const barColor = current === 0 ? '#ccc' : current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : '#D49564';
+  const fmt = (v: number) => v > 0 && v < 1 ? fmtPct(v) : v > 0 ? String(Math.round(v)) : '–';
+  return (
+    <div className="card">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+        <span className="text-sm font-bold" style={{ color: current === 0 ? 'var(--text-secondary)' : inTarget ? '#2E8B57' : barColor }}>
+          {current === 0 ? '–' : current < 1 ? fmtPct(current) : `${Math.round(current)}`}
+        </span>
+      </div>
+      <div className="relative h-3 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
+        <div className="absolute h-3 rounded-full" style={{ left: `${pctMin}%`, width: `${pctMax - pctMin}%`, backgroundColor: 'rgba(46,139,87,0.12)' }} />
+        {current > 0 && <div className="absolute h-3 rounded-full transition-all" style={{ width: `${pctCurrent}%`, backgroundColor: barColor }} />}
+        <div className="absolute top-0 w-0.5 h-3" style={{ left: `${pctMid}%`, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+      </div>
+      <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+        <span>Min: {fmt(targetMin)}</span>
+        <span>Ziel: {fmt(targetMid)}</span>
+        <span>Max: {fmt(targetMax)}</span>
+      </div>
+      {current === 0 && (
+        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>Istwert nicht verfügbar</div>
+      )}
+    </div>
+  );
+}
+
+type TrackerStatus = 'Offen' | 'In Bearbeitung' | 'Umgesetzt';
+type EbitTab = 'top' | 'sonstige';
+type PoolTab = 'alle' | 'vertraege' | 'benchmarks';
+type TrackerTab = 'aktiv' | 'umgesetzt';
+
+interface TrackerItem {
+  key: string;
+  label: string;
+  description: string;
+  potenzial: number;
+  month: string;
+  status: TrackerStatus;
+  realization: number;
+  note: string;
+  archived: boolean;
+}
+
+const DOT = { width: 8, height: 8, borderRadius: '50%', background: '#8B6A40', flexShrink: 0 as const, display: 'inline-block' as const };
+const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius: 1, marginBottom: '1rem' };
+
+export default function Page4Massnahmen({ data, customer, period }: Props) {
+  const actions: any[] = useMemo(() => (data as any)?.actions || [], [data]);
+  const rawBenchmarks: any[] = (data as any)?.benchmarks || [];
+  const benchmarks = rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS;
+  const trackerData: any[] = (data as any)?.tracker || [];
+
+  const [ebitTab, setEbitTab] = useState<EbitTab>('top');
+  const [poolTab, setPoolTab] = useState<PoolTab>('alle');
+  const [trackerTab, setTrackerTab] = useState<TrackerTab>('aktiv');
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const [poolSelected, setPoolSelected] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    trackerData.forEach((t: any) => { init[t.action_key || t.contract_id || ''] = true; });
+    return init;
   });
 
-  const percentFormatter = new Intl.NumberFormat('de-DE', {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-
-
-  const handleToggleAction = useCallback(
-    async (actionKey: string, isActive: boolean) => {
-      setLoading(true);
-      try {
-        const newPool = new Set(activePool);
-        if (isActive) {
-          newPool.delete(actionKey);
-        } else {
-          newPool.add(actionKey);
-        }
-        setActivePool(newPool);
-
-        // Save to API
-        await api.saveTracker({
-          customer_id: customer,
-          period,
-          action_key: actionKey,
-          is_realization: !isActive,
-          target_ebit_eur: 0,
-        });
-      } catch (error) {
-        console.error('Error toggling action:', error);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [activePool, customer, period]
+  const [trackerItems, setTrackerItems] = useState<TrackerItem[]>(() =>
+    trackerData.map((t: any) => ({
+      key: t.action_key || t.contract_id || '',
+      label: t.action_label || t.contract_name || '',
+      description: t.description || t.diagnose || t.category || '',
+      potenzial: Number(t.target_ebit_eur || t.ebit_potential_eur || 0),
+      month: t.month_label || t.month_id || period,
+      status: 'Offen' as TrackerStatus,
+      realization: 0,
+      note: '',
+      archived: false,
+    }))
   );
 
+  const getImpact = (a: any) => Number(a.impact_eur ?? a.ebit_potential_eur ?? a.ebit_potential ?? 0);
 
-  const getStatusBadge = (status?: string) => {
-    const statusMap: Record<string, { color: string; label: string }> = {
-      'Umgesetzt': { color: '#2ecc71', label: '✓ Umgesetzt' },
-      'In Arbeit': { color: '#f39c12', label: '⊕ In Arbeit' },
-      'Offen': { color: '#e74c3c', label: '○ Offen' },
-      'umgesetzt': { color: '#2ecc71', label: '✓ Umgesetzt' },
-      'in_progress': { color: '#f39c12', label: '⊕ In Arbeit' },
-      'open': { color: '#e74c3c', label: '○ Offen' },
-    };
-    const mapped = statusMap[status || 'open'] || { color: '#ccc', label: status || '–' };
-    return mapped;
+  const sortedActions = useMemo(() =>
+    [...actions].sort((a, b) => getImpact(b) - getImpact(a)), [actions]);
+
+  const TOP_N = Math.min(5, sortedActions.length);
+  const topActions = sortedActions.slice(0, TOP_N);
+  const sonstigeActions = sortedActions.slice(TOP_N);
+  const totalEbitPotential = sortedActions.reduce((s, a) => s + getImpact(a), 0);
+  const ebitActions = ebitTab === 'top' ? topActions : sonstigeActions;
+
+  // Benchmark-Maßnahmen (unter Zielwert → im Pool verfügbar)
+  const benchmarkPoolActions = useMemo(() =>
+    benchmarks.map((b: any, i: number) => ({
+      action_key: `bench_${i}`,
+      action_label: b.kpi_label || `Benchmark ${i + 1}`,
+      contract_name: b.kpi_label,
+      category: 'Benchmark-Maßnahme',
+      impact_eur: 0,
+      ebit_potential_eur: 0,
+      isBenchmark: true,
+      belowTarget: Number(b.current ?? 0) > 0 && Number(b.current) < Number(b.target_min ?? b.target_mid ?? 0),
+    })), [benchmarks]);
+
+  const poolContractBase = useMemo(() =>
+    poolTab === 'vertraege' ? sortedActions.slice(0, TOP_N) : sortedActions,
+    [sortedActions, poolTab, TOP_N]);
+
+  const poolActions = useMemo(() => {
+    if (poolTab === 'benchmarks') return benchmarkPoolActions;
+    return [...poolContractBase, ...benchmarkPoolActions];
+  }, [poolContractBase, benchmarkPoolActions, poolTab]);
+
+  const liqLevers = useMemo(() => {
+    const base = totalEbitPotential > 0 ? totalEbitPotential : 10000;
+    return [
+      { title: 'Cashflow planbar machen', impact: Math.round(base * 0.008), biggest: false, items: ['Top-10 Kunden Rhythmus geben', 'Wartungsverträge voraus abrechnen', '13-Wochen-Cashflow-Forecast führen'] },
+      { title: 'Working Capital freisetzen', impact: Math.round(base * 0.455), biggest: false, items: ['Forderungen sofort einziehen', '50% Anzahlung bei Neuaufträgen', 'Zahlungsziel auf 14 Tage'] },
+      { title: 'Margenschwache Verträge korrigieren', impact: Math.round(base * 0.46), biggest: true, items: ['Verlustverträge kündigen / nachverhandeln', 'Stundensätze +8–12% erhöhen', 'Materialquote <35% durchsetzen'] },
+      { title: 'Zahlungsströme synchronisieren', impact: Math.round(base * 0.077), biggest: false, items: ['Zahltermine 1./15. durchsetzen', 'Lieferantenzahlungen bündeln', 'Reserve 3 Monate aufbauen'] },
+    ];
+  }, [totalEbitPotential]);
+
+  const totalLiqImpact = liqLevers.reduce((s, l) => s + l.impact, 0);
+
+  const getEbitBadge = (action: any, rank: number) => {
+    const m = Number(action.margin_pct ?? 0);
+    if (m < 0 || Number(action.profit ?? 0) < 0) return { text: 'Kritisch', color: '#E53935', bg: '#FFEBEE' };
+    if (rank <= 2) return { text: 'Handlungsbedarf', color: '#E53935', bg: '#FFEBEE' };
+    return { text: 'Optimieren', color: '#E65100', bg: '#FFF8E1' };
   };
 
-  const fokusImpact = data?.fokus?.impact_eur || data?.fokus?.ebit_potential_eur || 0;
-
-  // ── Benchmark computation ────────────────────────────────────────────────
-  // Use BQ data if available; otherwise derive proxy values from margin_pct
-  const margin = Number(data?.wirkung?.margin_pct || 0);
-  const curProd   = Math.min(0.95, Math.max(0.50, 0.65 + margin * 1.5));
-  const curHourly = 97 * (0.7 + Math.min(margin, 0.25) * 3);
-  const curPayroll = Math.max(0.30, Math.min(0.70, 0.55 - margin * 0.5));
-
-  const FALLBACK_BENCHMARKS: BenchmarkMetric[] = [
-    { metric: 'Produktivität',       current: curProd,    target_min: 0.65, target_mid: 0.70, target_max: 0.80, gap: curProd - 0.70,    unit: 'pct' },
-    { metric: 'Ø Stundensatz',       current: curHourly,  target_min: 85,   target_mid: 97,   target_max: 110,  gap: curHourly - 97,    unit: 'eur' },
-    { metric: 'Personalkostenquote', current: curPayroll,  target_min: 0.38, target_mid: 0.47, target_max: 0.55, gap: 0.47 - curPayroll, unit: 'pct' },
-  ];
-
-  const rawBenchmarks: BenchmarkMetric[] = (data as any)?.benchmark || [];
-  const displayBenchmarks = rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS;
-
-  const fmtBench = (val: number, unit: string) => {
-    if (unit === 'pct' || unit === '%') return `${(val * 100).toFixed(1)} %`;
-    if (unit === 'eur' || unit === '€') return `${val.toFixed(0)} €`;
-    // Heuristic: if value < 2, treat as fraction
-    if (Math.abs(val) < 2) return `${(val * 100).toFixed(1)} %`;
-    return `${val.toFixed(0)}`;
+  const addToTracker = (action: any) => {
+    const key = action.action_key || action.contract_id || '';
+    if (trackerItems.some(t => t.key === key)) return;
+    setTrackerItems(prev => [...prev, {
+      key, label: action.action_label || action.contract_name || '',
+      description: action.category || '',
+      potenzial: getImpact(action),
+      month: period, status: 'Offen', realization: 0, note: '', archived: false,
+    }]);
   };
 
-  // For payroll, lower is better — invert gap colour
-  const isLowerBetter = (metric: BenchmarkMetric) =>
-    metric.metric.toLowerCase().includes('kosten') || metric.metric.toLowerCase().includes('payroll');
+  const togglePool = async (action: any) => {
+    const key = action.action_key || action.contract_id || '';
+    const wasSelected = !!poolSelected[key];
+    setPoolSelected(prev => ({ ...prev, [key]: !wasSelected }));
+    if (!wasSelected) {
+      addToTracker(action);
+      setSavingKey(key);
+      try {
+        await api.saveTracker({ customer_id: customer, period, action_key: key, is_realization: true, target_ebit_eur: getImpact(action) });
+      } catch (e) { console.error(e); }
+      finally { setSavingKey(null); }
+    } else {
+      setTrackerItems(prev => prev.filter(t => t.key !== key));
+    }
+  };
+
+  // Auto-Archivierung wenn Status auf "Umgesetzt" gesetzt wird
+  const updateItem = (key: string, updates: Partial<TrackerItem>) =>
+    setTrackerItems(prev => prev.map(t => {
+      if (t.key !== key) return t;
+      const updated = { ...t, ...updates };
+      if (updates.status === 'Umgesetzt') {
+        updated.archived = true;
+        if (updated.realization < 100) updated.realization = 100;
+      }
+      return updated;
+    }));
+
+  const removeItem = (key: string) => {
+    setPoolSelected(prev => ({ ...prev, [key]: false }));
+    setTrackerItems(prev => prev.filter(t => t.key !== key));
+  };
+
+  const activeItems = trackerItems.filter(t => !t.archived);
+  const umgesetztItems = trackerItems.filter(t => t.archived);
+  const totalPotenzial = trackerItems.reduce((s, t) => s + t.potenzial, 0);
+  const totalRealized = trackerItems.reduce((s, t) => s + (t.potenzial * t.realization / 100), 0);
+  const captureRate = totalPotenzial > 0 ? (totalRealized / totalPotenzial) * 100 : 0;
+  const displayItems = trackerTab === 'aktiv' ? activeItems : umgesetztItems;
+
+  const tabBtn = (active: boolean) => active
+    ? { background: '#C8A96E', color: '#fff' }
+    : { background: 'transparent', color: 'var(--text-secondary)', border: '1.5px solid var(--border-color)' };
 
   return (
-    <div className="page4-container" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-      {/* MONATSFOKUS */}
-      <div className="monatsfokus-section" style={{ marginBottom: '3rem' }}>
-        <div
-          style={{
-            backgroundColor: 'var(--accent, #B08A6A)',
-            borderRadius: '8px',
-            padding: '2rem',
-            color: 'var(--background, #F7F5F2)',
-          }}
-        >
-          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.5rem', fontWeight: 'bold' }}>🎯 MONATSFOKUS</h2>
-          {data?.fokus && fokusImpact > 0 ? (
-            <div>
-              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: '600' }}>{data.fokus.action_label}</h3>
-              <p style={{ margin: '0.5rem 0', fontSize: '1rem', opacity: 0.9 }}>{data.fokus.description || '–'}</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                <div>
-                  <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase' }}>EBIT-Potenzial</p>
-                  <p style={{ margin: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>{numberFormatter.format(fokusImpact)}</p>
-                </div>
-                {data.fokus.priority_score && (
-                  <div>
-                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase' }}>Priorität</p>
-                    <p style={{ margin: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>{Math.round(data.fokus.priority_score)}</p>
-                  </div>
-                )}
-                {data.fokus.deadline && (
-                  <div>
-                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase' }}>Deadline</p>
-                    <p style={{ margin: '0', fontSize: '1rem', fontWeight: '600' }}>{data.fokus.deadline}</p>
-                  </div>
-                )}
-                {data.fokus.owner && (
-                  <div>
-                    <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', opacity: 0.8, textTransform: 'uppercase' }}>Verantwortlich</p>
-                    <p style={{ margin: '0', fontSize: '1rem', fontWeight: '600' }}>{data.fokus.owner}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p style={{ margin: '0', fontSize: '1rem', opacity: 0.9 }}>Kein Monatsfokus definiert</p>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Maßnahmen & Benchmarks</h2>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Optimierungspotenziale und Umsetzungstracking</p>
+        <div className="copper-line" />
+      </div>
+
+      {/* 1. BENCHMARKVERGLEICH — immer sichtbar */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-1">
+          <span style={DOT} />
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
+          {rawBenchmarks.length === 0 && (
+            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#FFF8E1', color: '#E65100' }}>Branchenzielwerte</span>
           )}
+        </div>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+          {rawBenchmarks.length > 0 ? 'Branchenvergleich der wichtigsten Kennzahlen' : 'Zielwerte — Istwerte werden nach Datenpflege angezeigt'}
+        </p>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {benchmarks.map((b: any, i: number) => (
+            <BenchmarkGauge key={i}
+              label={b.kpi_label || `KPI ${i + 1}`}
+              current={Number(b.current ?? 0)}
+              targetMin={Number(b.target_min ?? 0)}
+              targetMid={Number(b.target_mid ?? 0)}
+              targetMax={Number(b.target_max ?? 0)}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Kupferlinie */}
-      <div style={{ height: '4px', backgroundColor: 'var(--accent, #B08A6A)', marginBottom: '2rem', borderRadius: '2px' }} />
-
-      {/* BENCHMARK-GAUGES — always visible, uses fallback when BQ returns no data */}
-      <div className="benchmark-section" style={{ marginBottom: '3rem' }}>
-        <h3 style={{ color: 'var(--primary, #192231)', fontSize: '1.25rem', marginBottom: '0.5rem' }}>Benchmark-Vergleich</h3>
-        {rawBenchmarks.length === 0 && (
-          <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.75rem', color: '#999', fontStyle: 'italic' }}>
-            Branchenwerte werden aus Margendaten abgeleitet (Richtwerte)
-          </p>
-        )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
-          {displayBenchmarks.map((metric, idx) => {
-            // Scale: use 0 → target_max * 1.4 as the full bar range
-            const scaleMax = metric.target_max * 1.4;
-            const targetMinPct  = (metric.target_min  / scaleMax) * 100;
-            const targetWidthPct = ((metric.target_max - metric.target_min) / scaleMax) * 100;
-            const currentPct = Math.min(100, Math.max(0, (metric.current / scaleMax) * 100));
-            const inTarget = metric.current >= metric.target_min && metric.current <= metric.target_max;
-            const lowerBetter = isLowerBetter(metric);
-            const gapOk = lowerBetter
-              ? metric.current <= metric.target_max
-              : metric.current >= metric.target_min;
-            const markerColor = inTarget ? '#2ecc71' : (gapOk ? '#f39c12' : '#e74c3c');
-            const gapColor = lowerBetter
-              ? (metric.current <= metric.target_mid ? '#2ecc71' : '#e74c3c')
-              : (metric.gap >= 0 ? '#2ecc71' : '#e74c3c');
-
-            return (
-              <div key={idx}>
-                {/* Label row */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span style={{ color: 'var(--primary, #192231)', fontWeight: '600', fontSize: '0.9rem' }}>
-                    {metric.metric}
-                  </span>
-                  <span style={{ color: markerColor, fontWeight: 'bold', fontSize: '0.9rem' }}>
-                    {fmtBench(metric.current, metric.unit)}
-                  </span>
-                </div>
-                {/* Target range hint */}
-                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.7rem', color: '#888' }}>
-                  Zielband: {fmtBench(metric.target_min, metric.unit)} – {fmtBench(metric.target_max, metric.unit)}
-                  {' '}(Mitte {fmtBench(metric.target_mid, metric.unit)})
-                </p>
-
-                {/* Gauge track */}
-                <div style={{ position: 'relative', height: '28px', marginBottom: '0.5rem' }}>
-                  {/* Background track */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: 0, top: '6px',
-                      width: '100%', height: '16px',
-                      backgroundColor: '#e8e8e8',
-                      borderRadius: '8px',
-                      overflow: 'visible',
-                    }}
-                  >
-                    {/* Target zone highlight */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left:  `${targetMinPct}%`,
-                        width: `${targetWidthPct}%`,
-                        height: '100%',
-                        backgroundColor: 'rgba(46,204,113,0.25)',
-                        borderLeft:  '2px solid rgba(46,204,113,0.6)',
-                        borderRight: '2px solid rgba(46,204,113,0.6)',
-                        borderRadius: '4px',
-                      }}
-                    />
+      {/* 2. EBIT-HEBEL */}
+      {sortedActions.length > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span style={DOT} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>EBIT-HEBEL</span>
+            </div>
+            {totalEbitPotential > 0 && (
+              <div className="text-right">
+                <div className="text-lg font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(totalEbitPotential)}</div>
+                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>EBIT p.M.</div>
+              </div>
+            )}
+          </div>
+          <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Top-Maßnahmen nach EBIT-Potenzial</p>
+          <div style={COPPER_LINE} />
+          <div className="flex gap-2 mb-4">
+            {([['top', 'Top Hebel', topActions.length], ['sonstige', 'Sonstige', sonstigeActions.length]] as [EbitTab, string, number][]).filter(([,, n]) => n > 0).map(([key, lbl, cnt]) => (
+              <button key={key} onClick={() => setEbitTab(key)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(ebitTab === key)}>
+                {lbl} <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs" style={{ background: ebitTab === key ? 'rgba(255,255,255,0.3)' : 'var(--border-color)' }}>{cnt}</span>
+              </button>
+            ))}
+          </div>
+          <div className="space-y-2">
+            {ebitActions.map((action: any, idx: number) => {
+              const rank = ebitTab === 'top' ? idx + 1 : TOP_N + idx + 1;
+              const impact = getImpact(action);
+              const badge = getEbitBadge(action, rank);
+              return (
+                <div key={action.action_key || idx} className="flex items-center gap-3 p-3.5 rounded-xl" style={{ border: '1px solid var(--border-color)', background: '#fff' }}>
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#C8A96E', color: '#fff' }}>{rank}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${rank}`}</div>
+                    <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Aufwand: mittel · Wirkung: 1–3 Monate</div>
                   </div>
-                  {/* Current value marker (circle) */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${currentPct}%`,
-                      top: '0',
-                      width: '28px', height: '28px',
-                      marginLeft: '-14px',
-                      backgroundColor: markerColor,
-                      borderRadius: '50%',
-                      border: '3px solid #fff',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-                      zIndex: 10,
-                    }}
-                  />
+                  <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
+                    <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: badge.bg, color: badge.color }}>{badge.text}</span>
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-                {/* Scale labels */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#aaa', marginBottom: '0.25rem' }}>
-                  <span>0</span>
-                  <span>{fmtBench(metric.target_min, metric.unit)}</span>
-                  <span>{fmtBench(metric.target_max, metric.unit)}</span>
+      {/* 3. LIQUIDITÄTSHEBEL */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span style={DOT} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>LIQUIDITÄTSHEBEL</span>
+          </div>
+          {totalLiqImpact > 0 && (
+            <div className="text-right">
+              <div className="text-lg font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(totalLiqImpact)}</div>
+              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>LIQUIDITÄTSEFFEKT P.M.</div>
+            </div>
+          )}
+        </div>
+        <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Operative Hebel zur kurzfristigen Liquiditätsverbesserung</p>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {liqLevers.map((lever, i) => (
+            <div key={i} className="p-4 rounded-xl" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', position: 'relative', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
+              {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
+              <div className="flex justify-between items-start mb-2">
+                <div className="font-bold text-sm pr-3" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
+                <div className="font-bold text-sm flex-shrink-0" style={{ color: '#2E8B57' }}>+{fmtEur(lever.impact)}</div>
+              </div>
+              <ul className="space-y-1">
+                {lever.items.map((item, j) => (
+                  <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: '#C8A96E', flexShrink: 0 }}>✓</span>{item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. MAẞNAHMENPOOL — Verträge + Benchmarks */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span style={DOT} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>MAẞNAHMENPOOL</span>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--border-color)', color: 'var(--text-secondary)' }}>{sortedActions.length + benchmarkPoolActions.length} verfügbar</span>
+        </div>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Maßnahmen auswählen und in den Tracker übernehmen</p>
+        <div className="flex gap-2 mb-4">
+          {([
+            ['alle', `Alle ${sortedActions.length + benchmarkPoolActions.length}`],
+            ['vertraege', `Verträge ${Math.min(TOP_N, sortedActions.length)}`],
+            ['benchmarks', `Benchmarks ${benchmarkPoolActions.length}`],
+          ] as [PoolTab, string][]).map(([key, lbl]) => (
+            <button key={key} onClick={() => setPoolTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(poolTab === key)}>{lbl}</button>
+          ))}
+        </div>
+        <div className="space-y-2">
+          {poolActions.length === 0 ? (
+            <div className="text-center py-6 text-sm" style={{ color: 'var(--text-secondary)' }}>Keine Maßnahmen in dieser Kategorie</div>
+          ) : poolActions.map((action: any, idx: number) => {
+            const key = action.action_key || action.contract_id || `a${idx}`;
+            const selected = !!poolSelected[key];
+            const impact = getImpact(action);
+            const isTop = !action.isBenchmark && sortedActions.indexOf(action) < TOP_N;
+            const isBench = !!action.isBenchmark;
+            return (
+              <div key={key} onClick={() => !savingKey && togglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
+                <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
+                  {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
                 </div>
-
-                {/* Gap badge */}
-                <div style={{ fontSize: '0.72rem', color: gapColor, fontWeight: '600' }}>
-                  {gapOk ? '✓' : '✗'} Abstand zum Ziel: {fmtBench(Math.abs(metric.gap), metric.unit)}
-                  {inTarget ? ' — Im Zielband' : (gapOk ? ' — Nahe Ziel' : ' — Unter Ziel')}
+                <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={isBench ? { background: '#E8F5E9', color: '#2E7D32' } : { background: '#FFF3E0', color: '#E65100' }}>
+                  {isBench ? 'BM' : 'VTR'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}</div>
+                  {action.category && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{action.category}</div>}
+                </div>
+                <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
+                  {isBench ? (
+                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: '#E8F5E9', color: '#2E7D32' }}>BENCHMARK</span>
+                  ) : (
+                    <>
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
+                      <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -318,229 +389,116 @@ const Page4Massnahmen: React.FC<Page4Props> = ({ data, customer, period }) => {
         </div>
       </div>
 
-      {/* Kupferlinie */}
-      <div style={{ height: '4px', backgroundColor: 'var(--accent, #B08A6A)', marginBottom: '2rem', borderRadius: '2px' }} />
-
-      {/* WIRKUNGSANALYSE */}
-      {data?.wirkung && (
-        <div className="wirkung-section" style={{ marginBottom: '3rem' }}>
-          <h3 style={{ color: 'var(--primary, #192231)', fontSize: '1.25rem', marginBottom: '1.5rem' }}>Wirkungsanalyse – Gesamtportfolio</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-            <div
-              style={{
-                backgroundColor: 'var(--background, #F7F5F2)',
-                border: `2px solid var(--primary, #192231)`,
-                borderRadius: '8px',
-                padding: '1.5rem',
-              }}
-            >
-              <p style={{ margin: '0 0 0.5rem 0', color: 'var(--primary, #192231)', fontSize: '0.875rem', fontWeight: '600', textTransform: 'uppercase' }}>
-                Portfolio-EBIT
-              </p>
-              <p style={{ margin: '0', color: 'var(--primary, #192231)', fontSize: '2rem', fontWeight: 'bold' }}>
-                {numberFormatter.format(data.wirkung.portfolio_ebit)}
-              </p>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: 'var(--background, #F7F5F2)',
-                border: `2px solid var(--primary, #192231)`,
-                borderRadius: '8px',
-                padding: '1.5rem',
-              }}
-            >
-              <p style={{ margin: '0 0 0.5rem 0', color: 'var(--primary, #192231)', fontSize: '0.875rem', fontWeight: '600', textTransform: 'uppercase' }}>
-                Gewinn
-              </p>
-              <p style={{ margin: '0', color: data.wirkung.profit >= 0 ? '#2ecc71' : '#e74c3c', fontSize: '2rem', fontWeight: 'bold' }}>
-                {numberFormatter.format(data.wirkung.profit)}
-              </p>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: 'var(--background, #F7F5F2)',
-                border: `2px solid var(--primary, #192231)`,
-                borderRadius: '8px',
-                padding: '1.5rem',
-              }}
-            >
-              <p style={{ margin: '0 0 0.5rem 0', color: 'var(--primary, #192231)', fontSize: '0.875rem', fontWeight: '600', textTransform: 'uppercase' }}>
-                Marge
-              </p>
-              <p style={{ margin: '0', color: data.wirkung.margin_pct >= 0.07 ? '#2ecc71' : '#e74c3c', fontSize: '2rem', fontWeight: 'bold' }}>
-                {percentFormatter.format(data.wirkung.margin_pct)}
-              </p>
-            </div>
-
-            {data.wirkung.high_risk_count !== undefined && (
-              <div
-                style={{
-                  backgroundColor: 'var(--background, #F7F5F2)',
-                  border: `2px solid var(--primary, #192231)`,
-                  borderRadius: '8px',
-                  padding: '1.5rem',
-                }}
-              >
-                <p style={{ margin: '0 0 0.5rem 0', color: 'var(--primary, #192231)', fontSize: '0.875rem', fontWeight: '600', textTransform: 'uppercase' }}>
-                  Kritische Verträge
-                </p>
-                <p style={{ margin: '0', color: data.wirkung.high_risk_count > 0 ? '#e74c3c' : '#2ecc71', fontSize: '2rem', fontWeight: 'bold' }}>
-                  {data.wirkung.high_risk_count}
-                </p>
-              </div>
-            )}
-          </div>
+      {/* 5. REALISIERUNGSTRACKER */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-4">
+          <span style={DOT} />
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>REALISIERUNGSTRACKER</span>
         </div>
-      )}
-
-      {/* Kupferlinie */}
-      <div style={{ height: '4px', backgroundColor: 'var(--accent, #B08A6A)', marginBottom: '2rem', borderRadius: '2px' }} />
-
-      {/* MASSNAHMENPOOL */}
-      {data?.actions && data.actions.length > 0 && (
-        <div className="actions-pool" style={{ marginBottom: '3rem' }}>
-          <h3 style={{ color: 'var(--primary, #192231)', fontSize: '1.25rem', marginBottom: '1rem' }}>Maßnahmenpool</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                borderRadius: '6px',
-                overflow: 'hidden',
-                border: `1px solid var(--primary, #192231)`,
-              }}
-            >
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+          {[
+            { label: 'AKTIV', value: String(activeItems.length), color: 'var(--text-primary)' },
+            { label: 'UMGESETZT', value: String(umgesetztItems.length), color: '#2E8B57' },
+            { label: 'POTENZIAL P.M.', value: fmtEur(totalPotenzial), color: 'var(--text-primary)' },
+            { label: 'REALISIERT', value: fmtEur(totalRealized), color: totalRealized > 0 ? '#2E8B57' : '#E65100' },
+            { label: 'CAPTURE RATE', value: `${captureRate.toFixed(0)}%`, color: captureRate >= 50 ? '#2E8B57' : '#E65100' },
+          ].map((kpi, i) => (
+            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #F7F5F2)', border: '1px solid var(--border-color)' }}>
+              <div className="text-xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
+              <div className="text-xs mt-0.5 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 mb-4">
+          {([
+            ['aktiv', `Aktiv ${activeItems.length}`],
+            ['umgesetzt', `Umgesetzt ${umgesetztItems.length}`],
+          ] as [TrackerTab, string][]).map(([key, lbl]) => (
+            <button key={key} onClick={() => setTrackerTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(trackerTab === key)}>{lbl}</button>
+          ))}
+        </div>
+        {displayItems.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: 'var(--primary, #192231)', color: 'var(--background, #F7F5F2)' }}>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Maßnahme</th>
-                  <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>EBIT-Potenzial</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Score</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Rang</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Aktion</th>
+                <tr className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)', borderBottom: '2px solid var(--border-color)' }}>
+                  <th className="text-left pb-2 font-semibold pr-3 whitespace-nowrap">MONAT</th>
+                  <th className="text-left pb-2 font-semibold">VERTRAG / MAẞNAHME</th>
+                  <th className="text-left pb-2 font-semibold px-3 whitespace-nowrap">STATUS</th>
+                  <th className="text-right pb-2 font-semibold px-3 whitespace-nowrap">POTENZIAL</th>
+                  <th className="text-left pb-2 font-semibold px-3 whitespace-nowrap">REALISIERUNG</th>
+                  <th className="text-right pb-2 font-semibold px-3 whitespace-nowrap">EBIT REALISIERT</th>
+                  <th className="text-left pb-2 font-semibold px-3">NOTIZ</th>
+                  <th className="pb-2 w-8" />
                 </tr>
               </thead>
               <tbody>
-                {data.actions.map((action, idx) => {
-                  const isInFocus = action.is_monatsfokus || action.is_in_focus || false;
-                  const impact = action.impact_eur || action.ebit_potential_eur || 0;
-                  const score = action.priority_score || action.fokus_score || 0;
-                  const rank = action.action_rank || action.focus_rank || idx + 1;
-
+                {displayItems.map((item) => {
+                  const realized = item.potenzial * item.realization / 100;
                   return (
-                    <tr
-                      key={idx}
-                      style={{
-                        backgroundColor: isInFocus ? 'rgba(176, 138, 106, 0.1)' : idx % 2 === 0 ? 'var(--background, #F7F5F2)' : '#fff',
-                        borderBottom: `1px solid var(--primary, #192231)`,
-                        borderLeft: isInFocus ? `4px solid var(--accent, #B08A6A)` : 'none',
-                      }}
-                    >
-                      <td style={{ padding: '1rem', color: 'var(--primary, #192231)', fontWeight: isInFocus ? '600' : '400' }}>
-                        {action.action_label || action.contract_name || '–'}
+                    <tr key={item.key} style={{ borderTop: '1px solid var(--border-color)' }}>
+                      <td className="py-3 pr-3 font-bold text-sm whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{item.month}</td>
+                      <td className="py-3">
+                        <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
+                        {item.description && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.description}</div>}
                       </td>
-                      <td style={{ padding: '1rem', textAlign: 'right', color: 'var(--primary, #192231)', fontWeight: '600' }}>
-                        {impact > 0 ? numberFormatter.format(impact) : '–'}
+                      <td className="py-3 px-3">
+                        {trackerTab === 'aktiv' ? (
+                          <select value={item.status} onChange={e => updateItem(item.key, { status: e.target.value as TrackerStatus })} className="text-xs rounded-lg px-2 py-1.5 border" style={{ background: '#fff', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}>
+                            <option>Offen</option>
+                            <option>In Bearbeitung</option>
+                            <option>Umgesetzt</option>
+                          </select>
+                        ) : (
+                          <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background: '#E8F5E9', color: '#2E7D32' }}>✓ Umgesetzt</span>
+                        )}
                       </td>
-                      <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--primary, #192231)' }}>{score > 0 ? Math.round(score) : '–'}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--primary, #192231)' }}>{rank}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleToggleAction(action.action_key, isInFocus)}
-                          disabled={loading}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            backgroundColor: isInFocus ? 'var(--accent, #B08A6A)' : 'var(--primary, #192231)',
-                            color: 'var(--background, #F7F5F2)',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            fontWeight: '600',
-                            fontSize: '0.875rem',
-                            opacity: loading ? 0.6 : 1,
-                            transition: 'all 0.2s ease',
-                          }}
-                        >
-                          {isInFocus ? 'Entfernen' : 'Hinzufügen'}
-                        </button>
+                      <td className="py-3 px-3 text-right font-semibold text-sm whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{fmtEur(item.potenzial)}</td>
+                      <td className="py-3 px-3" style={{ minWidth: 140 }}>
+                        <div className="flex items-center gap-2">
+                          <input type="range" min={0} max={100} step={5} value={item.realization}
+                            onChange={e => trackerTab === 'aktiv' && updateItem(item.key, { realization: Number(e.target.value) })}
+                            disabled={trackerTab === 'umgesetzt'}
+                            className="flex-1" style={{ accentColor: '#C8A96E' }} />
+                          <span className="text-xs font-semibold w-8 text-right" style={{ color: 'var(--text-secondary)' }}>{item.realization}%</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-right font-semibold text-sm whitespace-nowrap" style={{ color: realized > 0 ? '#2E8B57' : 'var(--text-secondary)' }}>
+                        {realized > 0 ? fmtEur(realized) : '–'}
+                      </td>
+                      <td className="py-3 px-3">
+                        <input type="text" value={item.note} onChange={e => updateItem(item.key, { note: e.target.value })} placeholder="–" className="text-xs border rounded px-2 py-1" style={{ width: 80, borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: '#fff' }} />
+                      </td>
+                      <td className="py-3 pl-1">
+                        <button onClick={() => removeItem(item.key)} title="Entfernen" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: trackerTab === 'aktiv' ? '#E53935' : '#bbb', fontSize: 16, fontWeight: 700 }}>×</button>
                       </td>
                     </tr>
                   );
                 })}
+                {trackerTab === 'aktiv' && activeItems.length > 0 && (
+                  <tr style={{ borderTop: '2px solid var(--border-color)', background: 'rgba(200,169,110,0.04)' }}>
+                    <td className="py-3 pr-3" />
+                    <td className="py-3 font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Gesamt EBIT-Wirkung</td>
+                    <td className="py-3 px-3" />
+                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtEur(activeItems.reduce((s, t) => s + t.potenzial, 0))}</td>
+                    <td className="py-3 px-3 text-center text-sm font-semibold" style={{ color: '#C8A96E' }}>Ø {captureRate.toFixed(0)}%</td>
+                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: totalRealized > 0 ? '#2E8B57' : '#E65100' }}>{fmtEur(totalRealized)}</td>
+                    <td className="py-3 px-3" /><td className="py-3" />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* Kupferlinie */}
-      <div style={{ height: '4px', backgroundColor: 'var(--accent, #B08A6A)', marginBottom: '2rem', borderRadius: '2px' }} />
-
-      {/* REALISIERUNGSTRACKER */}
-      {data?.tracker && data.tracker.length > 0 && (
-        <div className="realization-tracker" style={{ marginBottom: '3rem' }}>
-          <h3 style={{ color: 'var(--primary, #192231)', fontSize: '1.25rem', marginBottom: '1rem' }}>Realisierungstracker</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                borderRadius: '6px',
-                overflow: 'hidden',
-                border: `1px solid var(--primary, #192231)`,
-              }}
-            >
-              <thead>
-                <tr style={{ backgroundColor: 'var(--primary, #192231)', color: 'var(--background, #F7F5F2)' }}>
-                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Maßnahme</th>
-                  <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>Ziel-EBIT</th>
-                  <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>IST-EBIT</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Monat</th>
-                  <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.tracker.map((entry, idx) => {
-                  const status = getStatusBadge(entry.status);
-                  const difference = entry.actual_ebit_eur - entry.target_ebit_eur;
-
-                  return (
-                    <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? 'var(--background, #F7F5F2)' : '#fff', borderBottom: `1px solid var(--primary, #192231)` }}>
-                      <td style={{ padding: '1rem', color: 'var(--primary, #192231)', fontWeight: '500' }}>{entry.action_label}</td>
-                      <td style={{ padding: '1rem', textAlign: 'right', color: 'var(--primary, #192231)' }}>{numberFormatter.format(entry.target_ebit_eur)}</td>
-                      <td style={{ padding: '1rem', textAlign: 'right', color: difference >= 0 ? '#2ecc71' : '#e74c3c', fontWeight: '600' }}>
-                        {numberFormatter.format(entry.actual_ebit_eur)}
-                      </td>
-                      <td style={{ padding: '1rem', textAlign: 'center', color: 'var(--primary, #192231)' }}>{entry.month_label}</td>
-                      <td style={{ padding: '1rem', textAlign: 'center' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            backgroundColor: status.color,
-                            color: '#fff',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '16px',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                          }}
-                        >
-                          {status.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        ) : (
+          <div className="text-center py-8 rounded-xl" style={{ background: 'var(--background, #F7F5F2)', border: '1px dashed var(--border-color)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {trackerTab === 'aktiv'
+                ? 'Noch keine aktiven Maßnahmen. Maßnahmen aus dem Pool auswählen.'
+                : 'Noch keine umgesetzten Maßnahmen. Status auf "Umgesetzt" setzen um sie hier zu sehen.'}
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* Platzhalter für nächste Schritte (wird von Page5 gefüllt) */}
-      <div id="p5-next-steps" style={{ marginTop: '2rem' }} />
+        )}
+      </div>
     </div>
   );
-};
-
-export default Page4Massnahmen;
+}
