@@ -54,6 +54,7 @@ export default function OperationsPage() {
   const [selectedRecipients, setSelectedRecipients] = useState<Record<string, string>>({});
   const [autoCheckRunning, setAutoCheckRunning] = useState(false);
   const [lastAutoCheck, setLastAutoCheck] = useState<string | null>(null);
+  const [bodyResetKey, setBodyResetKey] = useState(0);
 
   // ── Monat-Selektor ───────────────────────────────────────
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -175,16 +176,6 @@ export default function OperationsPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preview?.customer_id, preview?.type]);
-
-  // ── Populate contentEditable body AFTER modal is rendered ─
-  // editDraft being set means the modal div is now in the DOM
-  useEffect(() => {
-    if (editDraft && bodyRef.current) {
-      bodyRef.current.innerHTML = editDraft.body;
-    }
-  // Only on new preview open, not on every editDraft field change
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editDraft?.customer_id, editDraft?.type]);
 
   // ── PREPARE: Generate Preview via Backend ───────────────
   async function handlePrepare(type: DocumentType, customer: OperationsCustomer) {
@@ -891,7 +882,7 @@ export default function OperationsPage() {
                 <button
                   onClick={() => {
                     setEditDraft({ ...preview });
-                    setTimeout(() => { if (bodyRef.current) bodyRef.current.innerHTML = preview.body; }, 0);
+                    setBodyResetKey(k => k + 1);
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
                 >
@@ -954,9 +945,11 @@ export default function OperationsPage() {
                   <span className="ml-auto text-[10px] text-gray-400 italic">direkt bearbeitbar</span>
                 </div>
                 <div
+                  key={`${editDraft.customer_id}-${editDraft.type}-${bodyResetKey}`}
                   ref={bodyRef}
                   contentEditable
                   suppressContentEditableWarning
+                  dangerouslySetInnerHTML={{ __html: editDraft.body }}
                   className="p-6 text-sm leading-relaxed text-gray-800 outline-none focus:bg-amber-50/30
                     [&_p]:mb-4 [&_p:last-child]:mb-0
                     [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:space-y-1
