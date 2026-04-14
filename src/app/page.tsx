@@ -373,7 +373,7 @@ export default function LoginPage() {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '1.5rem', opacity: 0.6 }}>
-          Meyer Decision GbR – Steuerungs-Dashboard
+          Meyer Decision GbR – Steuerungs-Dashboard
         </p>
       </div>
     </div>
