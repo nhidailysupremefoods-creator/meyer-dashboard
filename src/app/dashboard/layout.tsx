@@ -65,8 +65,7 @@ export default function DashboardLayout({
                 alignItems: 'center',
                 padding: '5px 13px',
                 borderRadius: '8px',
-                border: '1.5px solid rgba(200, 169, 110, 0.45)',
-                background: 'rgba(200, 169, 110, 0.08)',
+                backgroundColor: 'var(--navy)',
               }}>
                 <span style={{
                   fontFamily: "'Manrope', sans-serif",
@@ -76,7 +75,7 @@ export default function DashboardLayout({
                   color: '#FFFFFF',
                 }}>MEYER</span>
                 <span style={{
-                  color: 'var(--copper)',
+                  color: 'var(--copper-light)',
                   margin: '0 5px',
                   fontWeight: 300,
                   fontSize: '1.2rem',
