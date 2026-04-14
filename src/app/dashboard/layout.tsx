@@ -13,6 +13,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [authData, setAuthData] = useState<AuthData | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const data = api.getAuthData();
@@ -31,132 +32,89 @@ export default function DashboardLayout({
 
   if (!mounted || !authData) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div
-            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto"
-            style={{ borderBottomColor: 'var(--copper)' }}
-          />
-          <p className="mt-4" style={{ color: 'var(--text-secondary)' }}>
-            Wird geladen...
-          </p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{borderBottomColor: 'var(--primary)'}} />
+          <p className="mt-4" style={{color: 'var(--text-secondary)'}}>Wird geladen...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--background)' }}>
-      {/* ── Dark Navy Header ── */}
-      <header
-        className="print:hidden"
-        style={{
-          backgroundColor: 'var(--navy)',
-          color: '#FFFFFF',
-          padding: '0.75rem 0',
-        }}
-      >
+    <div className="min-h-screen flex flex-col" style={{backgroundColor: 'var(--background)'}}>
+      {/* Navigation Bar */}
+      <nav className="sticky top-0 z-50 shadow-lg" style={{backgroundColor: 'var(--primary)', color: 'white'}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Logo */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '5px 13px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--navy)',
-              }}>
-                <span style={{
-                  fontFamily: "'Manrope', sans-serif",
-                  fontWeight: 800,
-                  fontSize: '1.05rem',
-                  letterSpacing: '0.07em',
-                  color: '#F7F5F2',
-                }}>MEYER</span>
-                <span style={{
-                  color: 'var(--copper)',
-                  margin: '0 5px',
-                  fontWeight: 300,
-                  fontSize: '1.2rem',
-                  lineHeight: 1,
-                }}>|</span>
-                <span style={{
-                  fontFamily: "'Manrope', sans-serif",
-                  fontWeight: 800,
-                  fontSize: '1.05rem',
-                  letterSpacing: '0.07em',
-                  color: '#F7F5F2',
-                }}>DECISION</span>
-              </div>
-              <span
-                className="hidden sm:inline"
-                style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: 'var(--copper-light)',
-                }}
-              >
-                Steuerungs-Dashboard
-              </span>
+          <div className="flex justify-between items-center h-16">
+            {/* Logo and Title */}
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="Meyer Decision" style={{ height: 36, width: 'auto' }} />
+              <p className="text-xs hidden sm:block" style={{color: 'var(--accent-light)'}}>Steuerungs-Dashboard</p>
             </div>
 
-            {/* Right side: User + Logout */}
-            <div className="flex items-center gap-3">
+            {/* Right Side Actions */}
+            <div className="flex items-center gap-4">
+              {/* Admin Button */}
               {authData.role === 'admin' && (
                 <a
                   href="/admin"
-                  className="px-3 py-1.5 rounded text-xs font-semibold"
-                  style={{
-                    backgroundColor: 'rgba(176, 138, 106, 0.2)',
-                    color: 'var(--copper-light)',
-                  }}
+                  className="px-3 py-2 rounded-lg text-sm font-medium transition"
+                  style={{backgroundColor: 'rgba(176, 138, 106, 0.25)', color: 'var(--copper-light)'}}
                 >
                   Admin
                 </a>
               )}
-              <span
-                className="hidden sm:inline text-xs"
-                style={{ color: 'rgba(255,255,255,0.6)' }}
-              >
+
+              {/* User Email */}
+              <div className="hidden sm:block text-sm" style={{color: 'var(--accent-light)'}}>
                 {authData.email}
-              </span>
+              </div>
+
+              {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="px-3 py-1.5 rounded text-xs font-medium"
-                style={{
-                  backgroundColor: 'rgba(196, 56, 48, 0.2)',
-                  color: '#E88080',
-                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition"
+                style={{backgroundColor: 'rgba(239, 68, 68, 0.2)', color: 'var(--danger)'}}
               >
                 Abmelden
               </button>
+
+              {/* Mobile Menu Toggle */}
+              <button
+                onClick={() => setNavOpen(!navOpen)}
+                className="md:hidden p-2 rounded transition"
+                style={{backgroundColor: 'var(--primary-light)'}}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             </div>
           </div>
-        </div>
-      </header>
 
-      {/* ── Main Content ── */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+          {/* Mobile Menu */}
+          {navOpen && (
+            <div className="md:hidden pb-4" style={{borderTop: '1px solid var(--border-color)'}}>
+              <a href="/admin" className="block px-3 py-2 rounded text-sm transition" style={{backgroundColor: 'var(--primary-light)'}}>
+                Admin
+              </a>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
 
-      {/* ── Footer ── */}
-      <footer
-        className="mt-8 print:hidden"
-        style={{
-          borderTop: '1px solid var(--border-color)',
-          backgroundColor: '#FFFFFF',
-        }}
-      >
-        <div
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-center text-xs"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <p>Meyer Decision GmbH — Steuerungs-Dashboard</p>
-          <p className="mt-1">&copy; 2026 Meyer Decision GmbH. Alle Rechte vorbehalten.</p>
+      {/* Footer */}
+      <footer className="mt-16" style={{backgroundColor: 'var(--background-card)', borderTop: '1px solid var(--border-color)'}}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm" style={{color: 'var(--text-secondary)'}}>
+          <p>Meyer Decision GmbH — Steuerungs-Dashboard v6</p>
+          <p className="mt-2 text-xs">© 2026 Meyer Decision GmbH. Alle Rechte vorbehalten.</p>
         </div>
       </footer>
     </div>
