@@ -77,9 +77,36 @@ export function useAdmin(): UseAdminReturn {
       }));
       setCustomers(normalizedCustomers);
 
-      setUsers(d.users || []);
+      // Transform users: Apps Script returns user_email, frontend expects email
+      const rawUsers = d.users || [];
+      const normalizedUsers = rawUsers.map((u: any) => ({
+        ...u,
+        email: u.email || u.user_email || '',
+        display_name: u.display_name || u.user_email || u.email || '',
+      }));
+      setUsers(normalizedUsers);
+
       setRegistrations(d.registrations || []);
-      setAudit(d.audit || []);
+
+      // Transform audit: epoch seconds → ISO string, actor_email → user_email, 0 → null
+      const rawAudit = d.audit || [];
+      const normalizedAudit = rawAudit.map((a: any) => {
+        const ts = a.event_timestamp;
+        let isoTimestamp = a.event_timestamp;
+        if (typeof ts === 'number') {
+          // epoch seconds (< 2e10) or milliseconds (>= 2e10)
+          isoTimestamp = ts < 2e10
+            ? new Date(ts * 1000).toISOString()
+            : new Date(ts).toISOString();
+        }
+        return {
+          ...a,
+          event_timestamp: isoTimestamp,
+          user_email: a.user_email || (a.actor_email && a.actor_email !== 0 ? a.actor_email : '') || '',
+          description: a.description || (a.notes && a.notes !== 0 ? a.notes : '') || (a.new_value && a.new_value !== 0 ? a.new_value : '') || '',
+        };
+      });
+      setAudit(normalizedAudit);
 
       // Transform releases: Apps Script returns nested {CUSTOMER_ID: {releases: [...], available_months: [...]}}
       // Frontend expects flat Release[] array
