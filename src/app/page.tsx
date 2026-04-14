@@ -56,7 +56,9 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); setSuccess(null); setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
     try {
       const response = await api.login({ email: loginEmail, access_code: loginCode } as LoginRequest);
       if (response.success && response.token) {
@@ -74,12 +76,17 @@ export default function LoginPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); setSuccess(null); setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
     try {
       const response = await api.register({ email: registerEmail, name: registerName, firma: registerFirma, password: registerPassword } as RegisterRequest);
       if (response.ok || response.success) {
         setSuccess('Registrierung erfolgreich! Ein Administrator wird Ihre Anfrage prüfen.');
-        setTimeout(() => { setView('login'); setRegisterEmail(''); setRegisterName(''); setRegisterFirma(''); setRegisterPassword(''); }, 2000);
+        setTimeout(() => {
+          setView('login');
+          setRegisterEmail(''); setRegisterName(''); setRegisterFirma(''); setRegisterPassword('');
+        }, 2000);
       } else {
         setError(response.error || 'Registrierung fehlgeschlagen');
       }
@@ -92,7 +99,9 @@ export default function LoginPage() {
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); setSuccess(null); setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
     try {
       const response = await api.requestReset({ email: resetEmail } as ResetRequest);
       if (response.success) {
@@ -110,12 +119,18 @@ export default function LoginPage() {
 
   const handleConfirmReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); setSuccess(null); setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
     try {
       const response = await api.confirmReset({ email: resetEmail, code: resetCode, new_password: resetPassword } as ConfirmResetRequest);
       if (response.success) {
         setSuccess('Passwort erfolgreich zurückgesetzt!');
-        setTimeout(() => { setView('login'); setResetStep('email'); setResetEmail(''); setResetCode(''); setResetPassword(''); }, 2000);
+        setTimeout(() => {
+          setView('login');
+          setResetStep('email');
+          setResetEmail(''); setResetCode(''); setResetPassword('');
+        }, 2000);
       } else {
         setError(response.error || 'Zurücksetzen fehlgeschlagen');
       }
@@ -126,17 +141,6 @@ export default function LoginPage() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.06)',
-    color: '#FFFFFF',
-    border: '1px solid rgba(176, 138, 106,0.25)',
-  };
-
-  const linkStyle: React.CSSProperties = {
-    fontWeight: 600, color: 'var(--copper-light)', background: 'none',
-    border: 'none', fontSize: '0.875rem', cursor: 'pointer',
-  };
-
   const eyeBtnStyle: React.CSSProperties = {
     position: 'absolute',
     right: '0.75rem',
@@ -145,57 +149,93 @@ export default function LoginPage() {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: 'rgba(176, 138, 106, 0.7)',
+    color: 'var(--copper)',
     display: 'flex',
     alignItems: 'center',
     padding: '0',
     lineHeight: 1,
   };
 
+  const linkStyle: React.CSSProperties = {
+    fontWeight: 600,
+    color: 'var(--copper)',
+    background: 'none',
+    border: 'none',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+  };
+
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--navy)', padding: '2rem 1rem',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--background)',
+      padding: '2rem 1rem',
     }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
-            display: 'inline-flex', alignItems: 'center',
-            padding: '8px 16px', borderRadius: '10px', marginBottom: '1rem',
-            border: '1.5px solid rgba(200, 169, 110, 0.4)',
-            background: 'rgba(200, 169, 110, 0.08)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--navy)',
+            padding: '10px 22px',
+            borderRadius: '8px',
+            marginBottom: '0.75rem',
           }}>
-            <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.15rem', letterSpacing: '0.07em', color: '#FFFFFF' }}>MEYER</span>
-            <span style={{ color: 'var(--copper)', margin: '0 6px', fontWeight: 300, fontSize: '1.3rem', lineHeight: 1 }}>|</span>
-            <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.15rem', letterSpacing: '0.07em', color: '#FFFFFF' }}>DECISION</span>
+            <span style={{
+              fontFamily: "'Manrope', sans-serif",
+              fontWeight: 800,
+              fontSize: '1.15rem',
+              letterSpacing: '0.07em',
+              color: '#FFFFFF',
+            }}>MEYER</span>
+            <span style={{
+              color: 'var(--copper-light)',
+              margin: '0 6px',
+              fontWeight: 300,
+              fontSize: '1.3rem',
+              lineHeight: 1,
+            }}>|</span>
+            <span style={{
+              fontFamily: "'Manrope', sans-serif",
+              fontWeight: 800,
+              fontSize: '1.15rem',
+              letterSpacing: '0.07em',
+              color: '#FFFFFF',
+            }}>DECISION</span>
           </div>
-          <p style={{ color: 'var(--copper-light)', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>
+          <p style={{
+            color: 'var(--text-secondary)',
+            fontSize: '0.8rem',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+            margin: 0,
+          }}>
             Steuerungs-Dashboard
           </p>
         </div>
 
         {/* Card */}
-        <div style={{
-          background: 'var(--navy-card)',
-          border: '1px solid rgba(176, 138, 106, 0.2)',
-          borderRadius: '0.875rem',
-          padding: '2rem',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        }}>
+        <div className="card" style={{ padding: '2rem', boxShadow: '0 4px 24px rgba(25, 34, 49, 0.10)' }}>
+
           {/* Alerts */}
           {error && (
             <div style={{
               marginBottom: '1rem', padding: '0.75rem 1rem',
-              background: 'rgba(196,56,48,0.12)', color: '#E88080',
-              border: '1px solid rgba(196,56,48,0.3)', borderRadius: 8, fontSize: '0.875rem',
+              background: 'rgba(196,56,48,0.08)', color: 'var(--danger)',
+              border: '1px solid rgba(196,56,48,0.25)', borderRadius: 8, fontSize: '0.875rem',
             }}>{error}</div>
           )}
           {success && (
             <div style={{
               marginBottom: '1rem', padding: '0.75rem 1rem',
-              background: 'rgba(46,139,87,0.12)', color: '#6ECF91',
-              border: '1px solid rgba(46,139,87,0.3)', borderRadius: 8, fontSize: '0.875rem',
+              background: 'rgba(46,139,87,0.08)', color: 'var(--success)',
+              border: '1px solid rgba(46,139,87,0.25)', borderRadius: 8, fontSize: '0.875rem',
             }}>{success}</div>
           )}
 
@@ -203,13 +243,18 @@ export default function LoginPage() {
           {view === 'login' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
-                <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="ihre@email.com" required disabled={isLoading} style={inputStyle}
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>E-Mail-Adresse</label>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="ihre@email.com"
+                  required
+                  disabled={isLoading}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Zugangscode</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Zugangscode</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showLoginPassword ? 'text' : 'password'}
@@ -218,7 +263,7 @@ export default function LoginPage() {
                     placeholder="Zugangscode eingeben"
                     required
                     disabled={isLoading}
-                    style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                    style={{ paddingRight: '2.75rem' }}
                   />
                   <button
                     type="button"
@@ -235,12 +280,20 @@ export default function LoginPage() {
                 {isLoading ? 'Wird eingeloggt...' : 'Einloggen'}
               </button>
               <div className="text-sm text-center" style={{ marginTop: '1rem' }}>
-                <button type="button" onClick={() => { setView('reset'); setError(null); setSuccess(null); }} style={{ ...linkStyle, display: 'block', width: '100%' }}>
+                <button
+                  type="button"
+                  onClick={() => { setView('reset'); setError(null); setSuccess(null); }}
+                  style={{ ...linkStyle, display: 'block', width: '100%' }}
+                >
                   Passwort vergessen?
                 </button>
-                <div style={{ paddingTop: '0.75rem', marginTop: '0.75rem', borderTop: '1px solid rgba(176, 138, 106,0.15)' }}>
-                  <p style={{ marginBottom: '0.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Noch kein Konto?</p>
-                  <button type="button" onClick={() => { setView('register'); setError(null); setSuccess(null); }} style={linkStyle}>
+                <div style={{ paddingTop: '0.75rem', marginTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                  <p style={{ marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Noch kein Konto?</p>
+                  <button
+                    type="button"
+                    onClick={() => { setView('register'); setError(null); setSuccess(null); }}
+                    style={linkStyle}
+                  >
                     Jetzt registrieren
                   </button>
                 </div>
@@ -252,25 +305,19 @@ export default function LoginPage() {
           {view === 'register' && (
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
-                <input type="email" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)}
-                  placeholder="ihre@email.com" required disabled={isLoading} style={inputStyle}
-                />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>E-Mail-Adresse</label>
+                <input type="email" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)} placeholder="ihre@email.com" required disabled={isLoading} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Name</label>
-                <input type="text" value={registerName} onChange={(e) => setRegisterName(e.target.value)}
-                  placeholder="Ihr Name" required disabled={isLoading} style={inputStyle}
-                />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Name</label>
+                <input type="text" value={registerName} onChange={(e) => setRegisterName(e.target.value)} placeholder="Ihr Name" required disabled={isLoading} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Firma</label>
-                <input type="text" value={registerFirma} onChange={(e) => setRegisterFirma(e.target.value)}
-                  placeholder="Ihre Firma" disabled={isLoading} style={inputStyle}
-                />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Firma</label>
+                <input type="text" value={registerFirma} onChange={(e) => setRegisterFirma(e.target.value)} placeholder="Ihre Firma" disabled={isLoading} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Passwort</label>
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Passwort</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showRegisterPassword ? 'text' : 'password'}
@@ -279,15 +326,9 @@ export default function LoginPage() {
                     placeholder="Passwort wählen"
                     required
                     disabled={isLoading}
-                    style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                    style={{ paddingRight: '2.75rem' }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                    style={eyeBtnStyle}
-                    tabIndex={-1}
-                    aria-label={showRegisterPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
-                  >
+                  <button type="button" onClick={() => setShowRegisterPassword(!showRegisterPassword)} style={eyeBtnStyle} tabIndex={-1} aria-label={showRegisterPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}>
                     <EyeIcon open={showRegisterPassword} />
                   </button>
                 </div>
@@ -306,14 +347,12 @@ export default function LoginPage() {
           {/* Reset Step 1 */}
           {view === 'reset' && resetStep === 'email' && (
             <form onSubmit={handleRequestReset} className="space-y-4">
-              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
                 Geben Sie Ihre E-Mail-Adresse ein. Sie erhalten einen Code zum Zurücksetzen.
               </p>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
-                <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="ihre@email.com" required disabled={isLoading} style={inputStyle}
-                />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>E-Mail-Adresse</label>
+                <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="ihre@email.com" required disabled={isLoading} />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
                 {isLoading ? 'Wird gesendet...' : 'Code anfordern'}
@@ -329,20 +368,16 @@ export default function LoginPage() {
           {/* Reset Step 2 */}
           {view === 'reset' && resetStep === 'confirm' && (
             <form onSubmit={handleConfirmReset} className="space-y-4">
-              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
                 Geben Sie den Code aus Ihrer E-Mail und ein neues Passwort ein.
               </p>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Reset-Code</label>
-                <input type="text" value={resetCode} onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="6-stelliger Code" required disabled={isLoading} style={inputStyle}
-                />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Reset-Code</label>
+                <input type="text" value={resetCode} onChange={(e) => setResetCode(e.target.value)} placeholder="6-stelliger Code" required disabled={isLoading} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Neues Passwort</label>
-                <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)}
-                  placeholder="Neues Passwort" required disabled={isLoading} style={inputStyle}
-                />
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>Neues Passwort</label>
+                <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Neues Passwort" required disabled={isLoading} />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
                 {isLoading ? 'Wird zurückgesetzt...' : 'Passwort zurücksetzen'}
@@ -354,9 +389,10 @@ export default function LoginPage() {
               </div>
             </form>
           )}
+
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', marginTop: '1.5rem' }}>
+        <p style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '1.5rem', opacity: 0.6 }}>
           Meyer Decision GmbH — Steuerungs-Dashboard
         </p>
       </div>
