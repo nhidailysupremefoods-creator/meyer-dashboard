@@ -154,6 +154,8 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ytdEbit = Number(d.ytd_ebit ?? d.ytd_profit ?? 0) || ytdFromTrend.ebit;
   const ytdMargin = Number(d.ytd_margin_pct ?? 0) || (ytdRevenue > 0 ? ytdEbit / ytdRevenue : 0);
 
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   const chartData = trend.slice(-12);
   const maxRev = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.revenue ?? 0))), 1);
   const maxEbit = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.profit ?? r.ebit ?? 0))), 1);
@@ -485,6 +487,8 @@ export default function Page1Gesamtlage({ data }: Props) {
                 x: 55 + i * colW + colW * 0.5,
                 y: BASELINE - (maxEbit > 0 ? (Math.abs(Number(row.profit ?? row.ebit ?? 0)) / maxEbit) * CHART_H : 0),
                 val: Number(row.profit ?? row.ebit ?? 0),
+                rev: Number(row.revenue ?? 0),
+                label: row.month_label_short || row.month_label || '',
               }));
               const pathParts: string[] = [`M ${pts[0].x} ${pts[0].y}`];
               for (let i = 0; i < pts.length - 1; i++) {
