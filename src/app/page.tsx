@@ -7,6 +7,24 @@ import { LoginRequest, RegisterRequest, ResetRequest, ConfirmResetRequest } from
 
 type ViewType = 'login' | 'register' | 'reset';
 
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [view, setView] = useState<ViewType>('login');
@@ -23,10 +41,14 @@ export default function LoginPage() {
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginCode, setLoginCode] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerFirma, setRegisterFirma] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+
   const [resetStep, setResetStep] = useState<'email' | 'confirm'>('email');
   const [resetEmail, setResetEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
@@ -104,9 +126,30 @@ export default function LoginPage() {
     }
   };
 
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.06)',
+    color: '#FFFFFF',
+    border: '1px solid rgba(176, 138, 106,0.25)',
+  };
+
   const linkStyle: React.CSSProperties = {
     fontWeight: 600, color: 'var(--copper-light)', background: 'none',
     border: 'none', fontSize: '0.875rem', cursor: 'pointer',
+  };
+
+  const eyeBtnStyle: React.CSSProperties = {
+    position: 'absolute',
+    right: '0.75rem',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'rgba(176, 138, 106, 0.7)',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0',
+    lineHeight: 1,
   };
 
   return (
@@ -118,16 +161,16 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
-            width: 52, height: 52, borderRadius: 12,
-            background: 'var(--copper)', margin: '0 auto 1rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'Manrope, sans-serif', fontWeight: 800,
-            fontSize: '1rem', color: '#FFFFFF', letterSpacing: '0.05em',
-          }}>MD</div>
-          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.75rem', color: '#FFFFFF', marginBottom: '0.25rem' }}>
-            Meyer Decision
-          </h1>
-          <p style={{ color: 'var(--copper-light)', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600 }}>
+            display: 'inline-flex', alignItems: 'center',
+            padding: '8px 16px', borderRadius: '10px', marginBottom: '1rem',
+            border: '1.5px solid rgba(200, 169, 110, 0.4)',
+            background: 'rgba(200, 169, 110, 0.08)',
+          }}>
+            <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.15rem', letterSpacing: '0.07em', color: '#FFFFFF' }}>MEYER</span>
+            <span style={{ color: 'var(--copper)', margin: '0 6px', fontWeight: 300, fontSize: '1.3rem', lineHeight: 1 }}>|</span>
+            <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.15rem', letterSpacing: '0.07em', color: '#FFFFFF' }}>DECISION</span>
+          </div>
+          <p style={{ color: 'var(--copper-light)', fontSize: '0.8rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, margin: 0 }}>
             Steuerungs-Dashboard
           </p>
         </div>
@@ -162,16 +205,31 @@ export default function LoginPage() {
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
                 <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="ihre@email.com" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
+                  placeholder="ihre@email.com" required disabled={isLoading} style={inputStyle}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Zugangscode</label>
-                <input type="password" value={loginCode} onChange={(e) => setLoginCode(e.target.value)}
-                  placeholder="Zugangscode eingeben" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    value={loginCode}
+                    onChange={(e) => setLoginCode(e.target.value)}
+                    placeholder="Zugangscode eingeben"
+                    required
+                    disabled={isLoading}
+                    style={{ ...inputStyle, paddingRight: '2.75rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    style={eyeBtnStyle}
+                    tabIndex={-1}
+                    aria-label={showLoginPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                  >
+                    <EyeIcon open={showLoginPassword} />
+                  </button>
+                </div>
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
                 {isLoading ? 'Wird eingeloggt...' : 'Einloggen'}
@@ -181,9 +239,9 @@ export default function LoginPage() {
                   Passwort vergessen?
                 </button>
                 <div style={{ paddingTop: '0.75rem', marginTop: '0.75rem', borderTop: '1px solid rgba(176, 138, 106,0.15)' }}>
-                  <p style={{ marginBottom: '0.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Noch nicht registriert?</p>
+                  <p style={{ marginBottom: '0.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>Noch kein Konto?</p>
                   <button type="button" onClick={() => { setView('register'); setError(null); setSuccess(null); }} style={linkStyle}>
-                    Neu registrieren
+                    Jetzt registrieren
                   </button>
                 </div>
               </div>
@@ -193,20 +251,47 @@ export default function LoginPage() {
           {/* Register */}
           {view === 'register' && (
             <form onSubmit={handleRegister} className="space-y-4">
-              {[
-                { label: 'E-Mail-Adresse', type: 'email', val: registerEmail, set: setRegisterEmail, ph: 'ihre@email.com', req: true },
-                { label: 'Name', type: 'text', val: registerName, set: setRegisterName, ph: 'Ihr Name', req: true },
-                { label: 'Firma', type: 'text', val: registerFirma, set: setRegisterFirma, ph: 'Ihre Firma', req: false },
-                { label: 'Passwort', type: 'password', val: registerPassword, set: setRegisterPassword, ph: 'Passwort wählen', req: true },
-              ].map((f) => (
-                <div key={f.label}>
-                  <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>{f.label}</label>
-                  <input type={f.type} value={f.val} onChange={(e) => f.set(e.target.value)}
-                    placeholder={f.ph} required={f.req} disabled={isLoading}
-                    style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
+                <input type="email" value={registerEmail} onChange={(e) => setRegisterEmail(e.target.value)}
+                  placeholder="ihre@email.com" required disabled={isLoading} style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Name</label>
+                <input type="text" value={registerName} onChange={(e) => setRegisterName(e.target.value)}
+                  placeholder="Ihr Name" required disabled={isLoading} style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Firma</label>
+                <input type="text" value={registerFirma} onChange={(e) => setRegisterFirma(e.target.value)}
+                  placeholder="Ihre Firma" disabled={isLoading} style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Passwort</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showRegisterPassword ? 'text' : 'password'}
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    placeholder="Passwort wählen"
+                    required
+                    disabled={isLoading}
+                    style={{ ...inputStyle, paddingRight: '2.75rem' }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                    style={eyeBtnStyle}
+                    tabIndex={-1}
+                    aria-label={showRegisterPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                  >
+                    <EyeIcon open={showRegisterPassword} />
+                  </button>
                 </div>
-              ))}
+              </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
                 {isLoading ? 'Wird registriert...' : 'Registrieren'}
               </button>
@@ -227,8 +312,7 @@ export default function LoginPage() {
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>E-Mail-Adresse</label>
                 <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="ihre@email.com" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
+                  placeholder="ihre@email.com" required disabled={isLoading} style={inputStyle}
                 />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
@@ -251,15 +335,13 @@ export default function LoginPage() {
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Reset-Code</label>
                 <input type="text" value={resetCode} onChange={(e) => setResetCode(e.target.value)}
-                  placeholder="6-stelliger Code" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
+                  placeholder="6-stelliger Code" required disabled={isLoading} style={inputStyle}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: '#FFFFFF' }}>Neues Passwort</label>
                 <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)}
-                  placeholder="Neues Passwort" required disabled={isLoading}
-                  style={{ background: 'rgba(255,255,255,0.06)', color: '#FFFFFF', border: '1px solid rgba(176, 138, 106,0.25)' }}
+                  placeholder="Neues Passwort" required disabled={isLoading} style={inputStyle}
                 />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
