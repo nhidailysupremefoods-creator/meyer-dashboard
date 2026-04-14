@@ -125,8 +125,13 @@ async function handleAdminRequest(
     // Call Apps Script via GET with all params as URL parameters
     // (Apps Script doGet/apiDispatch only uses URL parameters)
     const result = await callAppsScriptApi(params_obj);
-
-        return NextResponse.json({ ...result, success: true });
+    // Only set success:true if Apps Script didn't explicitly return success:false
+    // This prevents masking errors where Apps Script returns {error:'...',success:false}
+    if (result.success === false) {
+      console.error(`[Admin ${action}] Apps Script returned error:`, result.error);
+      return NextResponse.json(result, { status: 200 }); // Keep 200 so frontend reads error msg
+    }
+    return NextResponse.json({ ...result, success: true });
   } catch (err: any) {
     console.error(`Admin API error for action ${action}:`, err);
     return NextResponse.json(
