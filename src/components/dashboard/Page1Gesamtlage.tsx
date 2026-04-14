@@ -154,7 +154,7 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ytdEbit = Number(d.ytd_ebit ?? d.ytd_profit ?? 0) || ytdFromTrend.ebit;
   const ytdMargin = Number(d.ytd_margin_pct ?? 0) || (ytdRevenue > 0 ? ytdEbit / ytdRevenue : 0);
 
-  const [clickIdx, setClickIdx] = useState<number | null>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const chartData = trend.slice(-12);
   const maxRev = chartData.reduce((m: number, r: any) => Math.max(m, Math.abs(Number(r.revenue ?? 0))), 1);
@@ -463,15 +463,16 @@ export default function Page1Gesamtlage({ data }: Props) {
               const barTop = BASELINE - Math.max(barH, 0);
               const label = row.month_label_short || row.month_label || '';
               const cx = x + barW / 2;
-              const isSelected = clickIdx === i;
+              const isSelected = hoverIdx === i;
               return (
                 <g key={`bar${i}`}
-                  onClick={() => setClickIdx(prev => prev === i ? null : i)}
-                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHoverIdx(i)}
+                  onMouseLeave={() => setHoverIdx(null)}
+                  style={{ cursor: 'default' }}
                 >
                   <rect x={x - colW * 0.28} y={20} width={colW} height={BASELINE - 20} fill="transparent" />
                   <rect x={x} y={barTop} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3"
-                    opacity={clickIdx !== null && !isSelected ? 0.45 : 1}
+                    opacity={hoverIdx !== null && !isSelected ? 0.45 : 1}
                   />
                   <text x={cx} y={BASELINE + 17} textAnchor="middle" fontSize="8" fill={isSelected ? 'var(--text-primary)' : 'var(--text-secondary)'}>{label}</text>
                 </g>
@@ -509,7 +510,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                   <path d={areaPath} fill="url(#p1ebitGrad)" />
                   <path d={linePath} fill="none" stroke="#D49564" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                   {pts.map((pt, idx) => {
-                    const isHov = clickIdx === idx;
+                    const isHov = hoverIdx === idx;
                     const rev = Math.abs(Number(chartData[idx]?.revenue ?? 0));
                     const tooltipW = 90;
                     const tx = Math.min(Math.max(pt.x - tooltipW / 2, 52), 640);
