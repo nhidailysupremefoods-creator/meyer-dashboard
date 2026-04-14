@@ -72,10 +72,10 @@ export default function DashboardLayout({
                   fontWeight: 800,
                   fontSize: '1.05rem',
                   letterSpacing: '0.07em',
-                  color: '#FFFFFF',
+                  color: '#F7F5F2',
                 }}>MEYER</span>
                 <span style={{
-                  color: 'var(--copper-light)',
+                  color: 'var(--copper)',
                   margin: '0 5px',
                   fontWeight: 300,
                   fontSize: '1.2rem',
@@ -86,7 +86,7 @@ export default function DashboardLayout({
                   fontWeight: 800,
                   fontSize: '1.05rem',
                   letterSpacing: '0.07em',
-                  color: '#FFFFFF',
+                  color: '#F7F5F2',
                 }}>DECISION</span>
               </div>
               <span
