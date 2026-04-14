@@ -83,7 +83,7 @@ async function handleResponse(res: Response): Promise<any> {
     data = JSON.parse(text);
   } catch (parseErr: any) {
     console.error('[handleResponse] JSON parse error:', parseErr.message, 'body:', text.slice(0, 200));
-    throw new APIError('UngÃ¼ltige API-Antwort (kein JSON)', res.status);
+    throw new APIError('UngÃÂ¼ltige API-Antwort (kein JSON)', res.status);
   }
 
   // Only throw if there's an explicit error AND no success flag
@@ -238,7 +238,7 @@ async function fetchHealthCheck(): Promise<HealthCheckResponse> {
   if (!token) throw new APIError('Nicht eingeloggt');
 
   const params = new URLSearchParams({ token });
-  const res = await fetch(`/api/admin/health?${params}`);
+  const res = await fetch(`/api/admin/health_check?${params}`);
 
   return handleResponse(res);
 }
@@ -252,7 +252,7 @@ async function approveRegistration(
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/registrations/approve', {
+  const res = await fetch('/api/admin/approve_registration', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, email }),
@@ -270,7 +270,7 @@ async function rejectRegistration(
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/registrations/reject', {
+  const res = await fetch('/api/admin/reject_registration', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, email }),
@@ -289,7 +289,7 @@ async function updateCustomer(
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/customers/update', {
+  const res = await fetch('/api/admin/update_customer', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, customer_id: customerId, ...updates }),
@@ -308,7 +308,7 @@ async function updateUser(
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/users/update', {
+  const res = await fetch('/api/admin/update_user', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, email, ...updates }),
@@ -328,10 +328,10 @@ async function toggleRelease(
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/releases/toggle', {
+  const res = await fetch('/api/admin/release_month', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, customer_id: customerId, month, is_released: isReleased }),
+    body: JSON.stringify({ token, customer_id: customerId, report_month: month, release: isReleased }),
   });
 
   return handleResponse(res);
@@ -344,7 +344,7 @@ async function unreleaseAll(customerId: string): Promise<AdminActionResponse> {
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/releases/unrelease-all', {
+  const res = await fetch('/api/admin/unrelease_all', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, customer_id: customerId }),
@@ -360,7 +360,7 @@ async function clearCache(): Promise<AdminActionResponse> {
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/cache/clear', {
+  const res = await fetch('/api/admin/clear_cache', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
@@ -376,7 +376,7 @@ async function triggerRebuild(): Promise<AdminActionResponse> {
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
-  const res = await fetch('/api/admin/rebuild', {
+  const res = await fetch('/api/admin/trigger_rebuild', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),
