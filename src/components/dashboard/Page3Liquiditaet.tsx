@@ -180,6 +180,35 @@ function BankChart({ trend }: { trend: TrendRow[] }) {
   );
 }
 
+
+function InfoIcon({ text }: { text: string }) {
+  const [show, setShow] = React.useState(false);
+  return (
+    <span
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', marginLeft: '0.4rem', verticalAlign: 'middle', cursor: 'help' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: '17px', height: '17px', borderRadius: '50%',
+        background: 'rgba(139,106,64,0.12)', color: '#8B6A40',
+        fontSize: '10px', fontWeight: 700, lineHeight: 1,
+        border: '1px solid rgba(139,106,64,0.25)', userSelect: 'none',
+      }}>?</span>
+      {show && (
+        <span style={{
+          position: 'absolute', left: '50%', bottom: 'calc(100% + 6px)',
+          transform: 'translateX(-50%)',
+          background: '#192231', color: 'rgba(255,255,255,0.9)',
+          fontSize: '11px', lineHeight: '1.45', padding: '0.5rem 0.75rem',
+          borderRadius: '6px', whiteSpace: 'normal', width: '220px',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.25)', pointerEvents: 'none', zIndex: 50,
+        }}>{text}</span>
+      )}
+    </span>
+  );
+}
 export default function Page3Liquiditaet({ data }: Props) {
   const raw = data as Page3Data | null;
   const sr = raw?.summary;
@@ -187,10 +216,8 @@ export default function Page3Liquiditaet({ data }: Props) {
   const trend: TrendRow[] = Array.isArray(raw?.trend) ? raw!.trend! : [];
   const xr = raw?.stress;
   const x: StressRow = Array.isArray(xr) ? (xr[0] ?? {}) : (xr ?? {});
-  const be = (raw?.breakeven ?? {}) as Record<string, number>;
-
   const liq = Number(s.liquidity_months ?? 0);
-  const tgt = Number(s.target_months ?? be.target_liquidity_months ?? 2.5);
+  const tgt = 2.5; // festes Ziel: 2,5 Monate
   const bank = Number(s.bank_balance_eur ?? 0);
   const cf = Number(s.operating_cashflow ?? s.cashflow_eur ?? 0);
   const cfMarginRaw = s.ocf_margin ?? s.cashflow_margin_pct ?? s.margin_pct;
@@ -319,7 +346,7 @@ export default function Page3Liquiditaet({ data }: Props) {
           <div className={styles.scoreDimGrid}>
             <div className={styles.scoreDimRow}>
               <div className={styles.scoreDimLabelRow}>
-                <span className={styles.scoreDimName}>LEISTUNG</span>
+                <span className={styles.scoreDimName}>LEISTUNG<InfoIcon text="Operativer Cashflow-Marge: wie viel vom Umsatz als Cashflow verbleibt. Misst die laufende Ertragskraft des Unternehmens." /></span>
                 <div className={styles.scoreDimRight}>
                   <span className={styles.scoreDimVal} style={{ background: perfBand.color + '18', color: perfBand.color }}>{cfMarginDisp}</span>
                   <span className={styles.scoreDimBand} style={{ color: perfBand.color }}>{perfBand.label}</span>
@@ -333,7 +360,7 @@ export default function Page3Liquiditaet({ data }: Props) {
             </div>
             <div className={styles.scoreDimRow}>
               <div className={styles.scoreDimLabelRow}>
-                <span className={styles.scoreDimName}>STRUKTUR</span>
+                <span className={styles.scoreDimName}>STRUKTUR<InfoIcon text="Liquiditätsreichweite: wie viele Monate der Betrieb ohne neue Einnahmen finanziert werden kann. Zeigt die finanzielle Pufferstärke." /></span>
                 <div className={styles.scoreDimRight}>
                   <span className={styles.scoreDimVal} style={{ background: strBand.color + '18', color: strBand.color }}>{fmtMonths(liq)} Monate</span>
                   <span className={styles.scoreDimBand} style={{ color: strBand.color }}>{strBand.label}</span>
@@ -347,7 +374,7 @@ export default function Page3Liquiditaet({ data }: Props) {
             </div>
             <div className={styles.scoreDimRow}>
               <div className={styles.scoreDimLabelRow}>
-                <span className={styles.scoreDimName}>TREND</span>
+                <span className={styles.scoreDimName}>TREND<InfoIcon text="Cashflow-Entwicklung: Veränderung des operativen Cashflows im Vergleich zum Vormonat. Positiver Trend = wachsende Ertragskraft." /></span>
                 <div className={styles.scoreDimRight}>
                   <span className={styles.scoreDimBand} style={{ color: trdBand.color }}>{trdBand.label}</span>
                   <span className={styles.scoreDimPts}>{scoreTrd}/25</span>
@@ -360,7 +387,7 @@ export default function Page3Liquiditaet({ data }: Props) {
             </div>
             <div className={styles.scoreDimRow}>
               <div className={styles.scoreDimLabelRow}>
-                <span className={styles.scoreDimName}>STABILITÄT</span>
+                <span className={styles.scoreDimName}>STABILITÄT<InfoIcon text="Cashflow-Volatilität: Schwankungsbreite der Einzahlungen. Niedrige Volatilität = verlässliche, planbare Einnahmen." /></span>
                 <div className={styles.scoreDimRight}>
                   <span className={styles.scoreDimVal} style={{ background: staBand.color + '18', color: staBand.color }}>{volatDisp}</span>
                   <span className={styles.scoreDimBand} style={{ color: staBand.color }}>{staBand.label}</span>
