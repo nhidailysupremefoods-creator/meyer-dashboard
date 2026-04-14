@@ -28,7 +28,7 @@
 .kpiSection { padding:0 2rem; margin-bottom:2rem; max-width:1200px; margin-left:auto; margin-right:auto; }
 .kpiGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; }
 .kpiCard { background:#fff; border:1px solid #e8e4e0; border-radius:10px; padding:1.5rem; text-align:center; box-shadow:0 2px 8px rgba(25,34,49,0.06); }
-.kpiCardHL { background:#fff; border:2px solid #F9A825; border-radius:10px; padding:1.5rem; text-align:center; box-shadow:0 2px 12px rgba(249,168,37,0.15); }
+.kpiCardHL { background:#fff; border:1px solid #e8e4e0; border-radius:10px; padding:1.5rem; text-align:center; box-shadow:0 2px 8px rgba(25,34,49,0.06); }
 .kpiLabel { font-size:0.78rem; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.75rem; }
 .kpiGreen { font-size:1.85rem; font-weight:700; color:#43A047; line-height:1.2; margin-bottom:0.5rem; }
 .kpiRed { font-size:1.85rem; font-weight:700; color:#E53935; line-height:1.2; margin-bottom:0.5rem; }
