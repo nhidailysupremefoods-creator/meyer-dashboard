@@ -5,7 +5,7 @@ interface Props {
   data: any;
 }
 
-// —— Formatters —————————————————————————————————————————————————————————
+// —— Formatters —————————————————————————————————————————————————————————
 const fmtEur = (n: any) =>
   n != null
     ? new Intl.NumberFormat('de-DE', {
@@ -13,21 +13,21 @@ const fmtEur = (n: any) =>
         currency: 'EUR',
         maximumFractionDigits: 0,
       }).format(Number(n))
-    : '—';
+    : '–';
 
 const fmtEurK = (n: any) => {
-  if (n == null) return '—';
+  if (n == null) return '–';
   const v = Number(n);
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')} Mio —¬`;
-  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k —¬`;
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')} Mio €`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k €`;
   return fmtEur(v);
 };
 
 const fmtPct = (n: any) =>
-  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '—';
+  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
 const fmtPctSigned = (n: any) => {
-  if (n == null) return '—';
+  if (n == null) return '–';
   const val = Number(n) * 100;
   const sign = val > 0 ? '+' : '';
   return `${sign}${val.toFixed(1)} %`;
@@ -41,7 +41,7 @@ const statusInfo = (s: string) => {
     return { label: 'WARNUNG', color: '#E8A838', bg: 'rgba(232,168,56,0.08)' };
   if (u === 'ROT' || u === 'RED' || u === 'KRITISCH')
     return { label: 'KRITISCH', color: '#C43830', bg: 'rgba(196,56,48,0.08)' };
-  return { label: s || '—', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
+  return { label: s || '–', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
 };
 
 const momColor = (n: any) => {
@@ -53,10 +53,10 @@ const momColor = (n: any) => {
 const momArrow = (n: any) => {
   if (n == null) return '';
   const val = Number(n);
-  return val > 0.001 ? '—²' : val < -0.001 ? '—¼' : '—';
+  return val > 0.001 ? '↑' : val < -0.001 ? '↓' : '→';
 };
 
-// —— Sparkline helper ————————————————————————————————————————————————————
+// —— Sparkline helper ————————————————————————————————————————————————————
 function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?: number; height?: number }) {
   if (data.length < 2) return null;
   const min = Math.min(...data);
@@ -87,7 +87,7 @@ function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?:
   );
 }
 
-// —— Main Component —————————————————————————————————————————————————————
+// —— Main Component —————————————————————————————————————————————————————
 export default function Page1Gesamtlage({ data }: Props) {
   const d = (data as any)?.data || {};
   const trend: any[] = (data as any)?.trend || [];
@@ -127,8 +127,8 @@ export default function Page1Gesamtlage({ data }: Props) {
   const prodDisplay = productivity > 0
     ? productivity <= 1
       ? fmtPct(productivity)
-      : `${Math.round(productivity)} —¬/Std`
-    : '—';
+      : `${Math.round(productivity)} €/Std`
+    : '–';
   const prodVsZiel = productivity > 0
     ? productivity <= 1
       ? productivity - 0.70
@@ -174,7 +174,7 @@ export default function Page1Gesamtlage({ data }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* —— Section Title —— */}
+      {/* —— Section Title —— */}
       <div>
         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
           Monatliche Gesamtlage
@@ -185,7 +185,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* —— Hero + 4 KPI Tiles —— */}
+      {/* —— Hero + 4 KPI Tiles —— */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch">
         <div
           className="rounded-xl"
@@ -197,7 +197,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                 className="text-xs font-bold uppercase tracking-widest mb-3"
                 style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
               >
-                EBIT — MONATSERGEBNIS
+                EBIT – MONATSERGEBNIS
               </div>
               <div
                 className="text-4xl font-extrabold mb-1 leading-none"
@@ -286,7 +286,7 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
         </div>
 
-        {/* —— 4 KPI Tiles 2×2 —— */}
+        {/* —— 4 KPI Tiles 2×2 —— */}
         <div className="grid grid-cols-2 gap-3 flex-1">
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
@@ -339,13 +339,13 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       </div>
 
-      {/* —— EBIT Target Bar —— */}
+      {/* —— EBIT Target Bar —— */}
       {revenue > 0 && (
         <div className="card" style={{ padding: '0.75rem 1.25rem' }}>
           <div className="flex items-center justify-between mb-2">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: ebitGap < 0 ? 'var(--danger)' : 'var(--success)' }}>
-                {ebitGap < 0 ? '—¼ EBIT UNTER ZIEL' : '—² EBIT IM ZIEL'}
+                {ebitGap < 0 ? '↓ EBIT UNTER ZIEL' : '↑ EBIT IM ZIEL'}
               </span>
               <span className="text-xs ml-2" style={{ color: 'var(--text-secondary)' }}>
                 · Ziel {fmtPct(targetMargin)} Marge
@@ -370,17 +370,17 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* —— Monatliche Einschätzung —— */}
+      {/* —— Monatliche Einschätzung —— */}
       {advisory && (
         <div className="rounded-lg p-4" style={{ backgroundColor: 'rgba(232,168,56,0.08)', border: '1px solid rgba(232,168,56,0.2)' }}>
           <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--warning)' }}>
-            — Monatliche Einschätzung
+            ● Monatliche Einschätzung
           </div>
           <div className="text-sm" style={{ color: 'var(--text-primary)', lineHeight: '1.7' }}>{advisory}</div>
         </div>
       )}
 
-      {/* —— YTD Summary —— */}
+      {/* —— YTD Summary —— */}
       {(ytdRevenue > 0 || ytdEbit !== 0) && (
         <div className="card flex items-center gap-6" style={{ padding: '0.75rem 1.25rem' }}>
           <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
@@ -397,17 +397,17 @@ export default function Page1Gesamtlage({ data }: Props) {
             </div>
             <div>
               <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Ø Marge</span>
-              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{ytdMargin > 0 ? fmtPct(ytdMargin) : '—'}</div>
+              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{ytdMargin > 0 ? fmtPct(ytdMargin) : '–'}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* —— 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT + Datenbeschriftungen) —— */}
+      {/* —— 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT + Datenbeschriftungen) —— */}
       {chartData.length > 0 && (
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold" style={{ color: 'var(--warning)' }}>—</span>
+            <span className="text-xs font-bold" style={{ color: 'var(--warning)' }}>●</span>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Umsatz & EBIT Trend (12M)</h3>
           </div>
           {/* Enhanced Legend with visual indicators */}
@@ -803,7 +803,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* —— Kostenstruktur —— */}
+      {/* —— Kostenstruktur —— */}
       {totalCost > 0 && (
         <div className="card">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Kostenstruktur</h3>

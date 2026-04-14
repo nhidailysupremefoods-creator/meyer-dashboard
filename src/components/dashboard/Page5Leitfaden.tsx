@@ -13,7 +13,7 @@ const fmtEur = (n: any) =>
         currency: 'EUR',
         maximumFractionDigits: 0,
       }).format(Number(n))
-    : '—';
+    : '–';
 
 function ScoreBar({ label, value, max = 25 }: { label: string; value: number; max?: number }) {
   const pct = Math.min((value / max) * 100, 100);
@@ -51,7 +51,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
   if (!hasContent) {
     return (
       <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
-        <div className="text-5xl mb-4">ð</div>
+        <div className="text-5xl mb-4">📋</div>
         <p className="font-medium text-lg">Kein Leitfaden verfügbar</p>
         <p className="text-sm mt-2">
           Für {customer} / {period?.replace(/_/g, '/')} wurde noch kein Gesprächsleitfaden erstellt.
@@ -62,7 +62,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* —— Gesamtsituation ———————————————————————————————————————————— */}
+      {/* —— Gesamtsituation ———————————————————————————————————————————— */}
       {situation && (
         <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
           <h3 className="font-semibold mb-3" style={{ color: 'var(--primary)' }}>
@@ -74,7 +74,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Highlights ————————————————————————————————————————————————— */}
+      {/* —— Highlights ————————————————————————————————————————————————— */}
       {highlights.length > 0 && (
         <div className="card">
           <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
@@ -83,7 +83,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
           <ul className="space-y-2">
             {highlights.map((h: string, i: number) => (
               <li key={i} className="flex items-start gap-2 text-sm">
-                <span className="mt-0.5 flex-shrink-0">—¢</span>
+                <span className="mt-0.5 flex-shrink-0">•</span>
                 <span>{h}</span>
               </li>
             ))}
@@ -91,7 +91,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Score-Dimensionen —————————————————————————————————————————— */}
+      {/* —— Score-Dimensionen —————————————————————————————————————————— */}
       {totalScore > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
@@ -125,7 +125,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Analyseergebnisse —————————————————————————————————————————— */}
+      {/* —— Analyseergebnisse —————————————————————————————————————————— */}
       {analyse && (
         <div className="card">
           <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
@@ -137,7 +137,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Ausgewählte Maßnahmen —————————————————————————————————————— */}
+      {/* —— Ausgewählte Maßnahmen —————————————————————————————————————— */}
       {massnahmen.length > 0 && (
         <div className="card">
           <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
@@ -181,7 +181,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Handlungsfelder ———————————————————————————————————————————— */}
+      {/* —— Handlungsfelder ———————————————————————————————————————————— */}
       {handlungsfelder.length > 0 && (
         <div className="card">
           <h3 className="font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
@@ -190,7 +190,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
           <div className="space-y-2">
             {handlungsfelder.map((h: any, i: number) => (
               <div key={i} className="flex items-start gap-3 text-sm p-2">
-                <span className="text-lg">{h.icon || '—¸'}</span>
+                <span className="text-lg">{h.icon || '▸'}</span>
                 <div>
                   <span className="font-medium">{typeof h === 'string' ? h : h.label || h.titel}</span>
                   {h.beschreibung && (
@@ -203,7 +203,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Nächste Schritte ——————————————————————————————————————————— */}
+      {/* —— Nächste Schritte ——————————————————————————————————————————— */}
       {(naechsteSchritte.sofort || naechsteSchritte.kurzfristig || naechsteSchritte.mittelfristig) && (
         <div className="card">
           <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
@@ -214,11 +214,11 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10b981' }} />
-                  <span className="text-sm font-semibold">Sofort (0—7 Tage)</span>
+                  <span className="text-sm font-semibold">Sofort (0–7 Tage)</span>
                 </div>
                 <div className="ml-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {Array.isArray(naechsteSchritte.sofort)
-                    ? naechsteSchritte.sofort.map((s: string, i: number) => <p key={i} className="mb-1">—¢ {s}</p>)
+                    ? naechsteSchritte.sofort.map((s: string, i: number) => <p key={i} className="mb-1">• {s}</p>)
                     : naechsteSchritte.sofort}
                 </div>
               </div>
@@ -227,11 +227,11 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
-                  <span className="text-sm font-semibold">Kurzfristig (1—4 Wochen)</span>
+                  <span className="text-sm font-semibold">Kurzfristig (1–4 Wochen)</span>
                 </div>
                 <div className="ml-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {Array.isArray(naechsteSchritte.kurzfristig)
-                    ? naechsteSchritte.kurzfristig.map((s: string, i: number) => <p key={i} className="mb-1">—¢ {s}</p>)
+                    ? naechsteSchritte.kurzfristig.map((s: string, i: number) => <p key={i} className="mb-1">• {s}</p>)
                     : naechsteSchritte.kurzfristig}
                 </div>
               </div>
@@ -240,11 +240,11 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }} />
-                  <span className="text-sm font-semibold">Mittelfristig (1—3 Monate)</span>
+                  <span className="text-sm font-semibold">Mittelfristig (1–3 Monate)</span>
                 </div>
                 <div className="ml-5 text-sm" style={{ color: 'var(--text-secondary)' }}>
                   {Array.isArray(naechsteSchritte.mittelfristig)
-                    ? naechsteSchritte.mittelfristig.map((s: string, i: number) => <p key={i} className="mb-1">—¢ {s}</p>)
+                    ? naechsteSchritte.mittelfristig.map((s: string, i: number) => <p key={i} className="mb-1">• {s}</p>)
                     : naechsteSchritte.mittelfristig}
                 </div>
               </div>
@@ -253,7 +253,7 @@ export default function Page5Leitfaden({ data, customer, period }: Props) {
         </div>
       )}
 
-      {/* —— Management-Call-Agenda —————————————————————————————————————— */}
+      {/* —— Management-Call-Agenda —————————————————————————————————————— */}
       {callAgenda && (
         <div
           className="card"

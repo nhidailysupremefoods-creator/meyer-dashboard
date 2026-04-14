@@ -162,7 +162,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
                   Gesprächsleitfaden
                 </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                  {selectedCustomer.replace(/_/g, ' ')} — {selectedPeriod.replace(/_/g, '/')}
+                  {selectedCustomer.replace(/_/g, ' ')} — {selectedPeriod.replace(/_/g, '/')}
                 </p>
               </div>
               <button
@@ -206,7 +206,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {result.highlights.map((h: string, i: number) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--offwhite)' }}>
-                    <span style={{ color: 'var(--copper)', marginTop: 2 }}>—¢</span>
+                    <span style={{ color: 'var(--copper)', marginTop: 2 }}>•</span>
                     <span>{h}</span>
                   </li>
                 ))}
@@ -243,7 +243,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
       {/* Info Box */}
       {!result && !loading && !error && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>ð</div>
+          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📋</div>
           <p style={{ fontSize: '0.875rem', color: 'var(--offwhite)', fontWeight: 500 }}>
             Wählen Sie einen Mandanten und eine Periode aus, um den Gesprächsleitfaden zu generieren.
           </p>

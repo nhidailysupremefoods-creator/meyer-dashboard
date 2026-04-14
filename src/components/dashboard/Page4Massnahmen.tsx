@@ -106,7 +106,7 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
       )}
       {hasValue && isProxy && (
         <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
-          Schätzwert (aus Finanzdaten)
+          Berechnet aus Finanzdaten
         </div>
       )}
     </div>
