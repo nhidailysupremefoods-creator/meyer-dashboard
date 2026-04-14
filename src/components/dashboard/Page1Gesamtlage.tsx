@@ -12,7 +12,7 @@ const fmtEur = (n: any) =>
         style: 'currency',
         currency: 'EUR',
         maximumFractionDigits: 0,
-      }).format(Number(n)
+      }).format(Number(n))
     : '–';
 
 const fmtEurK = (n: any) => {
