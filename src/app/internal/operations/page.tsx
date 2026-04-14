@@ -414,8 +414,16 @@ export default function OperationsPage() {
   }
 
   // ── Gmail Compose Fallback ───────────────────────────────
-  function openGmailCompose(email: EmailPreview) {
-    // Strip HTML to clean plain text for Gmail compose URL
+  // Opens Gmail compose and copies the CI-formatted HTML to clipboard.
+  // Gmail compose URL only supports plain text, so the user pastes (Ctrl+V)
+  // to get the full CI-formatted version inside Gmail.
+  async function openGmailCompose(email: EmailPreview): Promise<boolean> {
+    // Build attachment reminder as plain text prefix
+    const attachmentNote = email.attachments.length > 0
+      ? `📎 BITTE ANHÄNGEN VOR DEM SENDEN:\n${email.attachments.map(a => `  • ${a.name} (${a.size})`).join('\n')}\n\n──────────────────────────────────────\n\n`
+      : '';
+
+    // Build clean plain-text fallback (used if clipboard fails)
     const plainBody = email.body
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/p>/gi, '\n\n')
@@ -427,23 +435,33 @@ export default function OperationsPage() {
       .replace(/&auml;/g, 'ä').replace(/&ouml;/g, 'ö').replace(/&uuml;/g, 'ü')
       .replace(/&Auml;/g, 'Ä').replace(/&Ouml;/g, 'Ö').replace(/&Uuml;/g, 'Ü')
       .replace(/&szlig;/g, 'ß').replace(/&rarr;/g, '→').replace(/&#9656;/g, '▸')
-      .replace(/&uuml;/g, 'ü').replace(/&uuml;/g, 'ü')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    // Prepend attachment reminder if this email type has attachments
-    const attachmentNote = email.attachments.length > 0
-      ? `📎 BITTE ANHÄNGEN VOR DEM SENDEN:\n${email.attachments.map(a => `  • ${a.name} (${a.size})`).join('\n')}\n\n──────────────────────────────────────\n\n`
-      : '';
+    // Try to write the full CI HTML to clipboard so user can paste into Gmail
+    let clipboardOk = false;
+    try {
+      const htmlBlob = new Blob([email.body], { type: 'text/html' });
+      const textBlob = new Blob([attachmentNote + plainBody], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob }),
+      ]);
+      clipboardOk = true;
+    } catch {
+      // Clipboard API unavailable – fall back to plain text in URL body param
+    }
 
+    // Open Gmail compose; if clipboard worked, leave body empty (user will paste)
     const params = new URLSearchParams({
       view: 'cm',
       fs: '1',
       to: email.to,
       su: email.subject,
-      body: attachmentNote + plainBody,
+      body: clipboardOk ? '' : attachmentNote + plainBody,
     });
     window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
+
+    return clipboardOk;
   }
 
   // ── SEND: Real Email Dispatch ───────────────────────────
@@ -486,10 +504,15 @@ export default function OperationsPage() {
       }
     }
 
-    // Fallback: Open Gmail compose directly in new tab
-    openGmailCompose(emailPreview);
+    // Fallback: Copy CI HTML to clipboard, open Gmail compose
+    const clipboardOk = await openGmailCompose(emailPreview);
     updateSentStatus(emailPreview.type, emailPreview.customer_id);
-    showToast(`Gmail geöffnet – bitte E-Mail an ${emailPreview.to} jetzt senden`, 'success');
+    showToast(
+      clipboardOk
+        ? `Gmail geöffnet – Ctrl+V drücken für CI-formatierte E-Mail`
+        : `Gmail geöffnet – bitte E-Mail an ${emailPreview.to} jetzt senden`,
+      'success'
+    );
     setSendingKey(null);
     setPreview(null);
   }
