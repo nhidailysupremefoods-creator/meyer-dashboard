@@ -828,7 +828,25 @@ export default function OperationsPage() {
               </div>
 
               {/* Email Body */}
-              <div className="border border-gray-200 rounded-xl p-5 min-h-[200px]" dangerouslySetInnerHTML={{ __html: preview.body }} />
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                {/* Email-like header bar */}
+                <div className="bg-gray-50 border-b border-gray-100 px-5 py-2 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-red-300 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-amber-300 inline-block" />
+                  <span className="w-3 h-3 rounded-full bg-green-300 inline-block" />
+                  <span className="ml-3 text-[11px] text-gray-400 font-medium tracking-wide uppercase">E-Mail Inhalt</span>
+                </div>
+                <div
+                  className="p-6 text-sm leading-relaxed text-gray-800
+                    [&_p]:mb-4 [&_p:last-child]:mb-0
+                    [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ul]:space-y-1
+                    [&_li]:text-gray-700
+                    [&_strong]:font-semibold [&_strong]:text-gray-900
+                    [&_a]:text-copper [&_a]:underline [&_a]:underline-offset-2
+                    [&_table]:text-sm [&_table]:mt-3 [&_td]:pr-8 [&_td]:align-top [&_td]:pb-1"
+                  dangerouslySetInnerHTML={{ __html: preview.body }}
+                />
+              </div>
 
               {/* Backend Status Hint */}
               <div className={`rounded-lg px-4 py-2 text-xs ${

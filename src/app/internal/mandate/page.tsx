@@ -452,17 +452,8 @@ function MandateEditModal({
               <label className="block text-xs font-medium text-gray-500 mb-1">Dienstleistung</label>
               <select className={inputCls + ' bg-white'} value={form.gebuchte_dienstleistung} onChange={e => setForm(f => ({ ...f, gebuchte_dienstleistung: e.target.value }))}>
                 <option value="">–</option>
-                <optgroup label="Advisory">
-                  <option value="Advisory Controlling Paket Premium">Advisory Controlling Paket Premium</option>
-                  <option value="Advisory Controlling Paket Standard">Advisory Controlling Paket Standard</option>
-                  <option value="Advisory Controlling Basis">Advisory Controlling Basis</option>
-                  <option value="Advisory Controlling + Liquiditätsanalyse">Advisory Controlling + Liquiditätsanalyse</option>
-                </optgroup>
-                <optgroup label="Tool only">
-                  <option value="Tool only Paket Premium">Tool only Paket Premium</option>
-                  <option value="Tool only Paket Standard">Tool only Paket Standard</option>
-                  <option value="Tool only Basis">Tool only Basis</option>
-                </optgroup>
+                <option value="Advisory">Advisory</option>
+                <option value="Tool Only">Tool Only</option>
               </select>
             </div>
             <div>
