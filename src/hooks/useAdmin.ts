@@ -67,11 +67,35 @@ export function useAdmin(): UseAdminReturn {
 
       // Handle both flat {customers:[]} and nested {data:{customers:[]}} response structures
       const d: any = (response as any).data || response;
-      setCustomers(d.customers || []);
+
+      // Transform customers: Apps Script returns customer_name/status, frontend expects name/is_active
+      const rawCustomers = d.customers || [];
+      const normalizedCustomers = rawCustomers.map((c: any) => ({
+        ...c,
+        name: c.name || c.customer_name || c.display_name || c.customer_id,
+        is_active: c.is_active !== undefined ? c.is_active : (c.status === 'active'),
+      }));
+      setCustomers(normalizedCustomers);
+
       setUsers(d.users || []);
       setRegistrations(d.registrations || []);
       setAudit(d.audit || []);
-      setReleases(d.releases || []);
+
+      // Transform releases: Apps Script returns nested {CUSTOMER_ID: {releases: [...], available_months: [...]}}
+      // Frontend expects flat Release[] array
+      const rawReleases = d.releases;
+      let flatReleases: Release[] = [];
+      if (Array.isArray(rawReleases)) {
+        flatReleases = rawReleases;
+      } else if (rawReleases && typeof rawReleases === 'object') {
+        // Nested format from adminInitAll() — flatten all customer release arrays
+        Object.values(rawReleases).forEach((customerData: any) => {
+          if (customerData?.releases && Array.isArray(customerData.releases)) {
+            flatReleases.push(...customerData.releases);
+          }
+        });
+      }
+      setReleases(flatReleases);
     } catch (err: any) {
       const errorMsg =
         err instanceof APIError
