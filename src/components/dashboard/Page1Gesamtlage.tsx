@@ -5,7 +5,7 @@ interface Props {
   data: any;
 }
 
-// ââ Formatters âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// —— Formatters —————————————————————————————————————————————————————————
 const fmtEur = (n: any) =>
   n != null
     ? new Intl.NumberFormat('de-DE', {
@@ -13,21 +13,21 @@ const fmtEur = (n: any) =>
         currency: 'EUR',
         maximumFractionDigits: 0,
       }).format(Number(n))
-    : 'â';
+    : '—';
 
 const fmtEurK = (n: any) => {
-  if (n == null) return 'â';
+  if (n == null) return '—';
   const v = Number(n);
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')} Mio â¬`;
-  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k â¬`;
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace('.', ',')} Mio —¬`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}k —¬`;
   return fmtEur(v);
 };
 
 const fmtPct = (n: any) =>
-  n != null ? `${(Number(n) * 100).toFixed(1)} %` : 'â';
+  n != null ? `${(Number(n) * 100).toFixed(1)} %` : '—';
 
 const fmtPctSigned = (n: any) => {
-  if (n == null) return 'â';
+  if (n == null) return '—';
   const val = Number(n) * 100;
   const sign = val > 0 ? '+' : '';
   return `${sign}${val.toFixed(1)} %`;
@@ -35,13 +35,13 @@ const fmtPctSigned = (n: any) => {
 
 const statusInfo = (s: string) => {
   const u = (s || '').toUpperCase();
-  if (u === 'GRÃN' || u === 'GREEN' || u === 'GUT')
+  if (u === 'GRÜN' || u === 'GREEN' || u === 'GUT')
     return { label: 'GUT', color: '#2E8B57', bg: 'rgba(46,139,87,0.08)' };
   if (u === 'GELB' || u === 'YELLOW' || u === 'WARNUNG')
     return { label: 'WARNUNG', color: '#E8A838', bg: 'rgba(232,168,56,0.08)' };
   if (u === 'ROT' || u === 'RED' || u === 'KRITISCH')
     return { label: 'KRITISCH', color: '#C43830', bg: 'rgba(196,56,48,0.08)' };
-  return { label: s || 'â', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
+  return { label: s || '—', color: '#6B7A90', bg: 'rgba(107,122,144,0.08)' };
 };
 
 const momColor = (n: any) => {
@@ -53,10 +53,10 @@ const momColor = (n: any) => {
 const momArrow = (n: any) => {
   if (n == null) return '';
   const val = Number(n);
-  return val > 0.001 ? 'â²' : val < -0.001 ? 'â¼' : 'â';
+  return val > 0.001 ? '—²' : val < -0.001 ? '—¼' : '—';
 };
 
-// ââ Sparkline helper ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// —— Sparkline helper ————————————————————————————————————————————————————
 function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?: number; height?: number }) {
   if (data.length < 2) return null;
   const min = Math.min(...data);
@@ -87,7 +87,7 @@ function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?:
   );
 }
 
-// ââ Main Component âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// —— Main Component —————————————————————————————————————————————————————
 export default function Page1Gesamtlage({ data }: Props) {
   const d = (data as any)?.data || {};
   const trend: any[] = (data as any)?.trend || [];
@@ -127,8 +127,8 @@ export default function Page1Gesamtlage({ data }: Props) {
   const prodDisplay = productivity > 0
     ? productivity <= 1
       ? fmtPct(productivity)
-      : `${Math.round(productivity)} â¬/Std`
-    : 'â';
+      : `${Math.round(productivity)} —¬/Std`
+    : '—';
   const prodVsZiel = productivity > 0
     ? productivity <= 1
       ? productivity - 0.70
@@ -174,7 +174,7 @@ export default function Page1Gesamtlage({ data }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* ââ Section Title ââ */}
+      {/* —— Section Title —— */}
       <div>
         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
           Monatliche Gesamtlage
@@ -185,7 +185,7 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="copper-line" />
       </div>
 
-      {/* ââ Hero + 4 KPI Tiles ââ */}
+      {/* —— Hero + 4 KPI Tiles —— */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch">
         <div
           className="rounded-xl"
@@ -197,7 +197,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                 className="text-xs font-bold uppercase tracking-widest mb-3"
                 style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em' }}
               >
-                EBIT â MONATSERGEBNIS
+                EBIT — MONATSERGEBNIS
               </div>
               <div
                 className="text-4xl font-extrabold mb-1 leading-none"
@@ -215,7 +215,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                   className="text-sm font-semibold mb-3"
                   style={{ color: profitMom >= 0 ? '#6ECF91' : '#E88080' }}
                 >
-                  {momArrow(profitMom)} {fmtPctSigned(profitMom)} ggÃ¼. Vormonat
+                  {momArrow(profitMom)} {fmtPctSigned(profitMom)} ggü. Vormonat
                 </div>
               )}
               <div
@@ -228,7 +228,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               >
                 {fmtPct(marginPct)} EBIT-Marge
                 {ebitGap !== 0 && (
-                  <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 6px' }}>Â·</span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 6px' }}>·</span>
                 )}
                 {ebitGap !== 0 && (
                   <span>Abstand: {fmtEur(Math.abs(ebitGap))}</span>
@@ -286,7 +286,7 @@ export default function Page1Gesamtlage({ data }: Props) {
           </div>
         </div>
 
-        {/* ââ 4 KPI Tiles 2Ã2 ââ */}
+        {/* —— 4 KPI Tiles 2×2 —— */}
         <div className="grid grid-cols-2 gap-3 flex-1">
           <div className="card">
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>
@@ -302,7 +302,7 @@ export default function Page1Gesamtlage({ data }: Props) {
             )}
           </div>
           <div className="card">
-            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>ProduktivitÃ¤t</div>
+            <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Produktivität</div>
             <div className="text-3xl font-bold leading-none mb-2" style={{ color: prodVsZiel >= 0 ? '#2E8B57' : 'var(--text-primary)' }}>{prodDisplay}</div>
             {prodVsZiel !== 0 && (
               <div className="text-sm font-semibold" style={{ color: prodVsZiel > 0 ? '#2E8B57' : '#C43830' }}>
@@ -339,16 +339,16 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       </div>
 
-      {/* ââ EBIT Target Bar ââ */}
+      {/* —— EBIT Target Bar —— */}
       {revenue > 0 && (
         <div className="card" style={{ padding: '0.75rem 1.25rem' }}>
           <div className="flex items-center justify-between mb-2">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: ebitGap < 0 ? 'var(--danger)' : 'var(--success)' }}>
-                {ebitGap < 0 ? 'â¼ EBIT UNTER ZIEL' : 'â² EBIT IM ZIEL'}
+                {ebitGap < 0 ? '—¼ EBIT UNTER ZIEL' : '—² EBIT IM ZIEL'}
               </span>
               <span className="text-xs ml-2" style={{ color: 'var(--text-secondary)' }}>
-                Â· Ziel {fmtPct(targetMargin)} Marge
+                · Ziel {fmtPct(targetMargin)} Marge
               </span>
             </div>
             <div className="text-right">
@@ -370,17 +370,17 @@ export default function Page1Gesamtlage({ data }: Props) {
         </div>
       )}
 
-      {/* ââ Monatliche EinschÃ¤tzung ââ */}
+      {/* —— Monatliche Einschätzung —— */}
       {advisory && (
         <div className="rounded-lg p-4" style={{ backgroundColor: 'rgba(232,168,56,0.08)', border: '1px solid rgba(232,168,56,0.2)' }}>
           <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--warning)' }}>
-            â Monatliche EinschÃ¤tzung
+            — Monatliche Einschätzung
           </div>
           <div className="text-sm" style={{ color: 'var(--text-primary)', lineHeight: '1.7' }}>{advisory}</div>
         </div>
       )}
 
-      {/* ââ YTD Summary ââ */}
+      {/* —— YTD Summary —— */}
       {(ytdRevenue > 0 || ytdEbit !== 0) && (
         <div className="card flex items-center gap-6" style={{ padding: '0.75rem 1.25rem' }}>
           <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
@@ -396,99 +396,212 @@ export default function Page1Gesamtlage({ data }: Props) {
               <div className="text-lg font-bold" style={{ color: ytdEbit < 0 ? 'var(--danger)' : '#2E8B57' }}>{fmtEur(ytdEbit)}</div>
             </div>
             <div>
-              <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Ã Marge</span>
-              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{ytdMargin > 0 ? fmtPct(ytdMargin) : 'â'}</div>
+              <span className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Ø Marge</span>
+              <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{ytdMargin > 0 ? fmtPct(ytdMargin) : '—'}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ââ 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT + Datenbeschriftungen) ââ */}
+      {/* —— 12-Monats-Trend Chart (Gradient Bars + Smooth Bezier EBIT + Datenbeschriftungen) —— */}
       {chartData.length > 0 && (
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold" style={{ color: 'var(--warning)' }}>â</span>
+            <span className="text-xs font-bold" style={{ color: 'var(--warning)' }}>—</span>
             <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Umsatz & EBIT Trend (12M)</h3>
           </div>
-          {/* Legend */}
-          <div className="flex items-center justify-center gap-6 mb-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span className="flex items-center gap-1">
-              <span style={{ display: 'inline-block', width: 14, height: 10, background: 'linear-gradient(180deg,rgba(29,53,87,0.65) 0%,rgba(29,53,87,0.08) 100%)', borderRadius: 2 }} />
-              Umsatz
+          {/* Enhanced Legend with visual indicators */}
+          <div className="flex items-center justify-center gap-6 mb-4 text-xs flex-wrap" style={{ color: 'var(--text-secondary)' }}>
+            <span className="flex items-center gap-2">
+              <span style={{ display: 'inline-block', width: 16, height: 12, background: 'linear-gradient(180deg,rgba(29,53,87,0.7) 0%,rgba(29,53,87,0.1) 100%)', borderRadius: '3px', border: '1px solid rgba(29,53,87,0.3)' }} />
+              Umsatz (links)
             </span>
-            <span className="flex items-center gap-1">
-              <span style={{ display: 'inline-block', width: 20, height: 2, backgroundColor: '#D49564', borderRadius: 1 }} />
-              EBIT
+            <span className="flex items-center gap-2">
+              <span style={{ display: 'inline-block', width: 22, height: 2.5, backgroundColor: '#B08A6A', borderRadius: '2px' }} />
+              EBIT (rechts)
+            </span>
+            <span className="flex items-center gap-2">
+              <span style={{ display: 'inline-block', width: 22, height: 1.5, backgroundColor: '#E8A838', borderRadius: '2px', borderTop: '2px dashed #E8A838' }} />
+              Marge %
             </span>
           </div>
-          {/* viewBox expanded to 240 height; BASELINE=200, CHART_H=165 */}
-          <svg viewBox="0 0 700 240" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+          {/* viewBox expanded for better spacing */}
+          <svg viewBox="0 0 750 280" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
             <defs>
+              {/* Revenue bar gradient - subtle dark blue */}
               <linearGradient id="p1barGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(29,53,87,1)" stopOpacity="0.65" />
-                <stop offset="100%" stopColor="rgba(29,53,87,0)" stopOpacity="0.06" />
+                <stop offset="0%" stopColor="#1D3557" stopOpacity="0.7" />
+                <stop offset="40%" stopColor="#1D3557" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#1D3557" stopOpacity="0.08" />
               </linearGradient>
+
+              {/* EBIT area gradient - copper accent */}
               <linearGradient id="p1ebitGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#D49564" stopOpacity="0.20" />
-                <stop offset="100%" stopColor="#D49564" stopOpacity="0.01" />
+                <stop offset="0%" stopColor="#B08A6A" stopOpacity="0.15" />
+                <stop offset="100%" stopColor="#B08A6A" stopOpacity="0.01" />
+              </linearGradient>
+
+              {/* Margin gradient - warning color */}
+              <linearGradient id="p1marginGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#E8A838" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="#E8A838" stopOpacity="0.01" />
               </linearGradient>
             </defs>
 
-            {/* Dashed grid lines (baseline=200, chart_h=165) */}
+            {/* Background grid - subtle */}
+            <rect x="60" y="25" width="680" height="180" fill="none" stroke="var(--border-color)" strokeWidth="0.5" opacity="0.3" rx="6" />
+
+            {/* Horizontal grid lines with labels */}
             {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
               const y = BASELINE - f * CHART_H;
               const val = maxRev * f;
               return (
                 <g key={`yL${i}`}>
-                  <line x1="50" y1={y} x2="690" y2={y} stroke="var(--border-color)" strokeWidth="0.5" strokeDasharray="4 3" />
-                  <text x="46" y={y + 3} textAnchor="end" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>
+                  <line x1="60" y1={y} x2="740" y2={y} stroke="var(--border-color)" strokeWidth="0.4" strokeDasharray="3 2" opacity="0.4" />
+                  <text x="55" y={y + 4} textAnchor="end" fontSize="10" fontWeight="500" fill="var(--text-secondary)" opacity="0.8">
+                    {fmtEurK(val)}
+                  </text>
                 </g>
               );
             })}
 
-            {/* Right Y-axis (EBIT scale) */}
+            {/* Right Y-axis (EBIT scale) labels */}
             {[0, 0.5, 1].map((f, i) => {
               const y = BASELINE - f * CHART_H;
               const val = maxEbit * f;
-              return <text key={`yR${i}`} x="694" y={y + 3} textAnchor="start" fontSize="9" fill="var(--text-secondary)">{fmtEurK(val)}</text>;
+              return (
+                <text key={`yR${i}`} x="745" y={y + 4} textAnchor="start" fontSize="10" fontWeight="500" fill="var(--text-secondary)" opacity="0.8">
+                  {fmtEurK(val)}
+                </text>
+              );
             })}
 
-            {/* Revenue bars with gradient fill + Umsatz-Datenbeschriftung */}
+            {/* Secondary axis labels (Margin %) */}
+            {[0, 0.5, 1].map((f, i) => {
+              const val = (f * 100).toFixed(0);
+              const y = BASELINE - f * CHART_H;
+              return (
+                <text key={`margin${i}`} x="755" y={y + 4} textAnchor="start" fontSize="9" fontWeight="500" fill="#E8A838" opacity="0.7">
+                  {val}%
+                </text>
+              );
+            })}
+
+            {/* Axis labels */}
+            <text x="28" y={BASELINE + 80} fontSize="10" fontWeight="600" fill="var(--text-secondary)" opacity="0.8">Umsatz</text>
+            <text x="720" y="18" fontSize="10" fontWeight="600" fill="#B08A6A">EBIT</text>
+
+            {/* Revenue bars with gradient fill */}
             {chartData.map((row: any, i: number) => {
               const rev = Math.abs(Number(row.revenue ?? 0));
               const barH = maxRev > 0 ? (rev / maxRev) * CHART_H : 0;
-              const colW = 635 / chartData.length;
-              const x = 55 + i * colW + colW * 0.28;
-              const barW = colW * 0.44;
+              const colW = 680 / chartData.length;
+              const x = 60 + i * colW + colW * 0.25;
+              const barW = colW * 0.5;
               const barTop = BASELINE - Math.max(barH, 0);
               const label = row.month_label_short || row.month_label || '';
               const cx = x + barW / 2;
               const isSelected = hoverIdx === i;
+              const margin = row.margin_pct ? Number(row.margin_pct) : (rev > 0 ? Number(row.profit ?? row.ebit ?? 0) / rev : 0);
+
               return (
                 <g key={`bar${i}`}
                   onMouseEnter={() => setHoverIdx(i)}
                   onMouseLeave={() => setHoverIdx(null)}
-                  style={{ cursor: 'default' }}
+                  style={{ cursor: 'pointer' }}
                 >
-                  <rect x={x - colW * 0.28} y={20} width={colW} height={BASELINE - 20} fill="transparent" />
-                  <rect x={x} y={barTop} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3"
-                    opacity={hoverIdx !== null && !isSelected ? 0.45 : 1}
+                  {/* Invisible hit area for better hover detection */}
+                  <rect x={x - colW * 0.28} y="20" width={colW} height={BASELINE - 20} fill="transparent" />
+
+                  {/* Revenue bar with rounded corners */}
+                  <rect
+                    x={x}
+                    y={barTop}
+                    width={barW}
+                    height={Math.max(barH, 0)}
+                    fill="url(#p1barGrad)"
+                    rx="4"
+                    ry="4"
+                    opacity={hoverIdx !== null && !isSelected ? 0.5 : 1}
+                    style={{
+                      filter: isSelected ? 'drop-shadow(0 2px 8px rgba(0,0,0,0.15))' : 'none',
+                      transition: 'opacity 0.2s, filter 0.2s'
+                    }}
                   />
-                  <text x={cx} y={BASELINE + 17} textAnchor="middle" fontSize="8" fill={isSelected ? 'var(--text-primary)' : 'var(--text-secondary)'}>{label}</text>
+
+                  {/* Month label with better positioning */}
+                  <text
+                    x={cx}
+                    y={BASELINE + 18}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fontWeight={isSelected ? '600' : '500'}
+                    fill={isSelected ? 'var(--text-primary)' : 'var(--text-secondary)'}
+                    opacity={isSelected ? 1 : 0.75}
+                    style={{ transition: 'all 0.2s' }}
+                  >
+                    {label}
+                  </text>
                 </g>
               );
             })}
 
-            {/* EBIT smooth Catmull-Rom bezier curve + area fill + Datenbeschriftungen */}
+            {/* Margin percentage line (dashed) */}
             {chartData.length >= 2 && (() => {
-              const colW = 635 / chartData.length;
+              const colW = 680 / chartData.length;
+              const marginPts = chartData.map((row: any, i: number) => {
+                const margin = row.margin_pct ? Number(row.margin_pct) : 0;
+                const marginCapped = Math.min(margin, 0.3); // Cap at 30% for scaling
+                const y = BASELINE - (marginCapped / 0.3) * CHART_H;
+                return {
+                  x: 60 + i * colW + colW * 0.5,
+                  y: y,
+                  val: margin,
+                };
+              });
+
+              const marginPathParts: string[] = [`M ${marginPts[0].x} ${marginPts[0].y}`];
+              for (let i = 0; i < marginPts.length - 1; i++) {
+                const p0 = marginPts[Math.max(0, i - 1)];
+                const p1 = marginPts[i];
+                const p2 = marginPts[i + 1];
+                const p3 = marginPts[Math.min(marginPts.length - 1, i + 2)];
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                const cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                const cp2y = p2.y - (p3.y - p1.y) / 6;
+                marginPathParts.push(`C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x} ${p2.y}`);
+              }
+              const marginPath = marginPathParts.join(' ');
+
+              return (
+                <g opacity={hoverIdx === null ? 0.6 : 0.3} style={{ transition: 'opacity 0.2s' }}>
+                  <path
+                    d={marginPath}
+                    fill="none"
+                    stroke="#E8A838"
+                    strokeWidth="2"
+                    strokeDasharray="4 3"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </g>
+              );
+            })()}
+
+            {/* EBIT smooth Catmull-Rom bezier curve */}
+            {chartData.length >= 2 && (() => {
+              const colW = 680 / chartData.length;
               const pts = chartData.map((row: any, i: number) => ({
-                x: 55 + i * colW + colW * 0.5,
+                x: 60 + i * colW + colW * 0.5,
                 y: BASELINE - (maxEbit > 0 ? (Math.abs(Number(row.profit ?? row.ebit ?? 0)) / maxEbit) * CHART_H : 0),
                 val: Number(row.profit ?? row.ebit ?? 0),
-                rev: Number(row.revenue ?? 0),
+                rev: Math.abs(Number(row.revenue ?? 0)),
+                cost: Math.abs(Number(row.cost ?? 0)),
+                margin: row.margin_pct ? Number(row.margin_pct) : 0,
                 label: row.month_label_short || row.month_label || '',
               }));
+
               const pathParts: string[] = [`M ${pts[0].x} ${pts[0].y}`];
               for (let i = 0; i < pts.length - 1; i++) {
                 const p0 = pts[Math.max(0, i - 1)];
@@ -501,28 +614,153 @@ export default function Page1Gesamtlage({ data }: Props) {
                 const cp2y = p2.y - (p3.y - p1.y) / 6;
                 pathParts.push(`C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)} ${cp2x.toFixed(1)} ${cp2y.toFixed(1)} ${p2.x} ${p2.y}`);
               }
+
               const linePath = pathParts.join(' ');
               const last = pts[pts.length - 1];
               const first = pts[0];
               const areaPath = `${linePath} L ${last.x} ${BASELINE} L ${first.x} ${BASELINE} Z`;
+
               return (
                 <g>
-                  <path d={areaPath} fill="url(#p1ebitGrad)" />
-                  <path d={linePath} fill="none" stroke="#D49564" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                  {/* EBIT area with gradient */}
+                  <path
+                    d={areaPath}
+                    fill="url(#p1ebitGrad)"
+                    opacity={hoverIdx === null ? 1 : 0.7}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+
+                  {/* EBIT line - professional stroke */}
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="#B08A6A"
+                    strokeWidth="2.5"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    opacity={hoverIdx === null ? 1 : 0.8}
+                    style={{ transition: 'opacity 0.2s' }}
+                  />
+
+                  {/* Data points and tooltips */}
                   {pts.map((pt, idx) => {
                     const isHov = hoverIdx === idx;
-                    const rev = Math.abs(Number(chartData[idx]?.revenue ?? 0));
-                    const tooltipW = 90;
-                    const tx = Math.min(Math.max(pt.x - tooltipW / 2, 52), 640);
-                    const ty = Math.max(pt.y - 52, 8);
+                    const tooltipW = 140;
+                    const tooltipH = isHov ? 72 : 0;
+                    const tx = Math.min(Math.max(pt.x - tooltipW / 2, 62), 610);
+                    const ty = Math.max(pt.y - tooltipH - 8, 10);
+
                     return (
                       <g key={idx}>
-                        <circle cx={pt.x} cy={pt.y} r={isHov ? 5 : 3.5} fill="#D49564" stroke="#fff" strokeWidth="1.5" />
+                        {/* Data point circle */}
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={isHov ? 6 : 3.5}
+                          fill="#B08A6A"
+                          stroke="#fff"
+                          strokeWidth={isHov ? 2 : 1.5}
+                          opacity={isHov ? 1 : 0.85}
+                          style={{
+                            filter: isHov ? 'drop-shadow(0 2px 6px rgba(0,0,0,0.2))' : 'none',
+                            transition: 'r 0.2s, opacity 0.2s'
+                          }}
+                        />
+
+                        {/* Enhanced tooltip with all key metrics */}
                         {isHov && (
                           <g>
-                            <rect x={tx} y={ty} width={tooltipW} height={36} rx="5" fill="var(--navy)" opacity="0.92" />
-                            <text x={tx + tooltipW/2} y={ty + 13} textAnchor="middle" fontSize="7.5" fontWeight="700" fill="#D49564">EBIT {fmtEurK(pt.val)}</text>
-                            <text x={tx + tooltipW/2} y={ty + 25} textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.7)">Umsatz {fmtEurK(rev)}</text>
+                            {/* Tooltip background with border */}
+                            <rect
+                              x={tx}
+                              y={ty}
+                              width={tooltipW}
+                              height={tooltipH}
+                              rx="6"
+                              ry="6"
+                              fill="var(--navy)"
+                              opacity="0.95"
+                              stroke="#B08A6A"
+                              strokeWidth="1"
+                              style={{
+                                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.25))',
+                              }}
+                            />
+
+                            {/* Month label */}
+                            <text
+                              x={tx + tooltipW / 2}
+                              y={ty + 14}
+                              textAnchor="middle"
+                              fontSize="10"
+                              fontWeight="700"
+                              fill="#B08A6A"
+                            >
+                              {pt.label}
+                            </text>
+
+                            {/* Revenue */}
+                            <text
+                              x={tx + 6}
+                              y={ty + 30}
+                              fontSize="9"
+                              fontWeight="500"
+                              fill="rgba(255,255,255,0.75)"
+                            >
+                              Umsatz:
+                            </text>
+                            <text
+                              x={tx + tooltipW - 6}
+                              y={ty + 30}
+                              textAnchor="end"
+                              fontSize="9"
+                              fontWeight="600"
+                              fill="rgba(255,255,255,0.95)"
+                            >
+                              {fmtEur(pt.rev)}
+                            </text>
+
+                            {/* EBIT */}
+                            <text
+                              x={tx + 6}
+                              y={ty + 45}
+                              fontSize="9"
+                              fontWeight="500"
+                              fill="rgba(255,255,255,0.75)"
+                            >
+                              EBIT:
+                            </text>
+                            <text
+                              x={tx + tooltipW - 6}
+                              y={ty + 45}
+                              textAnchor="end"
+                              fontSize="9"
+                              fontWeight="600"
+                              fill={pt.val >= 0 ? '#6ECF91' : '#E88080'}
+                            >
+                              {fmtEur(pt.val)}
+                            </text>
+
+                            {/* Margin */}
+                            <text
+                              x={tx + 6}
+                              y={ty + 60}
+                              fontSize="9"
+                              fontWeight="500"
+                              fill="rgba(255,255,255,0.75)"
+                            >
+                              Marge:
+                            </text>
+                            <text
+                              x={tx + tooltipW - 6}
+                              y={ty + 60}
+                              textAnchor="end"
+                              fontSize="9"
+                              fontWeight="600"
+                              fill="#E8A838"
+                            >
+                              {fmtPct(pt.margin)}
+                            </text>
                           </g>
                         )}
                       </g>
@@ -532,19 +770,40 @@ export default function Page1Gesamtlage({ data }: Props) {
               );
             })()}
           </svg>
+          {/* Summary statistics */}
           {chartData.length >= 3 && (() => {
             const last3 = chartData.slice(-3);
-            const avg3 = last3.reduce((s: number, r: any) => s + Number(r.revenue ?? 0), 0) / 3;
+            const avg3Rev = last3.reduce((s: number, r: any) => s + Math.abs(Number(r.revenue ?? 0)), 0) / 3;
+            const avg3Ebit = last3.reduce((s: number, r: any) => s + Number(r.profit ?? r.ebit ?? 0), 0) / 3;
+            const avg3Margin = avg3Rev > 0 ? avg3Ebit / avg3Rev : 0;
+            const minEbit = Math.min(...chartData.map((r: any) => Number(r.profit ?? r.ebit ?? 0)));
+            const maxEbitVal = Math.max(...chartData.map((r: any) => Number(r.profit ?? r.ebit ?? 0)));
+
             return (
-              <div className="text-center text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Ã Umsatz 3M: {fmtEur(avg3)} | Gleitender Durchschnitt
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Ø Umsatz 3M</div>
+                  <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{fmtEur(avg3Rev)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Ø EBIT 3M</div>
+                  <div className="text-sm font-bold" style={{ color: avg3Ebit >= 0 ? '#2E8B57' : '#C43830' }}>{fmtEur(avg3Ebit)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Ø Marge 3M</div>
+                  <div className="text-sm font-bold" style={{ color: '#E8A838' }}>{fmtPct(avg3Margin)}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>EBIT Range</div>
+                  <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{fmtEur(minEbit)} bis {fmtEur(maxEbitVal)}</div>
+                </div>
               </div>
             );
           })()}
         </div>
       )}
 
-      {/* ââ Kostenstruktur ââ */}
+      {/* —— Kostenstruktur —— */}
       {totalCost > 0 && (
         <div className="card">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Kostenstruktur</h3>

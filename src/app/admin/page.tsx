@@ -101,12 +101,8 @@ export default function AdminPage() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{
-                fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1rem',
-                color: '#FFFFFF', letterSpacing: '0.04em',
-              }}>
-                MEYER<span style={{ color: 'var(--copper)', margin: '0 2px' }}>|</span>DECISION
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="Meyer Decision" style={{ height: 36, width: 'auto' }} />
               <span style={{
                 fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.12em',
                 textTransform: 'uppercase' as const, color: 'var(--copper-light)',

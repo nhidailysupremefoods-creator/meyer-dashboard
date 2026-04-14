@@ -101,17 +101,20 @@ export interface SaveTrackerResponse {
 // Admin types
 export interface Customer {
   customer_id: string;
-  name: string;
+  name?: string;
+  display_name?: string;
   is_active: boolean;
   industry_segment?: string;
+  einsatzlogik_segment?: string;
+  subscription_type?: string;
   [key: string]: any;
 }
 
 export interface User {
   email: string;
-  display_name: string;
+  display_name?: string;
   role: 'admin' | 'customer' | 'viewer';
-  customer_id: string;
+  customer_id?: string;
   is_active: boolean;
   [key: string]: any;
 }

@@ -83,7 +83,7 @@ async function handleResponse(res: Response): Promise<any> {
     data = JSON.parse(text);
   } catch (parseErr: any) {
     console.error('[handleResponse] JSON parse error:', parseErr.message, 'body:', text.slice(0, 200));
-    throw new APIError('UngÃÂ¼ltige API-Antwort (kein JSON)', res.status);
+    throw new APIError('Ungültige API-Antwort (kein JSON)', res.status);
   }
 
   // Only throw if there's an explicit error AND no success flag

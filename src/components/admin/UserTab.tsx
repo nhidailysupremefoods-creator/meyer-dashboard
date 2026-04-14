@@ -40,10 +40,25 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
     } finally { setSaving(null); }
   };
 
+  const [deletingEmail, setDeletingEmail] = useState<string | null>(null);
+
   const hasChanges = (email: string) => {
     const user = users.find((u) => u.email === email);
     return (editingRole[email] && editingRole[email] !== user?.role) ||
            (editingCustomer[email] && editingCustomer[email] !== user?.customer_id);
+  };
+
+  const handleDelete = async (email: string) => {
+    if (!window.confirm(`Möchten Sie den Benutzer ${email} wirklich löschen?`)) return;
+    setDeletingEmail(email);
+    try {
+      const success = await updateUser(email, { is_active: false });
+      if (success) {
+        await onUpdate();
+      }
+    } finally {
+      setDeletingEmail(null);
+    }
   };
 
   return (
@@ -65,7 +80,7 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
               <tr key={user.email}>
                 <td style={S.td}><strong style={{ fontWeight: 500 }}>{user.email}</strong></td>
                 <td style={{ ...S.td, paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
-                  <select style={S.sel} value={editingRole[user.email] || user.role || 'customer'} onChange={(e) => setEditingRole({ ...editingRole, [user.email]: e.target.value })}>
+                  <select style={S.sel} value={editingRole[user.email] || user.role || 'customer'} onChange={(e) => setEditingRole({ ...editingRole, [user.email]: e.target.value })} title="Admin: Vollzugriff | Kunde: Kann eigene Daten sehen | Betrachter: Schreibgeschützt">
                     <option value="admin">Admin</option>
                     <option value="customer">Kunde</option>
                     <option value="viewer">Betrachter</option>
@@ -82,12 +97,22 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
                     {user.is_active ? 'Aktiv' : 'Inaktiv'}
                   </span>
                 </td>
-                <td style={S.td}>
+                <td style={{ ...S.td, paddingTop: '0.5rem', paddingBottom: '0.5rem', display: 'flex', gap: '0.5rem' }}>
                   {hasChanges(user.email) ? (
                     <button onClick={() => handleSave(user.email)} disabled={saving === user.email || loading} style={{ padding: '0.35rem 0.85rem', background: 'var(--copper)', color: 'var(--navy)', borderRadius: 6, border: 'none', fontWeight: 600, fontSize: '0.8rem', opacity: saving === user.email ? 0.6 : 1 }}>
                       {saving === user.email ? 'Speichern…' : 'Speichern'}
                     </button>
-                  ) : <span style={{ color: 'var(--text-secondary)' }}>–</span>}
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleDelete(user.email)}
+                        disabled={deletingEmail === user.email || loading}
+                        style={{ padding: '0.35rem 0.65rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: deletingEmail === user.email ? 0.6 : 1, cursor: 'pointer' }}
+                      >
+                        {deletingEmail === user.email ? 'Löschen…' : 'Löschen'}
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

@@ -113,8 +113,8 @@ export default function DashboardLayout({
       {/* Footer */}
       <footer className="mt-16" style={{backgroundColor: 'var(--background-card)', borderTop: '1px solid var(--border-color)'}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm" style={{color: 'var(--text-secondary)'}}>
-          <p>Meyer Decision GmbH — Steuerungs-Dashboard v6</p>
-          <p className="mt-2 text-xs">© 2026 Meyer Decision GmbH. Alle Rechte vorbehalten.</p>
+          <p>Meyer Decision GbR — Steuerungs-Dashboard v6</p>
+          <p className="mt-2 text-xs">© 2026 Meyer Decision GbR. Alle Rechte vorbehalten.</p>
         </div>
       </footer>
     </div>

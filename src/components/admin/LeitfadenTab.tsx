@@ -16,7 +16,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
 
   const handleGenerate = async () => {
     if (!selectedCustomer || !selectedPeriod) {
-      setError('Bitte Mandant und Periode auswÃ¤hlen');
+      setError('Bitte Mandant und Periode auswählen');
       return;
     }
 
@@ -55,7 +55,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
-    const shortMonths = ['Jan', 'Feb', 'MÃ¤r', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+    const shortMonths = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
     periodOptions.push({
       value: `${y}_${m}`,
       label: `${shortMonths[d.getMonth()]} ${String(y).slice(-2)}`,
@@ -67,12 +67,17 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
       {/* Generator Controls */}
       <div className="card">
         <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1.1rem', color: 'var(--offwhite)', marginBottom: '0.75rem' }}>
-          GesprÃ¤chsleitfaden generieren
+          Gesprächsleitfaden generieren
         </h3>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Der GesprÃ¤chsleitfaden wird automatisch aus den aktuellen KPI-Daten generiert
-          und enthÃ¤lt eine Situationsanalyse, Score-Bewertung und konkrete Handlungsempfehlungen.
+          Der Gesprächsleitfaden wird automatisch aus den aktuellen KPI-Daten generiert
+          und enthält eine Situationsanalyse, Score-Bewertung und konkrete Handlungsempfehlungen.
         </p>
+        {error && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6, marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end' }}>
           <div style={{ flex: 1, minWidth: 180 }}>
@@ -87,7 +92,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
               value={selectedCustomer}
               onChange={(e) => setSelectedCustomer(e.target.value)}
             >
-              <option value="">-- Mandant auswÃ¤hlen --</option>
+              <option value="">-- Mandant auswählen --</option>
               {customers.map((c) => (
                 <option key={c.customer_id} value={c.customer_id}>
                   {(c.name || c.display_name || c.customer_id).replace(/_/g, ' ')}
@@ -108,7 +113,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
             >
-              <option value="">-- Periode auswÃ¤hlen --</option>
+              <option value="">-- Periode auswählen --</option>
               {periodOptions.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
@@ -126,15 +131,6 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
         </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div style={{
-          background: 'rgba(239,68,68,0.1)', borderLeft: '4px solid #ef4444',
-          padding: '1rem', borderRadius: 8,
-        }}>
-          <p style={{ color: '#ef4444', fontSize: '0.875rem' }}>{error}</p>
-        </div>
-      )}
 
       {/* Loading */}
       {loading && (
@@ -163,10 +159,10 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1.1rem', color: 'var(--offwhite)' }}>
-                  GesprÃ¤chsleitfaden
+                  Gesprächsleitfaden
                 </h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                  {selectedCustomer.replace(/_/g, ' ')} â {selectedPeriod.replace(/_/g, '/')}
+                  {selectedCustomer.replace(/_/g, ' ')} — {selectedPeriod.replace(/_/g, '/')}
                 </p>
               </div>
               <button
@@ -210,7 +206,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {result.highlights.map((h: string, i: number) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--offwhite)' }}>
-                    <span style={{ color: 'var(--copper)', marginTop: 2 }}>â¢</span>
+                    <span style={{ color: 'var(--copper)', marginTop: 2 }}>—¢</span>
                     <span>{h}</span>
                   </li>
                 ))}
@@ -232,7 +228,7 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
           {result.naechste_schritte && (
             <div style={{ padding: '1.25rem' }}>
               <h4 style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
-                NÃ¤chste Schritte
+                Nächste Schritte
               </h4>
               <div style={{ fontSize: '0.875rem', color: 'var(--offwhite)', whiteSpace: 'pre-line', lineHeight: 1.6 }}>
                 {typeof result.naechste_schritte === 'string'
@@ -249,10 +245,10 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
         <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
           <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>ð</div>
           <p style={{ fontSize: '0.875rem', color: 'var(--offwhite)', fontWeight: 500 }}>
-            WÃ¤hlen Sie einen Mandanten und eine Periode aus, um den GesprÃ¤chsleitfaden zu generieren.
+            Wählen Sie einen Mandanten und eine Periode aus, um den Gesprächsleitfaden zu generieren.
           </p>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            Der Leitfaden enthÃ¤lt Situationsanalyse, Score-Dimensionen, MaÃnahmen und GesprÃ¤chshinweise.
+            Der Leitfaden enthält Situationsanalyse, Score-Dimensionen, Maßnahmen und Gesprächshinweise.
           </p>
         </div>
       )}

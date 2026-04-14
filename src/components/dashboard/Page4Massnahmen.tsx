@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
+import { getTargetsForCustomer } from '@/lib/config';
 
 interface Props {
   data: any;
@@ -25,37 +26,88 @@ const FALLBACK_BENCHMARKS = [
 function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isProxy }: {
   label: string; current: number; targetMin: number; targetMid: number; targetMax: number; isProxy?: boolean;
 }) {
-  const range = targetMax * 1.2 || 1;
-  const pctCurrent = Math.min((current / range) * 100, 100);
+  // Use slightly wider range for better visualization
+  const range = Math.max(targetMax, current) * 1.15 || 1;
+  const pctCurrent = (current / range) * 100;
   const pctMin = (targetMin / range) * 100;
   const pctMax = (targetMax / range) * 100;
   const pctMid = (targetMid / range) * 100;
+
+  // Status: In target (grün), Below target (rot), Above target (grün-dunkel)
   const inTarget = current > 0 && current >= targetMin && current <= targetMax;
-  const barColor = current === 0 ? '#ccc' : current < targetMin ? '#C43830' : current > targetMax ? '#2E8B57' : '#D49564';
+  const belowTarget = current > 0 && current < targetMin;
+  const aboveTarget = current > 0 && current > targetMax;
+  const hasValue = current > 0;
+
+  // Farblogik: GRÜN = im Bereich, GELB = leicht unter, ROT = deutlich unter
+  let barColor = '#ccc'; // Keine Daten
+  if (hasValue) {
+    if (inTarget) barColor = '#2E8B57'; // Grün: im Zielbereich
+    else if (belowTarget) {
+      const gap = (targetMin - current) / targetMin;
+      barColor = gap > 0.2 ? '#C43830' : '#E8A76A'; // Rot wenn >20% unter, sonst gelb
+    } else barColor = '#2E8B57'; // Grün: über Ziel
+  }
+
   const fmt = (v: number) => v > 0 && v < 1 ? fmtPct(v) : v > 0 ? String(Math.round(v)) : '–';
+  const statusText = !hasValue ? 'Keine Daten' : inTarget ? '✓ Im Plan' : belowTarget ? 'Optimierbar' : 'Überzeugt';
+
   return (
     <div className="card">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-        <span className="text-sm font-bold" style={{ color: current === 0 ? 'var(--text-secondary)' : inTarget ? '#2E8B57' : barColor }}>
-          {current === 0 ? '–' : current < 1 ? fmtPct(current) : `${Math.round(current)}`}
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{label}</div>
+          <div className="text-sm font-bold mt-0.5" style={{ color: hasValue ? barColor : 'var(--text-secondary)' }}>
+            {hasValue ? (current < 1 ? fmtPct(current) : `${Math.round(current)}`) : '–'}
+          </div>
+        </div>
+        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{
+          background: barColor === '#2E8B57' ? '#E8F5E9' : barColor === '#E8A76A' ? '#FFF8E1' : '#FFEBEE',
+          color: barColor === '#2E8B57' ? '#2E7D32' : barColor === '#E8A76A' ? '#E65100' : '#C43830'
+        }}>
+          {statusText}
         </span>
       </div>
+
+      {/* Bar mit Zielbereich */}
       <div className="relative h-3 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
-        <div className="absolute h-3 rounded-full" style={{ left: `${pctMin}%`, width: `${pctMax - pctMin}%`, backgroundColor: 'rgba(46,139,87,0.12)' }} />
-        {current > 0 && <div className="absolute h-3 rounded-full transition-all" style={{ width: `${pctCurrent}%`, backgroundColor: barColor }} />}
-        <div className="absolute top-0 w-0.5 h-3" style={{ left: `${pctMid}%`, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+        {/* Zielbereich-Hintergrund */}
+        <div className="absolute h-3 rounded-full" style={{
+          left: `${pctMin}%`,
+          width: `${Math.max(0, pctMax - pctMin)}%`,
+          backgroundColor: 'rgba(46,139,87,0.12)'
+        }} />
+        {/* Ist-Wert Balken */}
+        {hasValue && (
+          <div className="absolute h-3 rounded-full transition-all" style={{
+            width: `${Math.min(pctCurrent, 100)}%`,
+            backgroundColor: barColor
+          }} />
+        )}
+        {/* Zielwert-Markierung */}
+        <div className="absolute top-0 w-0.5 h-3" style={{
+          left: `${pctMid}%`,
+          backgroundColor: 'rgba(0,0,0,0.3)'
+        }} />
       </div>
-      <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-        <span>Min: {fmt(targetMin)}</span>
-        <span>Ziel: {fmt(targetMid)}</span>
-        <span>Max: {fmt(targetMax)}</span>
+
+      {/* Bereichs-Labels */}
+      <div className="flex justify-between text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
+        <span><strong>Min:</strong> {fmt(targetMin)}</span>
+        <span><strong>Ziel:</strong> {fmt(targetMid)}</span>
+        <span><strong>Max:</strong> {fmt(targetMax)}</span>
       </div>
-      {current === 0 && (
-        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>Istwert nicht verfügbar</div>
+
+      {/* Info-Text */}
+      {!hasValue && (
+        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>
+          Istwert wird nach Datenpflege angezeigt
+        </div>
       )}
-      {current > 0 && isProxy && (
-        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>Schätzwert (aus Finanzdaten)</div>
+      {hasValue && isProxy && (
+        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
+          Schätzwert (aus Finanzdaten)
+        </div>
       )}
     </div>
   );
@@ -132,6 +184,9 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
     }))
   );
 
+  // Liquiditätshebel-Status (archived items = completed)
+  const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
+
   const getImpact = (a: any) => Number(a.impact_eur ?? a.ebit_potential_eur ?? a.ebit_potential ?? 0);
 
   const sortedActions = useMemo(() =>
@@ -161,8 +216,20 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
     [sortedActions, poolTab, TOP_N]);
 
   const poolActions = useMemo(() => {
-    if (poolTab === 'benchmarks') return benchmarkPoolActions;
-    return [...poolContractBase, ...benchmarkPoolActions];
+    let actions: any[] = [];
+    if (poolTab === 'benchmarks') {
+      actions = benchmarkPoolActions;
+    } else if (poolTab === 'vertraege') {
+      actions = poolContractBase;
+    } else {
+      // 'alle' — combine and sort by EBIT impact descending
+      actions = [...poolContractBase, ...benchmarkPoolActions].sort((a, b) => {
+        const aImpact = getImpact(a) || 0;
+        const bImpact = getImpact(b) || 0;
+        return bImpact - aImpact; // Descending
+      });
+    }
+    return actions;
   }, [poolContractBase, benchmarkPoolActions, poolTab]);
 
   const liqLevers = useMemo(() => {
@@ -337,24 +404,69 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         </div>
         <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Operative Hebel zur kurzfristigen Liquiditätsverbesserung</p>
         <div style={COPPER_LINE} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {liqLevers.map((lever, i) => (
-            <div key={i} className="p-4 rounded-xl" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', position: 'relative', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
-              {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
-              <div className="flex justify-between items-start mb-2">
-                <div className="font-bold text-sm pr-3" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
-                <div className="font-bold text-sm flex-shrink-0" style={{ color: '#2E8B57' }}>+{fmtEur(lever.impact)}</div>
+
+        {/* Active Levers */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {liqLevers.map((lever, i) => {
+            const leverKey = `liq_${i}`;
+            const isArchived = !!liqLeversArchived[leverKey];
+            if (isArchived) return null;
+            return (
+              <div key={i} className="p-4 rounded-xl relative" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
+                {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-bold text-sm pr-3 flex-1" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(lever.impact)}</div>
+                    <button onClick={() => setLiqLeversArchived(prev => ({ ...prev, [leverKey]: true }))} className="text-xs px-2 py-1 rounded text-gray-500 hover:text-gray-700 transition-colors">
+                      ✓
+                    </button>
+                  </div>
+                </div>
+                <ul className="space-y-1">
+                  {lever.items.map((item, j) => (
+                    <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span style={{ color: '#C8A96E', flexShrink: 0 }}>✓</span>{item}
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-1">
-                {lever.items.map((item, j) => (
-                  <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    <span style={{ color: '#C8A96E', flexShrink: 0 }}>✓</span>{item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* Archive Section */}
+        {Object.values(liqLeversArchived).some(v => v) && (
+          <details className="rounded-xl border border-gray-300 bg-gray-50 p-3" style={{ marginTop: '1rem' }}>
+            <summary className="text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+              📦 Archiv ({Object.values(liqLeversArchived).filter(v => v).length} abgeschlossen)
+            </summary>
+            <div className="mt-3 space-y-2">
+              {liqLevers.map((lever, i) => {
+                const leverKey = `liq_${i}`;
+                const isArchived = !!liqLeversArchived[leverKey];
+                if (!isArchived) return null;
+                return (
+                  <div key={i} className="p-3 rounded-lg bg-white border border-gray-200 opacity-60">
+                    <div className="flex justify-between items-start">
+                      <div className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs" style={{ color: '#2E7D32' }}>✓</span>
+                        <button onClick={() => setLiqLeversArchived(prev => {
+                          const newState = { ...prev };
+                          delete newState[leverKey];
+                          return newState;
+                        })} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                          ↩️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
       </div>
 
       {/* 4. MAẞNAHMENPOOL — Verträge + Benchmarks */}
@@ -378,7 +490,29 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         </div>
         <div className="space-y-2">
           {poolActions.length === 0 ? (
-            <div className="text-center py-6 text-sm" style={{ color: 'var(--text-secondary)' }}>Keine Maßnahmen in dieser Kategorie</div>
+            // Fallback: Show all actions if pool is empty (never show empty state)
+            sortedActions.map((action: any, idx: number) => {
+              const key = action.action_key || action.contract_id || `a${idx}`;
+              const selected = !!poolSelected[key];
+              const impact = getImpact(action);
+              const isTop = idx < TOP_N;
+              return (
+                <div key={key} onClick={() => !savingKey && togglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
+                  <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
+                    {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
+                  </div>
+                  <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: '#FFF3E0', color: '#E65100' }}>VTR</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}</div>
+                    {action.category && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{action.category}</div>}
+                  </div>
+                  <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
+                    <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
+                  </div>
+                </div>
+              );
+            })
           ) : poolActions.map((action: any, idx: number) => {
             const key = action.action_key || action.contract_id || `a${idx}`;
             const selected = !!poolSelected[key];

@@ -53,10 +53,13 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
   const handleToggle = async (month: string) => {
     const key = getMonthKey(month);
     const isCurrentlyReleased = releasedSet.has(key);
+    const newReleaseState = !isCurrentlyReleased;
     setToggling(month);
     try {
-      await toggleRelease(selectedCustomer, month.replace(/-/g, '_'), !isCurrentlyReleased);
-      await onUpdate();
+      const success = await toggleRelease(selectedCustomer, month.replace(/-/g, '_'), newReleaseState);
+      if (success) {
+        await onUpdate();
+      }
     } finally {
       setToggling(null);
     }

@@ -237,7 +237,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
-          <p>Bitte Mandant und Periode ausw\u00d4hlen</p>
+          <p>Bitte Mandant und Periode auswählen</p>
         </div>
       )}
     </div>
