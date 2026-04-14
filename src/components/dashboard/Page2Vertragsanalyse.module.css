@@ -1,6 +1,6 @@
-/* ═══════════════════════════════════════════════════════════
-   Page 2 — Vertragsanalyse
-   ═══════════════════════════════════════════════════════════ */
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+   Page 2 â Vertragsanalyse
+   âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 .page2Container {
   background-color: var(--background, #F7F5F2);
@@ -9,7 +9,7 @@
     'Helvetica Neue', Arial, sans-serif;
 }
 
-/* ── Page Header (light section above hero) ── */
+/* ââ Page Header (light section above hero) ââ */
 .pageHeader {
   padding: 1.75rem 2rem 1.25rem;
   background: #F7F5F2;
@@ -32,12 +32,15 @@
   font-weight: 400;
 }
 
-/* ── Hero Section — rounded card, constrained width ── */
+/* ââ Hero Section â rounded card, matches kpiSection content width ââ */
 .heroSection {
   background: linear-gradient(135deg, #192231 0%, #1e2a3a 50%, #243447 100%);
   padding: 2rem 2rem 1.75rem;
-  margin: 0 auto 2rem;
-  max-width: 1200px;
+  margin: 0 2rem 2rem;
+  max-width: calc(1200px - 4rem);
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 2rem;
   border-radius: 12px;
 }
 
@@ -117,7 +120,7 @@
   font-size: 0.9rem;
 }
 
-/* ── KPI Cards ── */
+/* ââ KPI Cards ââ */
 .kpiSection {
   padding: 0 2rem;
   margin-bottom: 2rem;
@@ -148,7 +151,7 @@
 }
 
 .kpiCardRed {
-  /* border accent removed — values are now colored instead */
+  /* border accent removed â values are now colored instead */
 }
 
 .kpiLabel {
@@ -173,7 +176,7 @@
   margin-top: 0.5rem;
 }
 
-/* ── Portfolio-Gesundheit ── */
+/* ââ Portfolio-Gesundheit ââ */
 .healthSection {
   padding: 0 2rem;
   margin-bottom: 1.5rem;
@@ -239,7 +242,7 @@
   min-width: 0;
 }
 
-/* ── Urgency Warning ── */
+/* ââ Urgency Warning ââ */
 .warningSection {
   padding: 0 2rem;
   margin-bottom: 1.5rem;
@@ -267,7 +270,7 @@
   flex-shrink: 0;
 }
 
-/* ── Filter Tabs ── */
+/* ââ Filter Tabs ââ */
 .filterSection {
   padding: 0 2rem;
   margin-bottom: 1.5rem;
@@ -334,7 +337,7 @@
   background: #E8F5E9;
 }
 
-/* ── Table Section ── */
+/* ââ Table Section ââ */
 .tableSection {
   padding: 0 2rem 2rem;
   max-width: 1200px;
@@ -410,7 +413,7 @@
   padding: 0.9rem 1rem;
 }
 
-/* ── Data Rows ── */
+/* ââ Data Rows ââ */
 .dataRow {
   border-bottom: 1px solid #f0eeeb;
   transition: background-color 0.15s ease;
@@ -526,7 +529,7 @@
   line-height: 1.3;
 }
 
-/* ── Empty State ── */
+/* ââ Empty State ââ */
 .emptyState {
   padding: 3rem 2rem;
   text-align: center;
@@ -541,9 +544,9 @@
   margin: 0;
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
    Responsive
-   ═══════════════════════════════════════════════════════════ */
+   âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 
 @media (max-width: 768px) {
   .pageHeader {
