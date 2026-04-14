@@ -26,19 +26,19 @@ const TOKEN_KEY = 'md_session_token';
 const AUTH_KEY = 'md_auth_data';
 
 /**
- * Get session token from sessionStorage
+ * Get session token from localStorage (shared across tabs for PDF export)
  */
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 /**
- * Get auth data from sessionStorage
+ * Get auth data from localStorage (shared across tabs for PDF export)
  */
 function getAuthData(): AuthData | null {
   if (typeof window === 'undefined') return null;
-  const raw = sessionStorage.getItem(AUTH_KEY);
+  const raw = localStorage.getItem(AUTH_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -48,19 +48,19 @@ function getAuthData(): AuthData | null {
 }
 
 /**
- * Store auth token and data in sessionStorage
+ * Store auth token and data in localStorage (shared across tabs)
  */
 function setAuth(token: string, data: Partial<AuthData>) {
-  sessionStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.setItem(AUTH_KEY, JSON.stringify(data));
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(AUTH_KEY, JSON.stringify(data));
 }
 
 /**
- * Clear auth from sessionStorage
+ * Clear auth from localStorage
  */
 function clearAuth() {
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(AUTH_KEY);
 }
 
 /**
