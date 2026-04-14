@@ -218,7 +218,7 @@ export default function MandatePage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
-              const cols = ['Unternehmen','Status','Dienstleistung','Monatl. Honorar','Setup-Fee','Vertragsbeginn','Vertragsende','Ansprechpartner','Laufzeit (Monate)'];
+              const cols = ['Unternehmen','Status','Dienstleistung','Monatl. Honorar','Setup-Fee','Vertragsbeginn','Vertragsende','Ansprechpartner'];
               const rows = mandates.map(m => [
                 m.company_name,
                 STATUS_LABELS[m.mandate_status] || m.mandate_status,
@@ -228,7 +228,6 @@ export default function MandatePage() {
                 m.vertragsbeginn || '',
                 m.vertragsende || '',
                 m.ansprechpartner || '',
-                m.laufzeit_monate || '',
               ]);
               const csv = [cols, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
               const a = document.createElement('a');
