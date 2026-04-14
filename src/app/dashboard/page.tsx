@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { AuthData } from '@/types';
 import Page1Gesamtlage from '@/components/dashboard/Page1Gesamtlage';
@@ -9,6 +9,7 @@ import Page3Liquiditaet from '@/components/dashboard/Page3Liquiditaet';
 import Page4Massnahmen from '@/components/dashboard/Page4Massnahmen';
 
 type PageNum = 1 | 2 | 3 | 4;
+
 const PAGE_TITLES: Record<PageNum, string> = {
   1: 'Gesamtlage',
   2: 'Vertragsanalyse',
@@ -23,177 +24,111 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [periods, setPeriods] = useState<Array<{ period: string; label: string }>>([]);
   const [industrySegment, setIndustrySegment] = useState<string>('');
+  const [customerList, setCustomerList] = useState<Array<{ customer_id: string; customer_name: string; is_active: boolean }>>([]);
 
-  // Cache all 4 pages keyed by "customer_period_page"
-  const [pageData, setPageData] = useState<Record<string, any>>({});
-  const [loadingPages, setLoadingPages] = useState<Set<PageNum>>(new Set());
-  const [loadingPeriods, setLoadingPeriods] = useState(false);
+  // Store full API response per page (not just response.data)
+  const [pageData, setPageData] = useState<Record<PageNum, any>>({} as any);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Track current load to avoid stale updates
-  const loadIdRef = useRef(0);
-  const bgTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Helper: cache key for page data
-  const pageKey = (page: PageNum, cust: string, per: string) => `${cust}_${per}_${page}`;
-
-  // -- Initialize auth (no more 4-customer validation loop) --
   useEffect(() => {
     const data = api.getAuthData();
     if (data) {
       setAuthData(data);
       if (data.customers && data.customers.length > 0) {
+        const list = data.customers.map((id: string) => ({
+          customer_id: id,
+          customer_name: id.replace(/_/g, ' '),
+          is_active: true,
+        }));
+        setCustomerList(list);
         setSelectedCustomer(data.customers[0]);
-      } else if (data.role === 'admin') {
-        // Admin without customer list: use hardcoded fallback immediately
-        const knownIds = [
-          'INDUSTRIE_GAMMA',
-          'MUSTERMANN_TECHNIK',
-          'SCHMIDT_ANLAGENBAU',
-          'WEBER_HAUSTECHNIK',
-        ];
-        setAuthData(prev => prev ? { ...prev, customers: knownIds } : prev);
-        setSelectedCustomer(knownIds[0]);
-        // Also try loading real list in background (non-blocking)
-        fetch('/api/dashboard/customers')
-          .then(res => res.json())
-          .then(resp => {
-            if (resp.customers && resp.customers.length > 0) {
-              const customerIds = resp.customers.map((c: any) => c.customer_id || c);
-              setAuthData(prev => prev ? { ...prev, customers: customerIds } : prev);
-            }
-          })
-          .catch(() => { /* fallback already set */ });
+      } else {
+        const tok = api.getToken();
+        if (tok) {
+          fetch('/api/dashboard/customers?action=customers', {
+              headers: { 'Authorization': `Bearer ${tok}` },
+            })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.customers && Array.isArray(d.customers) && d.customers.length > 0) {
+                const active = d.customers.filter((c: any) => c.is_active !== false);
+                setCustomerList(active);
+                if (active.length > 0) {
+                  setSelectedCustomer(active[0].customer_id);
+                }
+              }
+            })
+            .catch(() => {});
+        }
       }
     }
   }, []);
 
-  // -- Load periods when customer changes --
   useEffect(() => {
     if (!selectedCustomer) return;
+
     const loadPeriods = async () => {
       try {
-        setLoadingPeriods(true);
+        setLoading(true);
         setError(null);
         const response = await api.fetchPeriods(selectedCustomer);
-        if (response.periods) {
-          setPeriods(response.periods.map((p: any) => ({
-            period: p.period || p.month_id,
-            label: p.label || p.month_label_short || p.month_id,
-          })));
-          if ((response as any).industry_segment) {
-            setIndustrySegment((response as any).industry_segment || '');
-          }
-          if (response.periods.length > 0) {
-            setSelectedPeriod((response.periods[0] as any).period || (response.periods[0] as any).month_id);
+        const periodsArr = response.periods || (response as any).rows || [];
+        if (periodsArr.length > 0) {
+          const normalized = periodsArr.map((p: any) => ({
+            period: p.period || p.month_id || '',
+            label: p.label || p.month_label_short || p.month_label || p.month_id || '',
+          })).filter((p: any) => p.period !== '');
+          setPeriods(normalized);
+          const seg = (response as any).industry_segment || (response as any).industrySegment;
+          if (seg) setIndustrySegment(seg);
+          if (normalized.length > 0) {
+            setSelectedPeriod(normalized[0].period);
           }
         }
       } catch {
         setError('Perioden konnten nicht geladen werden');
       } finally {
-        setLoadingPeriods(false);
+        setLoading(false);
       }
     };
+
     loadPeriods();
   }, [selectedCustomer]);
 
-  // -- Load a single page (with retry) --
-  const loadSinglePage = useCallback(
-    async (page: PageNum, customer: string, period: string, loadId: number, retryCount = 0) => {
+  const loadPageData = useCallback(
+    async (page: PageNum, customer: string, period: string) => {
       if (!customer || !period) return;
-
+      setLoading(true);
+      setError(null);
       try {
         const response = await api.fetchPageData(page, customer, period);
-        // Abort if a newer load started
-        if (loadIdRef.current !== loadId) return;
-
-        if (response && !response.error) {
-          const key = pageKey(page, customer, period);
-          setPageData(prev => ({ ...prev, [key]: response }));
-        } else if ((response as any).retryable && retryCount < 2) {
-          setTimeout(() => loadSinglePage(page, customer, period, loadId, retryCount + 1), 1500);
-          return; // don't clear loading state yet
+        if (response.success) {
+          setPageData((prev) => ({ ...prev, [page]: response }));
+        } else {
+          setError((response as any).error || `Seite ${page} konnte nicht geladen werden`);
         }
       } catch {
-        if (retryCount < 3) {
-          setTimeout(() => loadSinglePage(page, customer, period, loadId, retryCount + 1), 4000);
-          return;
-        }
+        setError(`Seite ${page} konnte nicht geladen werden`);
+      } finally {
+        setLoading(false);
       }
-
-      // Remove from loading set
-      setLoadingPages(prev => {
-        const next = new Set(prev);
-        next.delete(page);
-        return next;
-      });
     },
     []
   );
 
-  // -- Load ACTIVE page immediately, stagger background loads --
   useEffect(() => {
-    if (!selectedCustomer || !selectedPeriod) return;
-    bgTimersRef.current.forEach(t => clearTimeout(t));
-    bgTimersRef.current = [];
-    const loadId = ++loadIdRef.current;
-
-    const activeKey = pageKey(currentPage, selectedCustomer, selectedPeriod);
-    const needsActive = !pageData[activeKey];
-    if (needsActive) {
-      setLoadingPages(new Set([currentPage]));
-      setError(null);
-      loadSinglePage(currentPage, selectedCustomer, selectedPeriod, loadId);
+    if (selectedCustomer && selectedPeriod) {
+      setPageData({} as any);
+      loadPageData(currentPage, selectedCustomer, selectedPeriod);
     }
-
-    const otherPages = ([1, 2, 3, 4] as PageNum[]).filter(
-      p => p !== currentPage && !pageData[pageKey(p, selectedCustomer, selectedPeriod)]
-    );
-    otherPages.forEach((p, i) => {
-      const delay = (needsActive ? 2500 : 500) + i * 2500;
-      const timer = setTimeout(() => {
-        if (loadIdRef.current !== loadId) return;
-        setLoadingPages(prev => new Set(prev).add(p));
-        loadSinglePage(p, selectedCustomer, selectedPeriod, loadId);
-      }, delay);
-      bgTimersRef.current.push(timer);
-    });
-
-    return () => {
-      bgTimersRef.current.forEach(t => clearTimeout(t));
-      bgTimersRef.current = [];
-    };
   }, [selectedCustomer, selectedPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-  // -- Auto-advance: if newest period has no KPI data, try next period --
   useEffect(() => {
-    if (!selectedCustomer || !selectedPeriod || !periods.length) return;
-    const key = pageKey(1, selectedCustomer, selectedPeriod);
-    const pData = pageData[key];
-    if (!pData || loadingPages.has(1)) return;
-    const kpis = pData.data || {};
-    if (!kpis.revenue && !kpis.ebit) {
-      const currentIdx = periods.findIndex((p) => p.period === selectedPeriod);
-      const nextPeriod = periods[currentIdx + 1];
-      if (nextPeriod && !pageData[pageKey(1, selectedCustomer, nextPeriod.period)]) {
-        setSelectedPeriod(nextPeriod.period);
-      }
-    }
-  }, [pageData, selectedCustomer, selectedPeriod, periods, loadingPages]); // eslint-disable-line react-hooks/exhaustive-deps
-  // -- When switching tabs: load if not cached --
-  useEffect(() => {
-    if (!selectedCustomer || !selectedPeriod) return;
-    const key = pageKey(currentPage, selectedCustomer, selectedPeriod);
-    if (!pageData[key] && !loadingPages.has(currentPage)) {
-      setLoadingPages(prev => new Set(prev).add(currentPage));
-      loadSinglePage(currentPage, selectedCustomer, selectedPeriod, loadIdRef.current);
+    if (selectedCustomer && selectedPeriod) {
+      loadPageData(currentPage, selectedCustomer, selectedPeriod);
     }
   }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handlePdfExport = () => {
-    window.print();
-  };
 
   if (!authData) {
     return (
@@ -201,7 +136,7 @@ export default function DashboardPage() {
         <div className="text-center">
           <div
             className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto"
-            style={{ borderBottomColor: 'var(--copper)' }}
+            style={{ borderBottomColor: 'var(--primary)' }}
           />
           <p className="mt-4" style={{ color: 'var(--text-secondary)' }}>
             Wird geladen...
@@ -211,9 +146,7 @@ export default function DashboardPage() {
     );
   }
 
-  const currentKey = pageKey(currentPage, selectedCustomer, selectedPeriod);
-  const currentPageData = pageData[currentKey];
-  const isCurrentLoading = loadingPages.has(currentPage);
+  const currentPageData = pageData[currentPage];
 
   const renderPage = () => {
     if (!currentPageData) return null;
@@ -237,224 +170,81 @@ export default function DashboardPage() {
     }
   };
 
-  // Show which pages are loaded (green dots)
-  const getPageLoadStatus = (num: PageNum): 'loaded' | 'loading' | 'empty' => {
-    const key = pageKey(num, selectedCustomer, selectedPeriod);
-    if (pageData[key]) return 'loaded';
-    if (loadingPages.has(num)) return 'loading';
-    return 'empty';
-  };
-
   return (
-    <div className="space-y-5">
-      {/* -- Controls Row (Customer, Period, Industry, PDF) -- */}
-      <div
-        className="card flex flex-col sm:flex-row gap-4 items-start sm:items-end print:hidden"
-        style={{ padding: '1rem 1.25rem' }}
-      >
-        {/* Customer */}
-        <div className="flex-1 w-full sm:w-auto">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Mandant
-          </label>
-          <select
-            value={selectedCustomer}
-            onChange={(e) => setSelectedCustomer(e.target.value)}
-            className="w-full"
-            disabled={loadingPeriods}
-            style={{ fontSize: '0.85rem' }}
-          >
-            {authData.customers.map((c) => (
-              <option key={c} value={c}>
-                {c.replace(/_/g, ' ')}
-              </option>
-            ))}
+    <div className="space-y-6">
+      <div className="card flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+        <div className="flex-1 w-full">
+          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>Mandant</label>
+          <select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)} className="w-full">
+            {customerList.map((c) => (<option key={c.customer_id} value={c.customer_id}>{c.customer_name}</option>))}
           </select>
         </div>
-
-        {/* Period */}
-        <div className="flex-1 w-full sm:w-auto">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            Berichtsperiode
-          </label>
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="w-full"
-            disabled={periods.length === 0 || loadingPeriods}
-            style={{ fontSize: '0.85rem' }}
-          >
-            {periods.map((p) => (
-              <option key={p.period} value={p.period}>
-                {p.label}
-              </option>
-            ))}
+        <div className="flex-1 w-full">
+          <label className="block text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>Berichtsperiode</label>
+          <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="w-full" disabled={periods.length === 0}>
+            {periods.map((p) => (<option key={p.period} value={p.period}>{p.label}</option>))}
           </select>
         </div>
-
-        {/* Industry Badge */}
         {industrySegment && (
           <div className="flex-shrink-0">
-            <label
-              className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              Branche
-            </label>
-            <span
-              className="inline-block px-3 py-2 rounded text-xs font-semibold"
-              style={{
-                backgroundColor: 'rgba(27, 42, 74, 0.06)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              {industrySegment.replace(/_/g, ' ')}
-            </span>
+            <div className="text-xs font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>Branche</div>
+            <span className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: 'rgba(176,138,106,0.15)', color: 'var(--accent)' }}>{industrySegment.replace(/_/g, ' ')}</span>
           </div>
         )}
-
-        {/* PDF Export */}
-        <div className="flex-shrink-0">
-          <label
-            className="block text-xs font-semibold uppercase tracking-wider mb-1.5"
-            style={{ color: 'transparent' }}
-          >
-            Export
-          </label>
-          <button
-            onClick={handlePdfExport}
-            className="btn-secondary"
-            style={{ whiteSpace: 'nowrap', fontSize: '0.8rem', padding: '0.5rem 1rem' }}
-            title="Als PDF exportieren"
-          >
-            PDF Export
-          </button>
-        </div>
-      </div>
-
-      {/* -- Error Alert -- */}
-      {error && (
-        <div
-          className="p-4 rounded-lg border text-sm flex items-start gap-3 print:hidden"
-          style={{
-            background: 'rgba(196, 56, 48, 0.06)',
-            color: 'var(--danger)',
-            borderColor: 'rgba(196, 56, 48, 0.2)',
-          }}
-        >
-          <span className="text-lg">&#9888;&#65039;</span>
-          <div>
-            <strong>Fehler:</strong> {error}
+        {selectedCustomer && selectedPeriod && (
+          <div className="flex-shrink-0 self-end">
+            <a
+              href={`/dashboard/print?customer=${encodeURIComponent(selectedCustomer)}&period=${encodeURIComponent(selectedPeriod)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
+              style={{ backgroundColor: 'var(--primary)', color: 'white' }}
+            >
+              PDF Export
+            </a>
           </div>
-          <button
-            onClick={() => setError(null)}
-            className="ml-auto text-xs font-bold"
-            style={{ color: 'var(--danger)' }}
-          >
-            &times;
-          </button>
+        )}
+      </div>
+      {error && (
+        <div className="p-4 rounded-xl border text-sm flex items-start gap-3" style={{ background: 'rgb(254,242,242)', color: 'var(--danger(', borderColor: 'rgb(254,205,211)' }}>
+          <span className="text-lg">⚠️</span>
+          <div><strong>Fehler:</strong> {error}</div>
+          <button onClick={() => setError(null)} className="ml-auto text-xs" style={{ color: 'var(--danger)' }}>✕</button>
         </div>
       )}
-
-      {/* -- Page Tabs (with load status indicators) -- */}
-      <div
-        className="flex gap-0 print:hidden"
-        style={{
-          borderBottom: '2px solid var(--border-color)',
-        }}
-      >
-        {([1, 2, 3, 4] as PageNum[]).map((num) => {
-          const isActive = currentPage === num;
-          const status = getPageLoadStatus(num);
-          return (
-            <button
-              key={num}
-              onClick={() => setCurrentPage(num)}
-              className="relative px-4 py-2.5 text-sm font-semibold transition-all whitespace-nowrap"
-              style={{
-                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                backgroundColor: 'transparent',
-                border: 'none',
-                borderBottom: isActive ? '2.5px solid var(--success)' : '2.5px solid transparent',
-                marginBottom: '-2px',
-              }}
-            >
-              <span
-                className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-1.5"
-                style={{
-                  backgroundColor: isActive ? 'var(--navy)' : 'rgba(107, 122, 144, 0.15)',
-                  color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
-                  fontSize: '0.65rem',
-                }}
-              >
-                {num}
-              </span>
-              {PAGE_TITLES[num]}
-              {/* Small dot showing load status */}
-              {!isActive && status === 'loaded' && (
-                <span
-                  className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: 'var(--success)' }}
-                />
-              )}
-              {!isActive && status === 'loading' && (
-                <span
-                  className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: 'var(--copper)' }}
-                />
-              )}
-            </button>
-          );
-        })}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {([1, 2, 3, 4] as PageNum[]).map((num) => (
+          <button key={num} onClick={() => setCurrentPage(num)} className="px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap" style={currentPage === num ? { backgroundColor: 'var(--primary)', color: 'white', boxShadow: '0 2px 8px rgba(26,54,93,0.25)' } : { backgroundColor: 'var(--background-card)', border: '1px solid var(--border-color(', color: 'var(--text-secondary)' }}><span className="opacity-60 mr-1">{num}</span>{PAGE_TITLES[num]}</button>
+        ))}
       </div>
-
-      {/* -- Page Content -- */}
-      {isCurrentLoading && !currentPageData ? (
+      {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="text-center">
-            <div
-              className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-4"
-              style={{ borderBottomColor: 'var(--copper)' }}
-            />
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {PAGE_TITLES[currentPage]} wird geladen...
-            </p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderBottomColor: 'var(--primary)' }} />
+            <p style={{ color: 'var(--text-secondary)' }}>{PAGE_TITLES[currentPage]} wird geladen...</p>
           </div>
         </div>
       ) : currentPageData ? (
-        <div>{renderPage()}</div>
-      ) : !isCurrentLoading && selectedCustomer && selectedPeriod ? (
-        <div
-          className="text-center py-16"
-          style={{ color: 'var(--text-secondary)' }}
-        >
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Seite {currentPage}: {PAGE_TITLES[currentPage]}</h2>
+              {selectedPeriod && (<p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{selectedCustomer} {'\u00b7'} {selectedPeriod.replace(/_/g, '/')}</p>)}
+            </div>
+            <button onClick={() => loadPageData(currentPage, selectedCustomer, selectedPeriod)} className="px-3 py-1.5 rounded-lg text-xs font-medium transition" style={{ backgroundColor: 'var(--background)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }} title="Daten aktualisieren">↻</button>
+          </div>
+          {renderPage()}
+        </div>
+      ) : !loading && selectedCustomer && selectedPeriod ? (
+        <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
+          <div className="text-4xl mb-4">📊</div>
           <p className="font-medium">Keine Daten verfügbar</p>
-          <p className="text-sm mt-2">
-            Für {selectedCustomer.replace(/_/g, ' ')} / {selectedPeriod} wurden keine Daten gefunden
-          </p>
-          <button
-            onClick={() => {
-              setLoadingPages(prev => new Set(prev).add(currentPage));
-              loadSinglePage(currentPage, selectedCustomer, selectedPeriod, loadIdRef.current);
-            }}
-            className="btn-primary mt-4 px-4 py-2 rounded-lg text-sm"
-          >
-            Erneut versuchen
-          </button>
+          <p className="text-sm mt-2">Für {selectedCustomer} / {selectedPeriod} wurden keine Daten gefunden</p>
+          <button onClick={() => loadPageData(currentPage, selectedCustomer, selectedPeriod)} className="btn-primary mt-4 px-4 py-2 rounded-lg text-sm">Erneut versuchen</button>
         </div>
       ) : (
-        <div
-          className="text-center py-16"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <p>Bitte Mandant und Periode auswählen</p>
+        <div className="text-center py-16" style={{ color: 'var(--text-secondary)' }}>
+          <p>Bitte Mandant und Periode ausw\u00d4hlen</p>
         </div>
       )}
     </div>
