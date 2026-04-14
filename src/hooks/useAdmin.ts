@@ -65,11 +65,13 @@ export function useAdmin(): UseAdminReturn {
         );
       }
 
-      setCustomers(response.customers || []);
-      setUsers(response.users || []);
-      setRegistrations(response.registrations || []);
-      setAudit(response.audit || []);
-      setReleases(response.releases || []);
+      // Handle both flat {customers:[]} and nested {data:{customers:[]}} response structures
+      const d: any = (response as any).data || response;
+      setCustomers(d.customers || []);
+      setUsers(d.users || []);
+      setRegistrations(d.registrations || []);
+      setAudit(d.audit || []);
+      setReleases(d.releases || []);
     } catch (err: any) {
       const errorMsg =
         err instanceof APIError
