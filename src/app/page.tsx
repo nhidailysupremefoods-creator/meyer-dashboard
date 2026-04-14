@@ -82,7 +82,7 @@ export default function LoginPage() {
     try {
       const response = await api.register({ email: registerEmail, name: registerName, firma: registerFirma, password: registerPassword } as RegisterRequest);
       if (response.ok || response.success) {
-        setSuccess('Registrierung erfolgreich! Ein Administrator wird Ihre Anfrage prüfen.');
+        setSuccess('Registrierung erfolgreich! Ein Administrator wird Ihre Anfrage prÃ¼fen.');
         setTimeout(() => {
           setView('login');
           setRegisterEmail(''); setRegisterName(''); setRegisterFirma(''); setRegisterPassword('');
@@ -125,14 +125,14 @@ export default function LoginPage() {
     try {
       const response = await api.confirmReset({ email: resetEmail, code: resetCode, new_password: resetPassword } as ConfirmResetRequest);
       if (response.success) {
-        setSuccess('Passwort erfolgreich zurückgesetzt!');
+        setSuccess('Passwort erfolgreich zurÃ¼ckgesetzt!');
         setTimeout(() => {
           setView('login');
           setResetStep('email');
           setResetEmail(''); setResetCode(''); setResetPassword('');
         }, 2000);
       } else {
-        setError(response.error || 'Zurücksetzen fehlgeschlagen');
+        setError(response.error || 'ZurÃ¼cksetzen fehlgeschlagen');
       }
     } catch (err: any) {
       setError(err.message || 'Ein Fehler ist aufgetreten.');
@@ -182,30 +182,30 @@ export default function LoginPage() {
             display: 'inline-flex',
             alignItems: 'center',
             backgroundColor: 'var(--navy)',
-            padding: '10px 22px',
-            borderRadius: '8px',
+            padding: '12px 26px',
+            borderRadius: '10px',
             marginBottom: '0.75rem',
           }}>
             <span style={{
               fontFamily: "'Manrope', sans-serif",
               fontWeight: 800,
-              fontSize: '1.15rem',
-              letterSpacing: '0.07em',
-              color: '#FFFFFF',
+              fontSize: '1.35rem',
+              letterSpacing: '0.08em',
+              color: '#F7F5F2',
             }}>MEYER</span>
             <span style={{
-              color: 'var(--copper-light)',
-              margin: '0 6px',
+              color: 'var(--copper)',
+              margin: '0 8px',
               fontWeight: 300,
-              fontSize: '1.3rem',
+              fontSize: '1.5rem',
               lineHeight: 1,
             }}>|</span>
             <span style={{
               fontFamily: "'Manrope', sans-serif",
               fontWeight: 800,
-              fontSize: '1.15rem',
-              letterSpacing: '0.07em',
-              color: '#FFFFFF',
+              fontSize: '1.35rem',
+              letterSpacing: '0.08em',
+              color: '#F7F5F2',
             }}>DECISION</span>
           </div>
           <p style={{
@@ -323,7 +323,7 @@ export default function LoginPage() {
                     type={showRegisterPassword ? 'text' : 'password'}
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
-                    placeholder="Passwort wählen"
+                    placeholder="Passwort wÃ¤hlen"
                     required
                     disabled={isLoading}
                     style={{ paddingRight: '2.75rem' }}
@@ -338,7 +338,7 @@ export default function LoginPage() {
               </button>
               <div className="text-center" style={{ marginTop: '0.75rem' }}>
                 <button type="button" onClick={() => { setView('login'); setError(null); setSuccess(null); }} style={linkStyle}>
-                  Zurück zum Login
+                  ZurÃ¼ck zum Login
                 </button>
               </div>
             </form>
@@ -348,7 +348,7 @@ export default function LoginPage() {
           {view === 'reset' && resetStep === 'email' && (
             <form onSubmit={handleRequestReset} className="space-y-4">
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                Geben Sie Ihre E-Mail-Adresse ein. Sie erhalten einen Code zum Zurücksetzen.
+                Geben Sie Ihre E-Mail-Adresse ein. Sie erhalten einen Code zum ZurÃ¼cksetzen.
               </p>
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>E-Mail-Adresse</label>
@@ -359,7 +359,7 @@ export default function LoginPage() {
               </button>
               <div className="text-center" style={{ marginTop: '0.75rem' }}>
                 <button type="button" onClick={() => { setView('login'); setResetStep('email'); setError(null); setSuccess(null); }} style={linkStyle}>
-                  Zurück zum Login
+                  ZurÃ¼ck zum Login
                 </button>
               </div>
             </form>
@@ -380,11 +380,11 @@ export default function LoginPage() {
                 <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Neues Passwort" required disabled={isLoading} />
               </div>
               <button type="submit" disabled={isLoading} className="btn-primary w-full">
-                {isLoading ? 'Wird zurückgesetzt...' : 'Passwort zurücksetzen'}
+                {isLoading ? 'Wird zurÃ¼ckgesetzt...' : 'Passwort zurÃ¼cksetzen'}
               </button>
               <div className="text-center" style={{ marginTop: '0.75rem' }}>
                 <button type="button" onClick={() => { setView('login'); setResetStep('email'); setError(null); setSuccess(null); }} style={linkStyle}>
-                  Zurück zum Login
+                  ZurÃ¼ck zum Login
                 </button>
               </div>
             </form>
@@ -393,7 +393,7 @@ export default function LoginPage() {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '1.5rem', opacity: 0.6 }}>
-          Meyer Decision GmbH — Steuerungs-Dashboard
+          Meyer Decision GmbH â Steuerungs-Dashboard
         </p>
       </div>
     </div>
