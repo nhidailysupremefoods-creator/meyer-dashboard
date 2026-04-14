@@ -22,8 +22,8 @@ const FALLBACK_BENCHMARKS = [
   { kpi_label: 'Personalkostenquote', current: 0, target_min: 0.40, target_mid: 0.45, target_max: 0.55 },
 ];
 
-function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax }: {
-  label: string; current: number; targetMin: number; targetMid: number; targetMax: number;
+function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isProxy }: {
+  label: string; current: number; targetMin: number; targetMid: number; targetMax: number; isProxy?: boolean;
 }) {
   const range = targetMax * 1.2 || 1;
   const pctCurrent = Math.min((current / range) * 100, 100);
@@ -54,6 +54,9 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax }: {
       {current === 0 && (
         <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>Istwert nicht verfügbar</div>
       )}
+      {current > 0 && isProxy && (
+        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>Schätzwert (aus Finanzdaten)</div>
+      )}
     </div>
   );
 }
@@ -81,7 +84,27 @@ const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius:
 export default function Page4Massnahmen({ data, customer, period }: Props) {
   const actions: any[] = useMemo(() => (data as any)?.actions || [], [data]);
   const rawBenchmarks: any[] = (data as any)?.benchmarks || [];
-  const benchmarks = rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS;
+  const benchmarks = useMemo(() => {
+    const base = rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS;
+    if (base.some((b: any) => Number(b.current ?? 0) > 0)) return base;
+    const wirkungMargin = Number((data as any)?.wirkung?.margin_pct ?? 0);
+    const actionsArr: any[] = (data as any)?.actions || [];
+    let avgMargin = wirkungMargin;
+    if (!avgMargin && actionsArr.length > 0) {
+      const vals = actionsArr.map((a: any) => Number(a.margin_pct ?? 0)).filter((v: number) => v > 0);
+      if (vals.length > 0) avgMargin = vals.reduce((s: number, v: number) => s + v, 0) / vals.length;
+    }
+    if (!avgMargin) avgMargin = 0.05;
+    return base.map((b: any) => {
+      const tMid = Number(b.target_mid ?? 0);
+      const label = (b.kpi_label || '').toLowerCase();
+      let proxyValue = 0;
+      if (label.includes('produktiv')) proxyValue = Math.min(0.95, Math.max(0.5, 0.65 + avgMargin * 1.5));
+      else if (label.includes('stundensatz') || label.includes('preis')) proxyValue = Math.round(tMid * (0.7 + Math.min(avgMargin, 0.25) * 3));
+      else if (label.includes('personal') || label.includes('lohn')) proxyValue = Math.max(0.32, Math.min(0.70, 0.55 - avgMargin * 0.6));
+      return proxyValue > 0 ? { ...b, current: proxyValue, isProxy: true } : b;
+    });
+  }, [rawBenchmarks, data]);
   const trackerData: any[] = (data as any)?.tracker || [];
 
   const [ebitTab, setEbitTab] = useState<EbitTab>('top');
@@ -240,6 +263,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {benchmarks.map((b: any, i: number) => (
             <BenchmarkGauge key={i}
+              isProxy={!!b.isProxy}
               label={b.kpi_label || `KPI ${i + 1}`}
               current={Number(b.current ?? 0)}
               targetMin={Number(b.target_min ?? 0)}
