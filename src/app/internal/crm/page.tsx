@@ -231,12 +231,34 @@ export default function CRMPage() {
             Alle Leads und Interessenten &middot; Single Source of Truth
           </p>
         </div>
-        <button
-          onClick={() => { setEditingLead(null); setShowForm(true); }}
-          className="px-5 py-2.5 bg-navy text-white rounded-xl text-sm font-medium hover:bg-navy/90 transition-colors"
-        >
-          + Neuer Lead
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const cols = ['Unternehmen','Ansprechpartner','Branche','Umsatz','MA','EBIT%','ICP','Pipeline','E-Mail','Telefon','Nächste Aktion','Datum'];
+              const rows = leads.map(l => [
+                l.company_name, l.ansprechpartner, BRANCHEN_LABELS[l.branche]||'',
+                l.umsatz||'', l.mitarbeiteranzahl||'', l.ebit_marge ? `${(l.ebit_marge*100).toFixed(0)}%` : '',
+                l.icp_score, l.pipeline_status, l.emails?.[0]||'', l.telefon||'',
+                l.next_action||'', l.next_action_date||''
+              ]);
+              const csv = [cols, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+              const a = document.createElement('a');
+              a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+              a.download = `CRM_Export_${new Date().toISOString().slice(0,10)}.csv`;
+              a.click();
+            }}
+            className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            CSV
+          </button>
+          <button
+            onClick={() => { setEditingLead(null); setShowForm(true); }}
+            className="px-5 py-2.5 bg-navy text-white rounded-xl text-sm font-medium hover:bg-navy/90 transition-colors"
+          >
+            + Neuer Lead
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -324,7 +346,7 @@ export default function CRMPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Unternehmen', 'Branche', 'Umsatz', 'MA', 'Ctrl', 'EBIT%', 'ICP', 'Pipeline', 'E-Mail', 'Telefon', 'Nächste Aktion', ''].map(h => (
+                {['Unternehmen', 'Branche', 'Umsatz', 'MA', 'EBIT%', 'ICP', 'Pipeline', 'E-Mail', 'Telefon', 'Nächste Aktion', ''].map(h => (
                   <th key={h} className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 whitespace-nowrap">
                     {h}
                   </th>
@@ -350,14 +372,15 @@ export default function CRMPage() {
                       <div className="text-[10px] text-red-500 font-medium mt-0.5">Verloren</div>
                     )}
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[120px] truncate">
-                    {BRANCHEN_LABELS[lead.branche] || '–'}
+                  <td className="py-3 px-3 text-xs text-gray-500 min-w-[130px]">
+                    <span className="inline-block bg-gray-50 text-gray-600 rounded-md px-2 py-0.5 text-[11px] leading-tight">
+                      {BRANCHEN_LABELS[lead.branche] || '–'}
+                    </span>
                   </td>
                   <td className="py-3 px-3 font-medium whitespace-nowrap">
                     {lead.umsatz ? `${(lead.umsatz / 1_000_000).toFixed(1)}M` : '–'}
                   </td>
                   <td className="py-3 px-3">{lead.mitarbeiteranzahl ?? '–'}</td>
-                  <td className="py-3 px-3">{lead.controller_anzahl ?? '–'}</td>
                   <td className="py-3 px-3">{lead.ebit_marge ? `${(lead.ebit_marge * 100).toFixed(0)}%` : '–'}</td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-1.5">
@@ -383,8 +406,8 @@ export default function CRMPage() {
                   <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">
                     {lead.telefon || '–'}
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px]">
-                    <div className="truncate">{lead.next_action || '–'}</div>
+                  <td className="py-3 px-3 text-xs text-gray-500 min-w-[160px] max-w-[220px]">
+                    <div className="line-clamp-2 leading-snug">{lead.next_action || '–'}</div>
                     {lead.next_action_date && (
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-[10px] text-gray-300">{lead.next_action_date}</span>

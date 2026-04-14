@@ -529,16 +529,34 @@ export default function OperationsPage() {
       {customersNeedingData.length > 0 && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl px-6 py-4 flex items-start gap-3">
           <span className="text-red-500 text-xl mt-0.5">⚠️</span>
-          <div>
-            <div className="font-manrope font-bold text-red-700 text-sm">Daten-Upload überfällig</div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <div className="font-manrope font-bold text-red-700 text-sm">Daten-Upload überfällig</div>
+              <button
+                onClick={() => customersNeedingData.forEach(c => handlePrepare('reminder', c))}
+                className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                </svg>
+                Alle erinnern
+              </button>
+            </div>
             <p className="text-xs text-red-600 mt-1">
               Folgende Kunden haben ihre Daten für diesen Monat noch nicht bis zum 10. hochgeladen:
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {customersNeedingData.map(c => (
-                <span key={c.customer_id} className="bg-red-100 text-red-700 px-2.5 py-1 rounded-lg text-xs font-medium">
+                <button
+                  key={c.customer_id}
+                  onClick={() => handlePrepare('reminder', c)}
+                  className="bg-red-100 text-red-700 px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-red-200 transition-colors flex items-center gap-1"
+                >
                   {c.company_name}
-                </span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 opacity-60" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                  </svg>
+                </button>
               ))}
             </div>
           </div>

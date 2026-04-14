@@ -38,7 +38,23 @@ export default function DashboardHome() {
   // ── Mandate KPIs ────────────────────────────────────────
   const activeMandates = SEED_MANDATES.filter(m => m.mandate_status === 'active');
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
-  const totalARR = totalMRR * 12;
+
+  // ARR = Honorar × Monate innerhalb des laufenden Kalenderjahres (max. 12)
+  const currentYear = new Date().getFullYear();
+  const yearStart = new Date(currentYear, 0, 1);
+  const yearEnd   = new Date(currentYear, 11, 31);
+  function calcARRMonths(m: typeof SEED_MANDATES[0]) {
+    const start = m.vertragsbeginn ? new Date(m.vertragsbeginn) : yearStart;
+    const end   = m.vertragsende  ? new Date(m.vertragsende)   : yearEnd;
+    const effStart = start < yearStart ? yearStart : start;
+    const effEnd   = end   > yearEnd   ? yearEnd   : end;
+    if (effEnd <= effStart) return 0;
+    const months = (effEnd.getFullYear() - effStart.getFullYear()) * 12 +
+      (effEnd.getMonth() - effStart.getMonth());
+    return Math.max(months, 1);
+  }
+  const totalARR = activeMandates.reduce((s, m) =>
+    s + (m.monatliches_honorar || 0) * calcARRMonths(m), 0);
 
   // ── Operations KPIs ─────────────────────────────────────
   const opsGruen = SEED_OPERATIONS.filter(c => c.ampel_status === 'GRUEN').length;
@@ -71,9 +87,9 @@ export default function DashboardHome() {
           <div className="text-xs text-gray-300 mt-1">aus {activeMandates.length} aktiven Mandaten</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="text-sm text-gray-400 mb-1">ARR (hochgerechnet)</div>
+          <div className="text-sm text-gray-400 mb-1">ARR {currentYear}</div>
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalARR)}</div>
-          <div className="text-xs text-gray-300 mt-1">{formatCurrency(totalMRR)} &times; 12</div>
+          <div className="text-xs text-gray-300 mt-1">Kalender-Jahr {currentYear}</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="text-sm text-gray-400 mb-1">Hot Leads (ICP &ge; 70)</div>
