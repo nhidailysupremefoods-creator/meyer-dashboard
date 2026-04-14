@@ -12,7 +12,7 @@ const fmtEur = (n: any) =>
         style: 'currency',
         currency: 'EUR',
         maximumFractionDigits: 0,
-      }).format(Number(n))
+      }).format(Number(n)
     : '–';
 
 const fmtEurK = (n: any) => {
@@ -169,7 +169,6 @@ export default function Page1Gesamtlage({ data }: Props) {
     : { bg: 'rgba(46,139,87,0.25)', text: '#6ECF91', border: 'rgba(46,139,87,0.40)' };
 
   // Chart layout constants
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const BASELINE = 200;   // y-coordinate of the x-axis baseline (shifted down for label room)
   const CHART_H = 165;    // height of chart area in SVG units
 
