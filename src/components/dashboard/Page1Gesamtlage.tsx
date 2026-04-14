@@ -166,6 +166,7 @@ export default function Page1Gesamtlage({ data }: Props) {
     : { bg: 'rgba(46,139,87,0.25)', text: '#6ECF91', border: 'rgba(46,139,87,0.40)' };
 
   // Chart layout constants
+  const [hoverIdx, setHoverIdx] = useState(null);
   const BASELINE = 200;   // y-coordinate of the x-axis baseline (shifted down for label room)
   const CHART_H = 165;    // height of chart area in SVG units
 
@@ -410,11 +411,11 @@ export default function Page1Gesamtlage({ data }: Props) {
           {/* Legend */}
           <div className="flex items-center justify-center gap-6 mb-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
             <span className="flex items-center gap-1">
-              <span style={{ display: 'inline-block', width: 14, height: 10, background: 'linear-gradient(180deg,rgba(212,149,106,0.72) 0%,rgba(212,149,106,0.08) 100%)', borderRadius: 2 }} />
+              <span style={{ display: 'inline-block', width: 14, height: 10, background: 'linear-gradient(180deg,rgba(29,53,87,0.65) 0%,rgba(29,53,87,0.08) 100%)', borderRadius: 2 }} />
               Umsatz
             </span>
             <span className="flex items-center gap-1">
-              <span style={{ display: 'inline-block', width: 20, height: 2, backgroundColor: '#43A047', borderRadius: 1 }} />
+              <span style={{ display: 'inline-block', width: 20, height: 2, backgroundColor: '#D49564', borderRadius: 1 }} />
               EBIT
             </span>
           </div>
@@ -422,12 +423,12 @@ export default function Page1Gesamtlage({ data }: Props) {
           <svg viewBox="0 0 700 240" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
             <defs>
               <linearGradient id="p1barGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(212,149,106,1)" stopOpacity="0.72" />
-                <stop offset="100%" stopColor="rgba(212,149,106,0)" stopOpacity="0.08" />
+                <stop offset="0%" stopColor="rgba(29,53,87,1)" stopOpacity="0.65" />
+                <stop offset="100%" stopColor="rgba(29,53,87,0)" stopOpacity="0.06" />
               </linearGradient>
               <linearGradient id="p1ebitGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#43A047" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#43A047" stopOpacity="0.01" />
+                <stop offset="0%" stopColor="#D49564" stopOpacity="0.20" />
+                <stop offset="100%" stopColor="#D49564" stopOpacity="0.01" />
               </linearGradient>
             </defs>
 
@@ -455,30 +456,23 @@ export default function Page1Gesamtlage({ data }: Props) {
               const rev = Math.abs(Number(row.revenue ?? 0));
               const barH = maxRev > 0 ? (rev / maxRev) * CHART_H : 0;
               const colW = 635 / chartData.length;
-              const x = 55 + i * colW + colW * 0.15;
-              const barW = colW * 0.70;
+              const x = 55 + i * colW + colW * 0.28;
+              const barW = colW * 0.44;
               const barTop = BASELINE - Math.max(barH, 0);
               const label = row.month_label_short || row.month_label || '';
               const cx = x + barW / 2;
+              const isHovered = hoverIdx === i;
               return (
-                <g key={`bar${i}`}>
-                  <rect x={x} y={barTop} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3" />
-                  {/* Umsatz-Label: rotiert über dem Balken */}
-                  {barH > 5 && (
-                    <text
-                      x={cx}
-                      y={barTop - 4}
-                      textAnchor="end"
-                      fontSize="8"
-                      fontWeight="500"
-                      fill="rgba(212,149,106,0.95)"
-                      transform={`rotate(-60, ${cx}, ${barTop - 4})`}
-                    >
-                      {fmtEurK(rev)}
-                    </text>
-                  )}
-                  {/* Monatsbezeichnung unten */}
-                  <text x={cx} y={BASELINE + 17} textAnchor="middle" fontSize="8" fill="var(--text-secondary)">{label}</text>
+                <g key={`bar${i}`}
+                  onMouseEnter={() => setHoverIdx(i)}
+                  onMouseLeave={() => setHoverIdx(null)}
+                  style={{ cursor: 'default' }}
+                >
+                  <rect x={x - colW * 0.28} y={20} width={colW} height={BASELINE - 20} fill="transparent" />
+                  <rect x={x} y={barTop} width={barW} height={Math.max(barH, 0)} fill="url(#p1barGrad)" rx="3"
+                    opacity={hoverIdx !== null && !isHovered ? 0.45 : 1}
+                  />
+                  <text x={cx} y={BASELINE + 17} textAnchor="middle" fontSize="8" fill={isHovered ? 'var(--text-primary)' : 'var(--text-secondary)'}>{label}</text>
                 </g>
               );
             })}
@@ -510,26 +504,23 @@ export default function Page1Gesamtlage({ data }: Props) {
               return (
                 <g>
                   <path d={areaPath} fill="url(#p1ebitGrad)" />
-                  <path d={linePath} fill="none" stroke="#43A047" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+                  <path d={linePath} fill="none" stroke="#D49564" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                   {pts.map((pt, idx) => {
-                    // Label-Position: oberhalb des Dots, mindestens y=12
-                    const labelY = Math.max(pt.y - 7, 12);
-                    // Abwechselnd oben/unten bei dicht beieinander liegenden Werten
-                    const anchor = idx % 2 === 0 ? 'middle' : 'middle';
+                    const isHov = hoverIdx === idx;
+                    const rev = Math.abs(Number(chartData[idx]?.revenue ?? 0));
+                    const tooltipW = 90;
+                    const tx = Math.min(Math.max(pt.x - tooltipW / 2, 52), 640);
+                    const ty = Math.max(pt.y - 52, 8);
                     return (
                       <g key={idx}>
-                        <circle cx={pt.x} cy={pt.y} r="3.5" fill="#43A047" stroke="#fff" strokeWidth="1.5" />
-                        {/* EBIT-Datenbeschriftung */}
-                        <text
-                          x={pt.x}
-                          y={labelY}
-                          textAnchor={anchor}
-                          fontSize="7.5"
-                          fontWeight="600"
-                          fill="#43A047"
-                        >
-                          {fmtEurK(pt.val)}
-                        </text>
+                        <circle cx={pt.x} cy={pt.y} r={isHov ? 5 : 3.5} fill="#D49564" stroke="#fff" strokeWidth="1.5" />
+                        {isHov && (
+                          <g>
+                            <rect x={tx} y={ty} width={tooltipW} height={36} rx="5" fill="var(--navy)" opacity="0.92" />
+                            <text x={tx + tooltipW/2} y={ty + 13} textAnchor="middle" fontSize="7.5" fontWeight="700" fill="#D49564">EBIT {fmtEurK(pt.val)}</text>
+                            <text x={tx + tooltipW/2} y={ty + 25} textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.7)">Umsatz {fmtEurK(rev)}</text>
+                          </g>
+                        )}
                       </g>
                     );
                   })}
@@ -554,9 +545,9 @@ export default function Page1Gesamtlage({ data }: Props) {
         <div className="card">
           <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Kostenstruktur</h3>
           <div className="space-y-3">
-            {costVariable > 0 && <CostBar label="Variable Kosten" value={costVariable} total={totalCost} color="#3B82F6" />}
-            {costFixed > 0 && <CostBar label="Fixkosten" value={costFixed} total={totalCost} color="#6366F1" />}
-            {payrollCost > 0 && <CostBar label="davon Personalkosten" value={payrollCost} total={totalCost} color="#8B5CF6" indent />}
+            {costVariable > 0 && <CostBar label="Variable Kosten" value={costVariable} total={totalCost} color="#1D3557" />}
+            {costFixed > 0 && <CostBar label="Fixkosten" value={costFixed} total={totalCost} color="#D49564" />}
+            {payrollCost > 0 && <CostBar label="davon Personalkosten" value={payrollCost} total={totalCost} color="#8D99AE" indent />}
           </div>
         </div>
       )}
