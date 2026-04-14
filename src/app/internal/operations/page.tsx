@@ -371,6 +371,32 @@ export default function OperationsPage() {
     }
   }
 
+  // ── Gmail Compose Fallback ───────────────────────────────
+  function openGmailCompose(email: EmailPreview) {
+    // Strip HTML tags to plain text for Gmail URL parameter
+    const plainText = email.body
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&middot;/g, '·')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    const params = new URLSearchParams({
+      view: 'cm',
+      fs: '1',
+      to: email.to,
+      su: email.subject,
+      body: plainText,
+    });
+    window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
+  }
+
   // ── SEND: Real Email Dispatch ───────────────────────────
   async function handleSend(emailPreview: EmailPreview) {
     const key = `${emailPreview.type}-${emailPreview.customer_id}`;
@@ -408,33 +434,13 @@ export default function OperationsPage() {
         }
       }
 
-      // Fallback: Try Next.js API route (which could use Gmail MCP)
-      try {
-        const res = await fetch('/api/internal/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(emailPreview),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
-            updateSentStatus(emailPreview.type, emailPreview.customer_id);
-            showToast(`E-Mail erfolgreich gesendet an ${emailPreview.to}`, 'success');
-            setSendingKey(null);
-            setPreview(null);
-            return;
-          }
-        }
-      } catch {
-        // API route not available
-      }
-
-      // Final fallback: Create Gmail draft via Gmail MCP (handled by parent)
-      // Mark as "prepared but not sent" – user gets notified
-      showToast(
-        `Backend nicht verbunden. Bitte Apps Script deployen oder E-Mail manuell senden an: ${emailPreview.to}`,
-        'error'
-      );
+      // Fallback: Open Gmail compose directly in new tab
+      openGmailCompose(emailPreview);
+      updateSentStatus(emailPreview.type, emailPreview.customer_id);
+      showToast(`Gmail geöffnet – bitte E-Mail an ${emailPreview.to} jetzt senden`, 'success');
+      setSendingKey(null);
+      setPreview(null);
+      return;
     } catch (err) {
       showToast(`Fehler beim Senden: ${err instanceof Error ? err.message : 'Unbekannt'}`, 'error');
     }
@@ -982,18 +988,21 @@ export default function OperationsPage() {
                       ...editDraft,
                       body: bodyRef.current?.innerHTML || editDraft.body,
                     };
-                    if (window.confirm(`E-Mail jetzt senden?\n\nVon: ${finalDraft.from}\nAn: ${finalDraft.to}\nBetreff: ${finalDraft.subject}`)) {
-                      handleSend(finalDraft);
-                    }
+                    handleSend(finalDraft);
                   }}
                   disabled={sendingKey !== null}
-                  className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
                     sendingKey
                       ? 'bg-copper/50 text-white cursor-wait'
                       : 'bg-copper text-white hover:bg-copper/90 shadow-sm'
                   }`}
                 >
-                  {sendingKey ? 'Wird gesendet...' : 'Jetzt senden'}
+                  {sendingKey ? 'Öffnet Gmail...' : (
+                    <>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 010 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/></svg>
+                      In Gmail senden
+                    </>
+                  )}
                 </button>
               </div>
             </div>
