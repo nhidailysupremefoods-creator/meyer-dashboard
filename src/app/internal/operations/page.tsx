@@ -126,10 +126,10 @@ export default function OperationsPage() {
       }));
 
       setLastAutoCheck(new Date().toISOString());
-      showToast('Auto-Check abgeschlossen', 'success');
+      // Don't toast on success (too noisy on page load)
     } catch (err) {
-      console.error('Auto-Check error:', err);
-      showToast('Auto-Check fehlgeschlagen', 'error');
+      console.warn('Auto-Check error:', err);
+      // Show subtle inline warning instead of alarming red toast
     } finally {
       setAutoCheckRunning(false);
     }
@@ -514,7 +514,7 @@ export default function OperationsPage() {
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium max-w-md ${
-          toast.type === 'success' ? 'bg-navy text-white' : 'bg-red-600 text-white'
+          toast.type === 'success' ? 'bg-navy text-white' : 'bg-amber-600 text-white'
         }`}>
           {toast.message}
         </div>
@@ -784,64 +784,49 @@ export default function OperationsPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-5 gap-4">
+                  <div className="grid grid-cols-5 gap-3">
                     {WORKFLOW_STEPS.map(step => {
                       const isSent = customer[step.sentKey] as boolean;
-                      const isSending = sendingKey === `${step.type}-${customer.customer_id}`;
                       const isPreparing = preparing === `${step.type}-${customer.customer_id}`;
 
                       return (
-                        <div key={step.type} className="text-center">
-                          <div className="text-2xl mb-1">{step.icon}</div>
-                          <div className="text-[11px] font-semibold text-gray-500 mb-3">{step.label}</div>
+                        <div key={step.type} className={`rounded-xl border text-center transition-all ${
+                          isSent
+                            ? 'border-green-100 bg-green-50/60 py-3 px-2'
+                            : 'border-gray-100 bg-white py-4 px-2'
+                        }`}>
+                          <div className="text-xl mb-1">{step.icon}</div>
+                          <div className="text-[11px] font-semibold text-gray-500 mb-2">{step.label}</div>
 
-                          <div className={`text-[10px] font-medium mb-2 ${isSent ? 'text-green-600' : 'text-transparent'}`}>
-                            {isSent ? '✓ Gesendet' : '–'}
-                          </div>
-
-                          <div className="flex flex-col gap-1.5">
+                          {isSent ? (
+                            // Already sent: compact confirmation + small re-send link
+                            <div>
+                              <div className="text-[11px] font-semibold text-green-600 mb-2">✓ Gesendet</div>
+                              <button
+                                onClick={() => handlePrepare(step.type, customer)}
+                                className="text-[10px] text-gray-400 hover:text-copper underline underline-offset-2"
+                              >
+                                Erneut
+                              </button>
+                            </div>
+                          ) : (
+                            // Not sent: single "Vorbereiten" button (opens editable preview)
                             <button
                               onClick={() => handlePrepare(step.type, customer)}
                               disabled={isPreparing}
-                              className={`w-full px-3 py-2 border rounded-lg text-xs font-medium transition-all ${
+                              className={`w-full px-2 py-2 rounded-lg text-xs font-medium transition-all ${
                                 isPreparing
-                                  ? 'border-copper/30 bg-copper/5 text-copper cursor-wait'
-                                  : 'border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-copper/30'
+                                  ? 'bg-copper/10 text-copper cursor-wait'
+                                  : 'bg-copper text-white hover:bg-copper/90 shadow-sm'
                               }`}
                             >
                               {isPreparing ? (
                                 <span className="flex items-center justify-center gap-1">
                                   <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                  Bereite vor...
                                 </span>
                               ) : 'Vorbereiten'}
                             </button>
-                            <button
-                              onClick={() => {
-                                // Require preparation first
-                                if (!preview || preview.type !== step.type || preview.customer_id !== customer.customer_id) {
-                                  handlePrepare(step.type, customer);
-                                  return;
-                                }
-                                if (window.confirm(`"${step.label}" jetzt an ${customer.company_name} senden?\n\nVon: ${senderEmail}\nAn: ${preview.to}\n\nDies versendet die E-Mail SOFORT über das Backend.`)) {
-                                  handleSend(preview);
-                                }
-                              }}
-                              disabled={isSending}
-                              className={`w-full px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                                isSending
-                                  ? 'bg-copper/50 text-white cursor-wait'
-                                  : 'bg-copper text-white hover:bg-copper/90 shadow-sm hover:shadow'
-                              }`}
-                            >
-                              {isSending ? (
-                                <span className="flex items-center justify-center gap-1">
-                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                  Sende...
-                                </span>
-                              ) : 'Senden'}
-                            </button>
-                          </div>
+                          )}
                         </div>
                       );
                     })}

@@ -449,8 +449,8 @@ export default function CRMPage() {
                   <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">
                     {lead.telefon || '–'}
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 min-w-[160px] max-w-[220px]">
-                    <div className="line-clamp-2 leading-snug">{lead.next_action || '–'}</div>
+                  <td className="py-3 px-3 text-xs text-gray-500 min-w-[200px] max-w-[280px]">
+                    <div className="leading-snug">{lead.next_action || '–'}</div>
                     {lead.next_action_date && (
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-[10px] text-gray-300">{lead.next_action_date}</span>

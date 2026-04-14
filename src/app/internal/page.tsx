@@ -163,7 +163,7 @@ export default function DashboardHome() {
                   }`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-navy truncate">{lead.company_name}</span>
+                      <span className="text-sm font-medium text-navy">{lead.company_name}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 shrink-0">
                         ICP {lead.icp_score}
                       </span>
@@ -194,8 +194,8 @@ export default function DashboardHome() {
         <div className="grid grid-cols-5 gap-3">
           {activeMandates.map(m => (
             <div key={m.customer_id} className="bg-offwhite/50 rounded-xl p-4">
-              <div className="text-sm font-semibold text-navy truncate">{m.company_name}</div>
-              <div className="text-xs text-gray-400 mt-0.5 truncate">{m.gebuchte_dienstleistung || '–'}</div>
+              <div className="text-sm font-semibold text-navy leading-tight">{m.company_name}</div>
+              <div className="text-xs text-gray-400 mt-0.5">{m.gebuchte_dienstleistung || '–'}</div>
               <div className="font-manrope text-lg font-bold text-copper mt-2">
                 {m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}
               </div>
