@@ -111,7 +111,7 @@ export default function MandatePage() {
       } else {
         setToast(json.error ? `Fehler: ${json.error}` : 'Keine Verträge gefunden');
       }
-    } catch (err) {
+    } catch {
       setToast('Verbindungsfehler – Apps Script nicht erreichbar');
     }
 
