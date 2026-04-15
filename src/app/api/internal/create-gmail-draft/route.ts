@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Returns: { success: true, draftId, draftUrl }
  */
 
-function base64url(str: string): string {
+function base64url(str: string): string 
   // Encode a string to base64url (URL-safe base64 without padding)
   const b64 = Buffer.from(str, 'binary').toString('base64');
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
     }
 
     const draftId: string = gmailJson.id;
-    const draftUrl = `https://mail.google.com/mail/u/gregory@meyerdecision.com/#drafts/${draftId}`;
+    const threadId: string = gmailJson.message?.threadId || draftId;
+        const draftUrl = `https://mail.google.com/mail/u/0/#drafts/${threadId}`;
 
     return NextResponse.json({ success: true, draftId, draftUrl });
   } catch (error) {
