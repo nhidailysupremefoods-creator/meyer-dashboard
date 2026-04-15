@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, Customer } from '@/types';
 
 const S = {
@@ -32,6 +32,50 @@ export default function UserTab({ users, customers, onUpdate, onUpdateUser }: Us
   const [editingStatus, setEditingStatus] = useState<Record<string, boolean | undefined>>({});
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Track which users have been saved — their editing state is kept until
+  // the server data (users prop) catches up with the saved values.
+  const savedValues = useRef<Record<string, { role?: string; customer_id?: string; is_active?: boolean }>>({});
+
+  // When users prop updates (background refresh), clear editing state for
+  // users whose server data now matches the saved values.
+  useEffect(() => {
+    const saved = savedValues.current;
+    if (Object.keys(saved).length === 0) return;
+
+    const toDelete: string[] = [];
+    for (const [email, vals] of Object.entries(saved)) {
+      const serverUser = users.find((u) => u.email === email);
+      if (!serverUser) continue;
+
+      const roleMatch = !vals.role || serverUser.role === vals.role;
+      const custMatch = !vals.customer_id || serverUser.customer_id === vals.customer_id;
+      const statusMatch = vals.is_active === undefined || serverUser.is_active === vals.is_active;
+
+      if (roleMatch && custMatch && statusMatch) {
+        toDelete.push(email);
+      }
+    }
+
+    if (toDelete.length > 0) {
+      toDelete.forEach((email) => delete saved[email]);
+      setEditingRole((prev) => {
+        const n = { ...prev };
+        toDelete.forEach((e) => delete n[e]);
+        return n;
+      });
+      setEditingCustomer((prev) => {
+        const n = { ...prev };
+        toDelete.forEach((e) => delete n[e]);
+        return n;
+      });
+      setEditingStatus((prev) => {
+        const n = { ...prev };
+        toDelete.forEach((e) => delete n[e]);
+        return n;
+      });
+    }
+  }, [users]);
+
   const handleSave = async (email: string) => {
     const newRole = editingRole[email];
     const newCustomer = editingCustomer[email];
@@ -55,9 +99,14 @@ export default function UserTab({ users, customers, onUpdate, onUpdateUser }: Us
     try {
       const ok = await onUpdateUser(email, updates);
       if (ok) {
-        setEditingRole((prev) => { const n = { ...prev }; delete n[email]; return n; });
-        setEditingCustomer((prev) => { const n = { ...prev }; delete n[email]; return n; });
-        setEditingStatus((prev) => { const n = { ...prev }; delete n[email]; return n; });
+        // Keep editing state — don't clear it yet!
+        // Instead, track what we saved so the useEffect above can clear
+        // once the server data catches up (background refresh).
+        savedValues.current[email] = {
+          role: newRole || user?.role,
+          customer_id: newCustomer || user?.customer_id,
+          is_active: newStatus !== undefined ? newStatus : user?.is_active,
+        };
         setSuccessMsg(`${email} gespeichert`);
         setTimeout(() => setSuccessMsg(null), 2000);
       } else {
@@ -89,6 +138,10 @@ export default function UserTab({ users, customers, onUpdate, onUpdateUser }: Us
   };
 
   const hasChanges = (email: string) => {
+    // If this user was just saved, don't show "Speichern" button
+    // (editing state is kept only to prevent dropdown from snapping back)
+    if (savedValues.current[email]) return false;
+
     const user = users.find((u) => u.email === email);
     return (editingRole[email] && editingRole[email] !== user?.role) ||
            (editingCustomer[email] && editingCustomer[email] !== user?.customer_id) ||
