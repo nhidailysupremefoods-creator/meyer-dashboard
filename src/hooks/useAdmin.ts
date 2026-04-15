@@ -68,7 +68,7 @@ export function useAdmin(): UseAdminReturn {
         if (isSessionExpired && typeof window !== 'undefined') {
           localStorage.removeItem('md_session_token');
           localStorage.removeItem('md_auth_data');
-          window.location.href = '/login';
+          window.location.href = '/';
           return;
         }
         throw new APIError(errMsg);

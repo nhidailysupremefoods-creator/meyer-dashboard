@@ -78,7 +78,7 @@ async function handleResponse(res: Response): Promise<any> {
     if (res.status === 401 && typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(AUTH_KEY);
-      window.location.href = '/login';
+      window.location.href = '/';
       throw new APIError('Sitzung abgelaufen – bitte erneut einloggen', 401);
     }
     throw new APIError(errorMsg, res.status);
