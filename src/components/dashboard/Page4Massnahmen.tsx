@@ -135,19 +135,48 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
         <span>{isAbsScale ? `${Math.round(scaleMax)} €` : '100'}</span>
       </div>
 
-      {/* Istwert-Quelle */}
+      {/* Keine Daten */}
       {!hasValue && (
         <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)' }}>
           Istwert wird nach Datenpflege angezeigt
         </div>
       )}
-      {hasValue && isProxy && (
-        <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
-          Berechnet aus Finanzdaten
+
+      {/* Konkrete Maßnahme wenn unter Ziel oder knapp im Ziel */}
+      {hasValue && belowTarget && (
+        <div className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(196,56,48,0.06)', borderLeft: '3px solid #C43830', color: 'var(--text-secondary)' }}>
+          → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale)}
+        </div>
+      )}
+      {hasValue && inTarget && scCur < scMid && (
+        <div className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(232,167,106,0.08)', borderLeft: '3px solid #E8A76A', color: 'var(--text-secondary)' }}>
+          → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale)}
         </div>
       )}
     </div>
   );
+}
+
+/** Konkrete Maßnahmen pro Benchmark-KPI */
+function getBenchmarkMassnahme(label: string, current: number, min: number, mid: number, isAbsScale: boolean): string {
+  const lbl = (label || '').toLowerCase();
+  const gap = mid - current;
+
+  if (lbl.includes('produktiv')) {
+    if (current < min) return `Produktivität ${gap} Punkte unter Ziel: Leerlaufzeiten reduzieren, Einsatzplanung straffen, unproduktive Tätigkeiten (Fahrt, Admin) minimieren`;
+    return `Noch ${gap} Punkte bis Zielwert: Schichtübergaben optimieren, Auslastung bei Randzeiten verbessern`;
+  }
+  if (lbl.includes('stundensatz') || lbl.includes('preis')) {
+    const gapEur = Math.round(mid - current);
+    if (current < min) return `Stundensatz ${gapEur} € unter Ziel: Preiserhöhung bei nächster Vertragsverlängerung, Zuschläge für Sonderleistungen einführen`;
+    return `Noch ${gapEur} € bis Zielwert: Staffelpreise für Zusatzleistungen, Indexklauseln in Neuverträge`;
+  }
+  if (lbl.includes('personal') || lbl.includes('lohn')) {
+    // Bei PKQ ist NIEDRIGER besser — unter Ziel heißt hier: Quote zu HOCH
+    if (current > mid) return `PKQ ${current - mid} Punkte über Ziel: Überstunden abbauen, Leiharbeit prüfen, Automatisierung von Routineaufgaben`;
+    return `PKQ im Zielbereich, aber optimierbar: Schulungskosten prüfen, Krankenquote senken, Einsatzeffizienz steigern`;
+  }
+  return `Wert ${gap > 0 ? gap + ' Punkte unter' : 'im'} Zielbereich — Optimierungspotenzial vorhanden`;
 }
 
 /** Konkrete Maßnahmen je nach Vertragstyp und Marge */

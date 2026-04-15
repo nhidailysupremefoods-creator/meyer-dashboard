@@ -178,19 +178,21 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            backgroundColor: 'var(--navy)',
-            padding: '12px 26px',
-            borderRadius: '10px',
-            marginBottom: '0.75rem',
+          <h1 style={{
+            fontFamily: 'Manrope, sans-serif',
+            fontWeight: 800,
+            fontSize: '1.5rem',
+            color: 'var(--text-primary)',
+            letterSpacing: '0.08em',
+            margin: '0 0 0.25rem 0',
           }}>
-            <img src="/logo.svg" alt="Meyer Decision" style={{ height: '48px' }} />
-          </div>
+            <span>MEYER</span>
+            <span style={{ color: 'var(--copper)', margin: '0 0.5rem', fontWeight: 300 }}>|</span>
+            <span>DECISION</span>
+          </h1>
           <p style={{
             color: 'var(--text-secondary)',
-            fontSize: '0.8rem',
+            fontSize: '0.75rem',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
             fontWeight: 500,
