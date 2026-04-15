@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useAdmin } from '@/hooks/useAdmin';
 import { Customer, Release } from '@/types';
 
 const S = {
@@ -14,12 +13,17 @@ interface ReleaseTabProps {
   customers: Customer[];
   releases: Release[];
   onUpdate: () => Promise<void>;
+  onToggleRelease: (customerId: string, month: string, isReleased: boolean) => Promise<boolean>;
+  onUnreleaseAll: (customerId: string) => Promise<boolean>;
 }
 
-export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTabProps) {
-  const { toggleRelease, unreleaseAll, loading, error } = useAdmin();
+export default function ReleaseTab({ customers, releases, onUpdate, onToggleRelease, onUnreleaseAll }: ReleaseTabProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<string>(customers[0]?.customer_id || '');
   const [toggling, setToggling] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Optimistic state: tracks toggled months before server confirms
+  const [optimisticToggles, setOptimisticToggles] = useState<Record<string, boolean>>({});
 
   const getMonthKey = (month: string) => month.replace(/_/g, '-');
 
@@ -45,8 +49,13 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
       const key = getMonthKey(r.report_month);
       if (r.is_released) set.add(key);
     });
+    // Apply optimistic toggles
+    Object.entries(optimisticToggles).forEach(([key, isReleased]) => {
+      if (isReleased) set.add(key);
+      else set.delete(key);
+    });
     return set;
-  }, [customerReleases]);
+  }, [customerReleases, optimisticToggles]);
 
   const releasedCount = releasedSet.size;
 
@@ -54,12 +63,25 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
     const key = getMonthKey(month);
     const isCurrentlyReleased = releasedSet.has(key);
     const newReleaseState = !isCurrentlyReleased;
+
+    // Optimistic update
+    setOptimisticToggles((prev) => ({ ...prev, [key]: newReleaseState }));
     setToggling(month);
+    setLocalError(null);
     try {
-      const success = await toggleRelease(selectedCustomer, month.replace(/-/g, '_'), newReleaseState);
+      const success = await onToggleRelease(selectedCustomer, month.replace(/-/g, '_'), newReleaseState);
       if (success) {
-        await onUpdate();
+        setSuccessMsg(`${month} ${newReleaseState ? 'freigegeben' : 'gesperrt'}`);
+        setTimeout(() => setSuccessMsg(null), 1500);
+      } else {
+        // Revert optimistic update
+        setOptimisticToggles((prev) => { const n = { ...prev }; delete n[key]; return n; });
+        setLocalError('Freigabe-Änderung fehlgeschlagen');
       }
+    } catch (err: any) {
+      // Revert optimistic update
+      setOptimisticToggles((prev) => { const n = { ...prev }; delete n[key]; return n; });
+      setLocalError(err.message || 'Fehler bei der Freigabe');
     } finally {
       setToggling(null);
     }
@@ -67,19 +89,39 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
 
   const handleUnreleaseAll = async () => {
     if (!window.confirm('Möchten Sie alle Monate für diesen Mandanten sperren?')) return;
+    setLocalError(null);
     try {
-      await unreleaseAll(selectedCustomer);
-      await onUpdate();
-    } catch (err) {
-      console.error('Error unrelease all:', err);
+      const success = await onUnreleaseAll(selectedCustomer);
+      if (success) {
+        // Clear optimistic toggles
+        setOptimisticToggles({});
+        setSuccessMsg('Alle Monate gesperrt');
+        setTimeout(() => setSuccessMsg(null), 2000);
+      }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Sperren');
     }
+  };
+
+  // Clear optimistic state when customer changes
+  const handleCustomerChange = (newCustomer: string) => {
+    setSelectedCustomer(newCustomer);
+    setOptimisticToggles({});
+    setLocalError(null);
+    setSuccessMsg(null);
   };
 
   return (
     <div style={S.card}>
-      {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem' }}>
-          {error}
+      {localError && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{localError}</span>
+          <button onClick={() => setLocalError(null)} style={{ color: '#ef4444', background: 'none', border: 'none', fontWeight: 700, cursor: 'pointer' }}>&times;</button>
+        </div>
+      )}
+      {successMsg && (
+        <div style={{ background: 'rgba(16,185,129,0.1)', borderLeft: '3px solid #10b981', padding: '0.75rem 1rem', color: '#10b981', fontSize: '0.875rem', fontWeight: 600 }}>
+          ✓ {successMsg}
         </div>
       )}
 
@@ -87,7 +129,7 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
       <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'flex-end', gap: '1.5rem', flexWrap: 'wrap' }}>
         <div>
           <label style={S.label}>Mandant</label>
-          <select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)} style={S.sel}>
+          <select value={selectedCustomer} onChange={(e) => handleCustomerChange(e.target.value)} style={S.sel}>
             {customers.map((c) => (
               <option key={c.customer_id} value={c.customer_id}>
                 {c.name || c.display_name || c.customer_id}
@@ -107,8 +149,8 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
         </span>
         <button
           onClick={handleUnreleaseAll}
-          disabled={loading || releasedCount === 0}
-          style={{ padding: '0.35rem 0.85rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: (loading || releasedCount === 0) ? 0.5 : 1 }}
+          disabled={releasedCount === 0}
+          style={{ padding: '0.35rem 0.85rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: releasedCount === 0 ? 0.5 : 1 }}
         >
           Alle sperren
         </button>
@@ -123,12 +165,13 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
             const [year, monthNum] = month.split('-');
             const monthName = new Date(parseInt(year), parseInt(monthNum) - 1, 1)
               .toLocaleDateString('de-DE', { month: 'short', year: '2-digit' });
+            const isToggling = toggling === month;
 
             return (
               <button
                 key={month}
                 onClick={() => handleToggle(month)}
-                disabled={toggling === month || loading}
+                disabled={isToggling}
                 style={{
                   padding: '0.5rem 0.375rem',
                   borderRadius: 6,
@@ -137,13 +180,14 @@ export default function ReleaseTab({ customers, releases, onUpdate }: ReleaseTab
                   color: isReleased ? '#10b981' : 'var(--text-secondary)',
                   fontWeight: 600,
                   fontSize: '0.8rem',
-                  opacity: (toggling === month || loading) ? 0.5 : 1,
-                  cursor: (toggling === month || loading) ? 'not-allowed' : 'pointer',
+                  opacity: isToggling ? 0.5 : 1,
+                  cursor: isToggling ? 'not-allowed' : 'pointer',
                   fontFamily: 'Manrope, sans-serif',
                   textAlign: 'center',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                {toggling === month ? '…' : monthName}
+                {isToggling ? '…' : monthName}
               </button>
             );
           })}

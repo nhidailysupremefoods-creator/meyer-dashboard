@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useAdmin } from '@/hooks/useAdmin';
 import { User, Customer } from '@/types';
 
 const S = {
@@ -14,22 +13,24 @@ const S = {
 const ROLE_INFO: Record<string, { label: string; desc: string }> = {
   admin:    { label: 'Admin',      desc: 'Vollzugriff auf Dashboard und Admin-Bereich' },
   customer: { label: 'Kunde',      desc: 'Kann eigene Mandanten-Daten sehen und bearbeiten' },
-  viewer:   { label: 'Betrachter', desc: 'Schreibgesch\u00fctzter Lesezugriff' },
+  viewer:   { label: 'Betrachter', desc: 'Schreibgeschützter Lesezugriff' },
 };
 
 interface UserTabProps {
   users: User[];
   customers: Customer[];
   onUpdate: () => Promise<void>;
+  onUpdateUser: (email: string, updates: Record<string, any>) => Promise<boolean>;
 }
 
-export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
-  const { updateUser, loading, error } = useAdmin();
+export default function UserTab({ users, customers, onUpdate, onUpdateUser }: UserTabProps) {
   const [saving, setSaving] = useState<string | null>(null);
   const [deletingEmail, setDeletingEmail] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [editingRole, setEditingRole] = useState<Record<string, string>>({});
   const [editingCustomer, setEditingCustomer] = useState<Record<string, string>>({});
   const [editingStatus, setEditingStatus] = useState<Record<string, boolean | undefined>>({});
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSave = async (email: string) => {
     const newRole = editingRole[email];
@@ -44,31 +45,47 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
 
     if (Object.keys(updates).length === 0) return;
 
-    // Apps Script requires customer_id to always be present for adminUpdateUser
+    // Apps Script requires customer_id to always be present
     if (!updates.customer_id) {
       updates.customer_id = user?.customer_id || '__GLOBAL__';
     }
 
     setSaving(email);
+    setLocalError(null);
     try {
-      const ok = await updateUser(email, updates);
+      const ok = await onUpdateUser(email, updates);
       if (ok) {
-        setEditingRole((prev) => ({ ...prev, [email]: '' }));
-        setEditingCustomer((prev) => ({ ...prev, [email]: '' }));
+        setEditingRole((prev) => { const n = { ...prev }; delete n[email]; return n; });
+        setEditingCustomer((prev) => { const n = { ...prev }; delete n[email]; return n; });
         setEditingStatus((prev) => { const n = { ...prev }; delete n[email]; return n; });
-        await onUpdate();
+        setSuccessMsg(`${email} gespeichert`);
+        setTimeout(() => setSuccessMsg(null), 2000);
+      } else {
+        setLocalError('Speichern fehlgeschlagen — bitte erneut versuchen');
       }
-    } finally { setSaving(null); }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Speichern');
+    } finally {
+      setSaving(null);
+    }
   };
 
   const handleDelete = async (email: string) => {
-    if (!window.confirm(`M\u00f6chten Sie den Benutzer ${email} wirklich l\u00f6schen?`)) return;
+    if (!window.confirm(`Möchten Sie den Benutzer ${email} wirklich deaktivieren?`)) return;
     const user = users.find((u) => u.email === email);
     setDeletingEmail(email);
+    setLocalError(null);
     try {
-      const success = await updateUser(email, { is_active: false, customer_id: user?.customer_id || '__GLOBAL__' });
-      if (success) await onUpdate();
-    } finally { setDeletingEmail(null); }
+      const success = await onUpdateUser(email, { is_active: false, customer_id: user?.customer_id || '__GLOBAL__' });
+      if (success) {
+        setSuccessMsg(`${email} deaktiviert`);
+        setTimeout(() => setSuccessMsg(null), 2000);
+      }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Deaktivieren');
+    } finally {
+      setDeletingEmail(null);
+    }
   };
 
   const hasChanges = (email: string) => {
@@ -80,7 +97,17 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
 
   return (
     <div style={S.card}>
-      {error && <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem' }}>{error}</div>}
+      {localError && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{localError}</span>
+          <button onClick={() => setLocalError(null)} style={{ color: '#ef4444', background: 'none', border: 'none', fontWeight: 700, cursor: 'pointer' }}>&times;</button>
+        </div>
+      )}
+      {successMsg && (
+        <div style={{ background: 'rgba(16,185,129,0.1)', borderLeft: '3px solid #10b981', padding: '0.75rem 1rem', color: '#10b981', fontSize: '0.875rem', fontWeight: 600 }}>
+          ✓ {successMsg}
+        </div>
+      )}
 
       {/* Role explanation */}
       <div style={{ padding: '0.75rem 1rem', background: 'rgba(176,138,106,0.06)', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
@@ -144,18 +171,18 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
                       {hasChanges(user.email) ? (
                         <button
                           onClick={() => handleSave(user.email)}
-                          disabled={saving === user.email || loading}
+                          disabled={saving === user.email}
                           style={{ padding: '0.35rem 0.85rem', background: 'var(--copper)', color: 'var(--navy)', borderRadius: 6, border: 'none', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: saving === user.email ? 0.6 : 1 }}
                         >
-                          {saving === user.email ? 'Speichern\u2026' : 'Speichern'}
+                          {saving === user.email ? 'Speichern…' : 'Speichern'}
                         </button>
                       ) : (
                         <button
                           onClick={() => handleDelete(user.email)}
-                          disabled={deletingEmail === user.email || loading}
+                          disabled={deletingEmail === user.email}
                           style={{ padding: '0.35rem 0.65rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: deletingEmail === user.email ? 0.6 : 1 }}
                         >
-                          {deletingEmail === user.email ? 'L\u00f6schen\u2026' : 'L\u00f6schen'}
+                          {deletingEmail === user.email ? 'Deaktivieren…' : 'Deaktivieren'}
                         </button>
                       )}
                     </div>

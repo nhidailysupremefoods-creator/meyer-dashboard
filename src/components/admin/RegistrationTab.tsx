@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useAdmin } from '@/hooks/useAdmin';
 import { Registration } from '@/types';
 
 const S = {
@@ -15,24 +14,30 @@ const S = {
 interface RegistrationTabProps {
   registrations: Registration[];
   onUpdate: () => Promise<void>;
+  onApprove: (email: string) => Promise<boolean>;
+  onReject: (email: string) => Promise<boolean>;
 }
 
-export default function RegistrationTab({ registrations, onUpdate }: RegistrationTabProps) {
-  const { approveRegistration, rejectRegistration, loading, error } = useAdmin();
+export default function RegistrationTab({ registrations, onUpdate, onApprove, onReject }: RegistrationTabProps) {
   const [processing, setProcessing] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<Record<string, string>>({});
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleApprove = async (email: string) => {
     setProcessing(email);
+    setLocalError(null);
     try {
-      const success = await approveRegistration(email);
+      const success = await onApprove(email);
       if (success) {
         setStatusMessage({ ...statusMessage, [email]: 'Genehmigt ✓' });
         setTimeout(() => {
           setStatusMessage((prev) => { const next = { ...prev }; delete next[email]; return next; });
         }, 2000);
-        await onUpdate();
+      } else {
+        setLocalError(`Genehmigung für ${email} fehlgeschlagen`);
       }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Genehmigen');
     } finally {
       setProcessing(null);
     }
@@ -41,15 +46,19 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
   const handleReject = async (email: string) => {
     if (!window.confirm(`Möchten Sie die Registrierung für ${email} ablehnen?`)) return;
     setProcessing(email);
+    setLocalError(null);
     try {
-      const success = await rejectRegistration(email);
+      const success = await onReject(email);
       if (success) {
         setStatusMessage({ ...statusMessage, [email]: 'Abgelehnt ✓' });
         setTimeout(() => {
           setStatusMessage((prev) => { const next = { ...prev }; delete next[email]; return next; });
         }, 2000);
-        await onUpdate();
+      } else {
+        setLocalError(`Ablehnung für ${email} fehlgeschlagen`);
       }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Ablehnen');
     } finally {
       setProcessing(null);
     }
@@ -74,11 +83,18 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6 }}>
-          {error}
+      {localError && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{localError}</span>
+          <button onClick={() => setLocalError(null)} style={{ color: '#ef4444', background: 'none', border: 'none', fontWeight: 700, cursor: 'pointer' }}>&times;</button>
         </div>
       )}
+
+      {/* Info box about registration process */}
+      <div style={{ background: 'rgba(176,138,106,0.06)', border: '1px solid rgba(176,138,106,0.2)', borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+        Registrierungen werden über das Login-Formular eingereicht und hier zur Genehmigung angezeigt.
+        {registrations.length === 0 && ' Aktuell liegen keine Registrierungen vor.'}
+      </div>
 
       {registrations.length === 0 ? (
         <div style={{ ...S.card, textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
@@ -96,6 +112,7 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
                   <thead>
                     <tr>
                       <th style={S.th}>E-Mail</th>
+                      <th style={S.th}>Name</th>
                       <th style={S.th}>Status</th>
                       <th style={S.th}>Angefordert</th>
                       <th style={S.th}>Aktionen</th>
@@ -105,6 +122,7 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
                     {pendingRegistrations.map((reg) => (
                       <tr key={reg.email}>
                         <td style={S.td}><strong style={{ fontWeight: 500 }}>{reg.email}</strong></td>
+                        <td style={S.tdSec}>{reg.display_name || reg.name || '–'}</td>
                         <td style={S.td}>{getStatusBadge(reg.status)}</td>
                         <td style={S.tdSec}>
                           {reg.requested_at ? new Date(reg.requested_at).toLocaleDateString('de-DE') : '–'}
@@ -116,15 +134,15 @@ export default function RegistrationTab({ registrations, onUpdate }: Registratio
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <button
                                 onClick={() => handleApprove(reg.email)}
-                                disabled={processing === reg.email || loading}
-                                style={{ padding: '0.3rem 0.75rem', background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: processing === reg.email ? 0.6 : 1 }}
+                                disabled={processing === reg.email}
+                                style={{ padding: '0.3rem 0.75rem', background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: processing === reg.email ? 0.6 : 1 }}
                               >
                                 ✓ Genehmigen
                               </button>
                               <button
                                 onClick={() => handleReject(reg.email)}
-                                disabled={processing === reg.email || loading}
-                                style={{ padding: '0.3rem 0.75rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', opacity: processing === reg.email ? 0.6 : 1 }}
+                                disabled={processing === reg.email}
+                                style={{ padding: '0.3rem 0.75rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: processing === reg.email ? 0.6 : 1 }}
                               >
                                 ✕ Ablehnen
                               </button>

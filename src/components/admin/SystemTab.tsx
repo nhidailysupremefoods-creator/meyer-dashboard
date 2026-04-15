@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAdmin } from '@/hooks/useAdmin';
 import { HealthCheckResponse } from '@/types';
 
 const S = {
@@ -12,21 +11,28 @@ const S = {
 
 interface SystemTabProps {
   onUpdate: () => Promise<void>;
+  onCheckHealth: () => Promise<HealthCheckResponse | null>;
+  onClearCache: () => Promise<boolean>;
+  onTriggerRebuild: () => Promise<boolean>;
 }
 
-export default function SystemTab({ onUpdate }: SystemTabProps) {
-  const { checkHealth, clearCache, triggerRebuild, loading, error } = useAdmin();
+export default function SystemTab({ onUpdate, onCheckHealth, onClearCache, onTriggerRebuild }: SystemTabProps) {
   const [health, setHealth] = useState<HealthCheckResponse | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
 
   const loadHealth = async () => {
     setHealthLoading(true);
+    setLocalError(null);
     try {
-      const result = await checkHealth();
+      const result = await onCheckHealth();
       setHealth(result);
+      if (!result) setLocalError('Health-Check konnte nicht geladen werden');
+    } catch (err: any) {
+      setLocalError(err.message || 'Health-Check fehlgeschlagen');
     } finally {
       setHealthLoading(false);
     }
@@ -35,29 +41,39 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
   const handleClearCache = async () => {
     if (!window.confirm('Möchten Sie den Cache wirklich löschen?')) return;
     setClearing(true);
+    setLocalError(null);
     try {
-      const success = await clearCache();
+      const success = await onClearCache();
       if (success) {
         setMessages((m) => ({ ...m, cache: 'Cache geleert ✓' }));
         setTimeout(() => setMessages((m) => { const n = { ...m }; delete n.cache; return n; }), 3000);
         await loadHealth();
+      } else {
+        setLocalError('Cache-Löschung fehlgeschlagen');
       }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Löschen');
     } finally {
       setClearing(false);
     }
   };
 
   const handleRebuild = async () => {
-    if (!window.confirm('Möchten Sie die Advisory-Tabelle wirklich neu aufbauen?')) return;
+    if (!window.confirm('Möchten Sie die Advisory-Tabelle wirklich neu aufbauen? Dies kann bis zu 60 Sekunden dauern.')) return;
     setRebuilding(true);
+    setLocalError(null);
     try {
-      const success = await triggerRebuild();
+      const success = await onTriggerRebuild();
       if (success) {
-        setMessages((m) => ({ ...m, rebuild: 'Rebuild in Bearbeitung... ✓' }));
+        setMessages((m) => ({ ...m, rebuild: 'Advisory-Tabelle neu aufgebaut ✓' }));
         setTimeout(() => setMessages((m) => { const n = { ...m }; delete n.rebuild; return n; }), 5000);
         await loadHealth();
         await onUpdate();
+      } else {
+        setLocalError('Rebuild fehlgeschlagen');
       }
+    } catch (err: any) {
+      setLocalError(err.message || 'Fehler beim Rebuild');
     } finally {
       setRebuilding(false);
     }
@@ -65,26 +81,29 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
 
   useEffect(() => { loadHealth(); }, []);
 
-  const getStatusDot = (status: string) => {
-    if (status === 'OK' || status === 'healthy') return '#10b981';
-    if (status === 'WARN' || status === 'warning') return '#F59E0B';
+  const getStatusDot = (status: string | number | undefined) => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'ok' || s === 'healthy' || s.includes('ok')) return '#10b981';
+    if (s === 'warn' || s === 'warning') return '#F59E0B';
+    if (typeof status === 'number') return '#60A5FA'; // numeric values are informational
     return '#ef4444';
   };
 
   const healthChecks = health?.status ? [
-    { key: 'bigquery',        label: 'BigQuery-Verbindung',  value: health.status.bigquery,         dot: getStatusDot(health.status.bigquery) },
-    { key: 'finance_table',   label: 'Finance-Tabelle',      value: health.status.finance_table,    dot: getStatusDot(health.status.finance_table) },
-    { key: 'reporting_views', label: 'Reporting-Views',      value: health.status.reporting_views,  dot: getStatusDot(health.status.reporting_views) },
-    { key: 'cache',           label: 'Cache',                value: health.status.cache,            dot: getStatusDot(health.status.cache) },
-    { key: 'customers',       label: 'Aktive Mandanten',     value: health.status.customers,        dot: '#60A5FA' },
-    { key: 'version',         label: 'Dashboard-Version',   value: health.status.dashboard_version, dot: '#A78BFA' },
+    { key: 'bigquery',        label: 'BigQuery-Verbindung',  value: health.status.bigquery || '–',         dot: getStatusDot(health.status.bigquery) },
+    { key: 'finance_table',   label: 'Finance-Tabelle',      value: health.status.finance_table || '–',    dot: getStatusDot(health.status.finance_table) },
+    { key: 'reporting_views', label: 'Reporting-Views',      value: health.status.reporting_views || '–',  dot: getStatusDot(health.status.reporting_views) },
+    { key: 'cache',           label: 'Cache',                value: health.status.cache || '–',            dot: getStatusDot(health.status.cache) },
+    { key: 'customers',       label: 'Aktive Mandanten',     value: String(health.status.customers ?? '–'), dot: '#60A5FA' },
+    { key: 'version',         label: 'Dashboard-Version',   value: health.status.dashboard_version || '–', dot: '#A78BFA' },
   ] : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6 }}>
-          {error}
+      {localError && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', borderLeft: '3px solid #ef4444', padding: '0.75rem 1rem', color: '#ef4444', fontSize: '0.875rem', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{localError}</span>
+          <button onClick={() => setLocalError(null)} style={{ color: '#ef4444', background: 'none', border: 'none', fontWeight: 700, cursor: 'pointer' }}>&times;</button>
         </div>
       )}
 
@@ -94,8 +113,8 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
           <span>System-Health</span>
           <button
             onClick={loadHealth}
-            disabled={healthLoading || loading}
-            style={{ padding: '0.25rem 0.65rem', background: 'rgba(176,138,106,0.1)', border: '1px solid rgba(176,138,106,0.25)', borderRadius: 6, color: 'var(--copper)', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'Manrope, sans-serif', opacity: (healthLoading || loading) ? 0.6 : 1 }}
+            disabled={healthLoading}
+            style={{ padding: '0.25rem 0.65rem', background: 'rgba(176,138,106,0.1)', border: '1px solid rgba(176,138,106,0.25)', borderRadius: 6, color: 'var(--copper)', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'Manrope, sans-serif', opacity: healthLoading ? 0.6 : 1, cursor: 'pointer' }}
           >
             {healthLoading ? '↻ Laden…' : '↻ Aktualisieren'}
           </button>
@@ -112,14 +131,14 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: check.dot, flexShrink: 0, display: 'inline-block' }} />
                 <div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--offwhite)' }}>{check.label}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 1 }}>{check.value || '–'}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 1 }}>{check.value}</div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-            Keine Health-Daten verfügbar
+            {localError ? 'Health-Check fehlgeschlagen' : 'Klicken Sie auf "Aktualisieren" um den Systemstatus zu laden'}
           </div>
         )}
       </div>
@@ -140,8 +159,8 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
             ) : (
               <button
                 onClick={handleClearCache}
-                disabled={clearing || loading}
-                style={{ width: '100%', padding: '0.5rem', background: 'rgba(245,158,11,0.12)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.85rem', opacity: (clearing || loading) ? 0.6 : 1, fontFamily: 'Manrope, sans-serif' }}
+                disabled={clearing}
+                style={{ width: '100%', padding: '0.5rem', background: 'rgba(245,158,11,0.12)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', opacity: clearing ? 0.6 : 1, fontFamily: 'Manrope, sans-serif' }}
               >
                 {clearing ? 'Wird geleert…' : 'Cache leeren'}
               </button>
@@ -163,10 +182,10 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
             ) : (
               <button
                 onClick={handleRebuild}
-                disabled={rebuilding || loading}
-                style={{ width: '100%', padding: '0.5rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.85rem', opacity: (rebuilding || loading) ? 0.6 : 1, fontFamily: 'Manrope, sans-serif' }}
+                disabled={rebuilding}
+                style={{ width: '100%', padding: '0.5rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', opacity: rebuilding ? 0.6 : 1, fontFamily: 'Manrope, sans-serif' }}
               >
-                {rebuilding ? 'Wird aufgebaut…' : 'Advisory Rebuild'}
+                {rebuilding ? 'Wird aufgebaut… (bis zu 60s)' : 'Advisory Rebuild'}
               </button>
             )}
           </div>
@@ -178,8 +197,8 @@ export default function SystemTab({ onUpdate }: SystemTabProps) {
         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>Hinweise</div>
         <ul style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', paddingLeft: '1rem', margin: 0 }}>
           <li>Cache-Leerung kann einige Sekunden dauern</li>
-          <li style={{ marginTop: '0.25rem' }}>Advisory-Rebuild sollte nur bei Problemen durchgeführt werden</li>
-          <li style={{ marginTop: '0.25rem' }}>Health Check wird automatisch alle 5 Minuten aktualisiert</li>
+          <li style={{ marginTop: '0.25rem' }}>Advisory-Rebuild sollte nur bei fehlenden Daten durchgeführt werden</li>
+          <li style={{ marginTop: '0.25rem' }}>Alle Statuswerte werden live aus BigQuery abgefragt</li>
         </ul>
       </div>
     </div>

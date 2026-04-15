@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useAdmin } from '@/hooks/useAdmin';
 import { useRouter } from 'next/navigation';
@@ -15,10 +15,10 @@ import { api } from '@/lib/api';
 
 type TabType = 'customers' | 'users' | 'registrations' | 'releases' | 'audit' | 'system' | 'leitfaden';
 
-const TABS: { id: TabType; label: string }[] = [
+const TABS: { id: TabType; label: string; badge?: (data: any) => number | null }[] = [
   { id: 'customers',     label: 'Mandanten' },
   { id: 'users',         label: 'Benutzer' },
-  { id: 'registrations', label: 'Registrierungen' },
+  { id: 'registrations', label: 'Registrierungen', badge: (d) => d.registrations?.filter((r: any) => r.status === 'pending').length || null },
   { id: 'releases',      label: 'Monatsfreigabe' },
   { id: 'audit',         label: 'Audit-Log' },
   { id: 'system',        label: 'System' },
@@ -28,12 +28,16 @@ const TABS: { id: TabType; label: string }[] = [
 export default function AdminPage() {
   const router = useRouter();
   const { role, email, loading: authLoading } = useAuthContext();
+  const admin = useAdmin();
   const {
     customers, users, registrations, audit, releases,
     loading, error, init, clearError,
-  } = useAdmin();
+    updateCustomer, updateUser, approveRegistration, rejectRegistration,
+    toggleRelease, unreleaseAll, clearCache, triggerRebuild, checkHealth,
+  } = admin;
 
   const [activeTab, setActiveTab] = useState<TabType>('customers');
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (!authLoading && role !== 'admin') {
@@ -41,16 +45,24 @@ export default function AdminPage() {
     }
   }, [authLoading, role, router]);
 
+  // Only init once
   useEffect(() => {
-    init();
-  }, [init]);
+    if (!initialized) {
+      init().then(() => setInitialized(true));
+    }
+  }, [init, initialized]);
 
   const handleLogout = () => {
     api.clearAuth();
     router.push('/');
   };
 
-  if (authLoading || loading) {
+  // Soft refresh: silently reload in background without blocking UI
+  const softRefresh = useCallback(async () => {
+    try { await init(); } catch { /* silent */ }
+  }, [init]);
+
+  if (authLoading) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -80,13 +92,38 @@ export default function AdminPage() {
       }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ color: 'var(--danger)', fontWeight: 600, marginBottom: '1rem' }}>Kein Admin-Zugriff</p>
-          <button onClick={() => router.push('/')} style={{ color: 'var(--copper)', background: 'none', border: 'none', fontWeight: 600 }}>
+          <button onClick={() => router.push('/')} style={{ color: 'var(--copper)', background: 'none', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
             Zurück zum Dashboard
           </button>
         </div>
       </div>
     );
   }
+
+  // Show loading spinner only on first load, not on background refresh
+  if (loading && !initialized) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh', background: 'var(--background)',
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 48, height: 48,
+            border: '3px solid var(--border-color)',
+            borderTopColor: 'var(--copper)',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+            margin: '0 auto',
+          }} />
+          <p style={{ marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Admin-Daten werden geladen...</p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  const pendingCount = registrations.filter((r) => r.status === 'pending').length;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', flexDirection: 'column' }}>
@@ -140,6 +177,7 @@ export default function AdminPage() {
           </h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
             Mandanten, Benutzer und Einstellungen verwalten
+            {loading && <span style={{ color: 'var(--copper)', marginLeft: 8 }}>↻ Aktualisiere…</span>}
           </p>
         </div>
       </div>
@@ -180,24 +218,68 @@ export default function AdminPage() {
                   color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
                   transition: 'all 0.2s',
                   cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
                 }}
               >
                 {tab.label}
+                {tab.id === 'registrations' && pendingCount > 0 && (
+                  <span style={{
+                    background: '#F59E0B', color: '#fff', borderRadius: 10,
+                    padding: '0 0.4rem', fontSize: '0.7rem', fontWeight: 700, lineHeight: '1.4',
+                  }}>
+                    {pendingCount}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content — actions passed as props, NOT via separate useAdmin() instances */}
       <div style={{ flex: 1, maxWidth: 1200, margin: '0 auto', width: '100%', padding: '1.5rem' }}>
-        {activeTab === 'customers'     && <CustomerTab     customers={customers}   onUpdate={init} />}
-        {activeTab === 'users'         && <UserTab         users={users} customers={customers} onUpdate={init} />}
-        {activeTab === 'registrations' && <RegistrationTab registrations={registrations} onUpdate={init} />}
-        {activeTab === 'releases'      && <ReleaseTab      customers={customers} releases={releases} onUpdate={init} />}
-        {activeTab === 'audit'         && <AuditTab        audit={audit} />}
-        {activeTab === 'system'        && <SystemTab       onUpdate={init} />}
-        {activeTab === 'leitfaden'     && <LeitfadenTab    customers={customers} />}
+        {activeTab === 'customers' && (
+          <CustomerTab
+            customers={customers}
+            onUpdate={softRefresh}
+            onUpdateCustomer={updateCustomer}
+          />
+        )}
+        {activeTab === 'users' && (
+          <UserTab
+            users={users}
+            customers={customers}
+            onUpdate={softRefresh}
+            onUpdateUser={updateUser}
+          />
+        )}
+        {activeTab === 'registrations' && (
+          <RegistrationTab
+            registrations={registrations}
+            onUpdate={softRefresh}
+            onApprove={approveRegistration}
+            onReject={rejectRegistration}
+          />
+        )}
+        {activeTab === 'releases' && (
+          <ReleaseTab
+            customers={customers}
+            releases={releases}
+            onUpdate={softRefresh}
+            onToggleRelease={toggleRelease}
+            onUnreleaseAll={unreleaseAll}
+          />
+        )}
+        {activeTab === 'audit' && <AuditTab audit={audit} />}
+        {activeTab === 'system' && (
+          <SystemTab
+            onUpdate={softRefresh}
+            onCheckHealth={checkHealth}
+            onClearCache={clearCache}
+            onTriggerRebuild={triggerRebuild}
+          />
+        )}
+        {activeTab === 'leitfaden' && <LeitfadenTab customers={customers} />}
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

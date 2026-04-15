@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 import {
   Customer,
@@ -41,6 +41,9 @@ interface UseAdminReturn {
 /**
  * Custom hook for admin operations
  * Manages customers, users, registrations, audit log, and releases
+ *
+ * PERFORMANCE: Mutations return immediately after server confirms success.
+ * Background refresh (init()) is triggered but NOT awaited, so the UI stays snappy.
  */
 export function useAdmin(): UseAdminReturn {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -52,7 +55,13 @@ export function useAdmin(): UseAdminReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Prevent concurrent init calls
+  const initInFlight = useRef(false);
+
   const init = useCallback(async () => {
+    // Skip if already loading
+    if (initInFlight.current) return;
+    initInFlight.current = true;
     setLoading(true);
     setError(null);
 
@@ -77,7 +86,7 @@ export function useAdmin(): UseAdminReturn {
       // Handle both flat {customers:[]} and nested {data:{customers:[]}} response structures
       const d: any = (response as any).data || response;
 
-      // Transform customers: Apps Script returns customer_name/status, frontend expects name/is_active
+      // Transform customers
       const rawCustomers = d.customers || [];
       const normalizedCustomers = rawCustomers.map((c: any) => ({
         ...c,
@@ -86,7 +95,7 @@ export function useAdmin(): UseAdminReturn {
       }));
       setCustomers(normalizedCustomers);
 
-      // Transform users: Apps Script returns user_email, frontend expects email
+      // Transform users
       const rawUsers = d.users || [];
       const normalizedUsers = rawUsers.map((u: any) => ({
         ...u,
@@ -97,13 +106,12 @@ export function useAdmin(): UseAdminReturn {
 
       setRegistrations(d.registrations || []);
 
-      // Transform audit: epoch seconds → ISO string, actor_email → user_email, 0 → null
+      // Transform audit: epoch seconds → ISO string
       const rawAudit = d.audit || [];
       const normalizedAudit = rawAudit.map((a: any) => {
         const ts = a.event_timestamp;
         let isoTimestamp = a.event_timestamp;
         if (typeof ts === 'number') {
-          // epoch seconds (< 2e10) or milliseconds (>= 2e10)
           isoTimestamp = ts < 2e10
             ? new Date(ts * 1000).toISOString()
             : new Date(ts).toISOString();
@@ -117,35 +125,26 @@ export function useAdmin(): UseAdminReturn {
       });
       setAudit(normalizedAudit);
 
-      // Transform releases: Apps Script returns nested {CUSTOMER_ID: {releases: [...], available_months: [...]}}
-      // Frontend expects flat Release[] array with proper boolean is_released
+      // Transform releases
       const rawReleases = d.releases;
       let flatReleases: Release[] = [];
       if (Array.isArray(rawReleases)) {
         flatReleases = rawReleases;
       } else if (rawReleases && typeof rawReleases === 'object') {
-        // Nested format from adminInitAll() — flatten all customer release arrays
         Object.entries(rawReleases).forEach(([custId, customerData]: [string, any]) => {
           if (customerData?.releases && Array.isArray(customerData.releases)) {
             customerData.releases.forEach((r: any) => {
-              flatReleases.push({
-                ...r,
-                customer_id: r.customer_id || custId,
-              });
+              flatReleases.push({ ...r, customer_id: r.customer_id || custId });
             });
           }
-          // Also handle flat array per customer (e.g., {CUST_ID: [{report_month, is_released}]})
           if (Array.isArray(customerData)) {
             customerData.forEach((r: any) => {
-              flatReleases.push({
-                ...r,
-                customer_id: r.customer_id || custId,
-              });
+              flatReleases.push({ ...r, customer_id: r.customer_id || custId });
             });
           }
         });
       }
-      // Normalize is_released to proper boolean (BQ might return string 'true'/'false')
+      // Normalize is_released to boolean
       flatReleases = flatReleases.map((r) => ({
         ...r,
         report_month: r.report_month || '',
@@ -160,6 +159,7 @@ export function useAdmin(): UseAdminReturn {
       setError(errorMsg);
     } finally {
       setLoading(false);
+      initInFlight.current = false;
     }
   }, []);
 
@@ -167,185 +167,91 @@ export function useAdmin(): UseAdminReturn {
     setError(null);
   }, []);
 
-  const approveRegistration = useCallback(
-    async (email: string): Promise<boolean> => {
+  /**
+   * Helper: Call API, check success, trigger background refresh.
+   * Returns true immediately on success — doesn't wait for init() to complete.
+   */
+  const mutate = useCallback(
+    async (
+      apiCall: () => Promise<any>,
+      errorLabel: string
+    ): Promise<boolean> => {
       setError(null);
-
       try {
-        const response = await api.approveRegistration(email);
-
+        const response = await apiCall();
         if (!response.success) {
-          throw new APIError(response.error || 'Genehmigung fehlgeschlagen');
+          throw new APIError(response.error || `${errorLabel} fehlgeschlagen`);
         }
-
-        // Reload admin data
-        await init();
+        // Background refresh — don't await, let UI stay snappy
+        init().catch(() => {});
         return true;
       } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Genehmigen der Registrierung';
+        const errorMsg = err instanceof APIError ? err.message : errorLabel;
         setError(errorMsg);
         return false;
       }
     },
     [init]
+  );
+
+  const approveRegistration = useCallback(
+    (email: string) => mutate(
+      () => api.approveRegistration(email),
+      'Fehler beim Genehmigen der Registrierung'
+    ),
+    [mutate]
   );
 
   const rejectRegistration = useCallback(
-    async (email: string): Promise<boolean> => {
-      setError(null);
-
-      try {
-        const response = await api.rejectRegistration(email);
-
-        if (!response.success) {
-          throw new APIError(response.error || 'Ablehnung fehlgeschlagen');
-        }
-
-        // Reload admin data
-        await init();
-        return true;
-      } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Ablehnen der Registrierung';
-        setError(errorMsg);
-        return false;
-      }
-    },
-    [init]
+    (email: string) => mutate(
+      () => api.rejectRegistration(email),
+      'Fehler beim Ablehnen der Registrierung'
+    ),
+    [mutate]
   );
 
   const updateUser = useCallback(
-    async (email: string, updates: Record<string, any>): Promise<boolean> => {
-      setError(null);
-
-      try {
-        const response = await api.updateUser(email, updates);
-
-        if (!response.success) {
-          throw new APIError(response.error || 'Update fehlgeschlagen');
-        }
-
-        // Reload admin data
-        await init();
-        return true;
-      } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Aktualisieren des Benutzers';
-        setError(errorMsg);
-        return false;
-      }
-    },
-    [init]
+    (email: string, updates: Record<string, any>) => mutate(
+      () => api.updateUser(email, updates),
+      'Fehler beim Aktualisieren des Benutzers'
+    ),
+    [mutate]
   );
 
   const updateCustomer = useCallback(
-    async (
-      customerId: string,
-      updates: Record<string, any>
-    ): Promise<boolean> => {
-      setError(null);
-
-      try {
-        const response = await api.updateCustomer(customerId, updates);
-
-        if (!response.success) {
-          throw new APIError(response.error || 'Update fehlgeschlagen');
-        }
-
-        // Reload admin data
-        await init();
-        return true;
-      } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Aktualisieren des Kunden';
-        setError(errorMsg);
-        return false;
-      }
-    },
-    [init]
+    (customerId: string, updates: Record<string, any>) => mutate(
+      () => api.updateCustomer(customerId, updates),
+      'Fehler beim Aktualisieren des Kunden'
+    ),
+    [mutate]
   );
 
   const toggleRelease = useCallback(
-    async (
-      customerId: string,
-      month: string,
-      isReleased: boolean
-    ): Promise<boolean> => {
-      setError(null);
-
-      try {
-        const response = await api.toggleRelease(customerId, month, isReleased);
-
-        if (!response.success) {
-          throw new APIError(response.error || 'Toggle fehlgeschlagen');
-        }
-
-        // Reload admin data
-        await init();
-        return true;
-      } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Umschalten der Freigabe';
-        setError(errorMsg);
-        return false;
-      }
-    },
-    [init]
+    (customerId: string, month: string, isReleased: boolean) => mutate(
+      () => api.toggleRelease(customerId, month, isReleased),
+      'Fehler beim Umschalten der Freigabe'
+    ),
+    [mutate]
   );
 
   const unreleaseAll = useCallback(
-    async (customerId: string): Promise<boolean> => {
-      setError(null);
-
-      try {
-        const response = await api.unreleaseAll(customerId);
-
-        if (!response.success) {
-          throw new APIError(response.error || 'Aktion fehlgeschlagen');
-        }
-
-        // Reload admin data
-        await init();
-        return true;
-      } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Sperren aller Monate';
-        setError(errorMsg);
-        return false;
-      }
-    },
-    [init]
+    (customerId: string) => mutate(
+      () => api.unreleaseAll(customerId),
+      'Fehler beim Sperren aller Monate'
+    ),
+    [mutate]
   );
 
   const clearCache = useCallback(async (): Promise<boolean> => {
     setError(null);
-
     try {
       const response = await api.clearCache();
-
       if (!response.success) {
         throw new APIError(response.error || 'Cache-Löschung fehlgeschlagen');
       }
-
       return true;
     } catch (err: any) {
-      const errorMsg =
-        err instanceof APIError
-          ? err.message
-          : 'Fehler beim Löschen des Caches';
+      const errorMsg = err instanceof APIError ? err.message : 'Fehler beim Löschen des Caches';
       setError(errorMsg);
       return false;
     }
@@ -353,20 +259,14 @@ export function useAdmin(): UseAdminReturn {
 
   const triggerRebuild = useCallback(async (): Promise<boolean> => {
     setError(null);
-
     try {
       const response = await api.triggerRebuild();
-
       if (!response.success) {
         throw new APIError(response.error || 'Rebuild fehlgeschlagen');
       }
-
       return true;
     } catch (err: any) {
-      const errorMsg =
-        err instanceof APIError
-          ? err.message
-          : 'Fehler beim Starten des Rebuild';
+      const errorMsg = err instanceof APIError ? err.message : 'Fehler beim Starten des Rebuild';
       setError(errorMsg);
       return false;
     }
@@ -375,22 +275,14 @@ export function useAdmin(): UseAdminReturn {
   const checkHealth = useCallback(
     async (): Promise<HealthCheckResponse | null> => {
       setError(null);
-
       try {
         const response = await api.fetchHealthCheck();
-
         if (!response.success) {
-          throw new APIError(
-            response.error || 'Health Check fehlgeschlagen'
-          );
+          throw new APIError(response.error || 'Health Check fehlgeschlagen');
         }
-
         return response;
       } catch (err: any) {
-        const errorMsg =
-          err instanceof APIError
-            ? err.message
-            : 'Fehler beim Health Check';
+        const errorMsg = err instanceof APIError ? err.message : 'Fehler beim Health Check';
         setError(errorMsg);
         return null;
       }
