@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/internal-os/utils';
 
 // ── Workflow Steps ──────────────────────────────────────
 
-const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer }[] = [
+const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: sting; sentKey: keyof OperationsCustomer }[] = [
   { type: 'angebot',    label: 'Angebot',      icon: '📄', sentKey: 'angebot_sent' },
   { type: 'vertrag',    label: 'DL-Vertrag',   icon: '📝', sentKey: 'vertrag_sent' },
   { type: 'unterlagen', label: 'Unterlagen',    icon: '📎', sentKey: 'unterlagen_sent' },
@@ -241,12 +241,10 @@ export default function OperationsPage() {
     // Navy #192231 | Copper #B08A6A | Offwhite #F7F5F2
 
     const ciHeader = `
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#192231;border-radius:6px 6px 0 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5F2;border-radius:6px 6px 0 0;border:1px solid #E5E2DD;border-bottom:none;">
         <tr>
-          <td style="padding:18px 28px;">
-            <span style="font-family:'Segoe UI',Arial,sans-serif;font-weight:800;font-size:14px;letter-spacing:3px;color:#F7F5F2;">MEYER</span>
-            <span style="color:#B08A6A;margin:0 10px;font-size:16px;font-weight:300;">|</span>
-            <span style="font-family:'Segoe UI',Arial,sans-serif;font-weight:800;font-size:14px;letter-spacing:3px;color:#F7F5F2;">DECISION</span>
+          <td style="padding:16px 28px;">
+            <img src="https://dashboard.meyerdecision.com/logo.png" alt="Meyer Decision" width="160" height="26" style="display:block;border:0;max-width:100%;" />
           </td>
         </tr>
         <tr><td style="height:3px;background:linear-gradient(90deg,#B08A6A,#8A6B4E);"></td></tr>
