@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Returns: { success: true, draftId, draftUrl }
  */
 
-function base64url(str: string): string 
+function base64url(str: string): string  {
   // Encode a string to base64url (URL-safe base64 without padding)
   const b64 = Buffer.from(str, 'binary').toString('base64');
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
