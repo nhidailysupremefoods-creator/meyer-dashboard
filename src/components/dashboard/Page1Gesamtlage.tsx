@@ -50,6 +50,13 @@ const momColor = (n: any) => {
   return val > 0 ? '#2E8B57' : val < 0 ? '#C43830' : 'var(--text-secondary)';
 };
 
+// Für Kosten-Metriken: Anstieg = schlecht (rot), Senkung = gut (grün)
+const costColor = (n: any) => {
+  if (n == null) return 'var(--text-secondary)';
+  const val = Number(n);
+  return val > 0 ? '#C43830' : val < 0 ? '#2E8B57' : 'var(--text-secondary)';
+};
+
 const momArrow = (n: any) => {
   if (n == null) return '';
   const val = Number(n);
@@ -318,7 +325,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               {fmtPct(costRatioDisplay)}
             </div>
             {costMom !== 0 && (
-              <div className="text-sm font-semibold" style={{ color: momColor(-costMom) }}>
+              <div className="text-sm font-semibold" style={{ color: costColor(-costMom) }}>
                 {momArrow(-costMom)} {fmtPctSigned(-costMom)} Vormonat
               </div>
             )}
@@ -327,12 +334,12 @@ export default function Page1Gesamtlage({ data }: Props) {
             <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-secondary)' }}>Personalkosten</div>
             <div className="text-3xl font-bold leading-none mb-2" style={{ color: 'var(--text-primary)' }}>{payrollPct > 0 ? fmtPct(payrollPct) : fmtEur(payrollCost)}</div>
             {payrollMom !== 0 ? (
-              <div className="text-sm font-semibold" style={{ color: momColor(-payrollMom) }}>
+              <div className="text-sm font-semibold" style={{ color: costColor(-payrollMom) }}>
                 {momArrow(-payrollMom)} {fmtPctSigned(-payrollMom)} Vormonat
               </div>
             ) : payrollPctDelta !== 0 ? (
-              <div className="text-sm font-semibold" style={{ color: momColor(-payrollPctDelta) }}>
-                {momArrow(-payrollPctDelta)} {payrollPctDelta > 0 ? '+' : ''}{(payrollPctDelta * 100).toFixed(1)} %p Vormonat
+              <div className="text-sm font-semibold" style={{ color: costColor(payrollPctDelta) }}>
+                {momArrow(payrollPctDelta)} {payrollPctDelta > 0 ? '+' : ''}{(payrollPctDelta * 100).toFixed(1)} %p Vormonat
               </div>
             ) : null}
           </div>
@@ -546,7 +553,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               );
             })}
 
-            {/* Margin percentage line (dashed) */}
+            {/* Margin percentage line (dashed) — pointerEvents: none damit Bars hover bekommen */}
             {chartData.length >= 2 && (() => {
               const colW = 680 / chartData.length;
               const marginPts = chartData.map((row: any, i: number) => {
@@ -575,7 +582,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               const marginPath = marginPathParts.join(' ');
 
               return (
-                <g opacity={hoverIdx === null ? 0.6 : 0.3} style={{ transition: 'opacity 0.2s' }}>
+                <g opacity={hoverIdx === null ? 0.6 : 0.3} style={{ transition: 'opacity 0.2s', pointerEvents: 'none' }}>
                   <path
                     d={marginPath}
                     fill="none"
@@ -622,27 +629,27 @@ export default function Page1Gesamtlage({ data }: Props) {
 
               return (
                 <g>
-                  {/* EBIT area with gradient */}
-                  <path
-                    d={areaPath}
-                    fill="url(#p1ebitGrad)"
-                    opacity={hoverIdx === null ? 1 : 0.7}
-                    style={{ transition: 'opacity 0.2s' }}
-                  />
+                  {/* EBIT area + line — pointerEvents: none damit Bars hover bekommen */}
+                  <g style={{ pointerEvents: 'none' }}>
+                    <path
+                      d={areaPath}
+                      fill="url(#p1ebitGrad)"
+                      opacity={hoverIdx === null ? 1 : 0.7}
+                      style={{ transition: 'opacity 0.2s' }}
+                    />
+                    <path
+                      d={linePath}
+                      fill="none"
+                      stroke="#B08A6A"
+                      strokeWidth="2.5"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      opacity={hoverIdx === null ? 1 : 0.8}
+                      style={{ transition: 'opacity 0.2s' }}
+                    />
+                  </g>
 
-                  {/* EBIT line - professional stroke */}
-                  <path
-                    d={linePath}
-                    fill="none"
-                    stroke="#B08A6A"
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    opacity={hoverIdx === null ? 1 : 0.8}
-                    style={{ transition: 'opacity 0.2s' }}
-                  />
-
-                  {/* Data points and tooltips */}
+                  {/* Data points and tooltips — pointerEvents: none damit Bars hover bekommen */}
                   {pts.map((pt, idx) => {
                     const isHov = hoverIdx === idx;
                     const tooltipW = 140;
@@ -651,7 +658,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                     const ty = Math.max(pt.y - tooltipH - 8, 10);
 
                     return (
-                      <g key={idx}>
+                      <g key={idx} style={{ pointerEvents: 'none' }}>
                         {/* Data point circle */}
                         <circle
                           cx={pt.x}
