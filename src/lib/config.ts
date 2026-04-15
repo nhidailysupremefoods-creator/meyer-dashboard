@@ -7,11 +7,9 @@
 // Environment & API Configuration
 // ============================================================================
 
+// NOTE: APPS_SCRIPT_URL is only available server-side (no NEXT_PUBLIC_ prefix).
+// Do NOT throw here — this file is also imported client-side for BENCHMARK_CONFIG.
 export const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || '';
-
-if (!APPS_SCRIPT_URL && process.env.NODE_ENV === 'production') {
-  throw new Error('APPS_SCRIPT_URL environment variable is not set');
-}
 
 // Dashboard version — should match Apps Script DASHBOARD_VERSION
 export const DASHBOARD_VERSION = 'v6';
