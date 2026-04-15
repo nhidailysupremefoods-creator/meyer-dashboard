@@ -148,7 +148,7 @@ function getMassnahmeText(action: any, rank: number): string {
 
 // ─── Style Constants ─────────────────────────────────────────────────────────
 type EbitTab = 'top' | 'sonstige';
-type PoolTab = 'alle' | 'vertraege' | 'benchmarks';
+type PoolTab = 'alle' | 'vertraege' | 'benchmarks' | 'liquiditaet';
 type TrackerTab = 'aktiv' | 'umgesetzt';
 
 const DOT = { width: 8, height: 8, borderRadius: '50%', background: '#8B6A40', flexShrink: 0 as const, display: 'inline-block' as const };
@@ -345,13 +345,29 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
       isBenchmark: true, belowTarget: Number(b.current ?? 0) > 0 && Number(b.current) < Number(b.target_min ?? b.target_mid ?? 0),
     })), [benchmarks]);
 
+  // Liquiditätshebel als Pool-Items
+  const liqPoolActions = useMemo(() =>
+    liqLevers.map((lever, i) => ({
+      action_key: `liq_${i}`,
+      action_label: lever.title,
+      contract_name: lever.title,
+      category: lever.items.join(' · '),
+      impact_eur: lever.impact,
+      ebit_potential_eur: lever.impact,
+      isLiquidity: true,
+      isBiggest: lever.biggest,
+    })), [liqLevers]);
+
+  const archivedLiqCount = Object.values(liqLeversArchived).filter(v => v).length;
+
   const poolActions = useMemo(() => {
     let acts: any[] = [];
     if (poolTab === 'benchmarks') acts = benchmarkPoolActions;
     else if (poolTab === 'vertraege') acts = sortedActions.slice(0, TOP_N);
-    else acts = [...sortedActions, ...benchmarkPoolActions].sort((a, b) => getImpact(b) - getImpact(a));
+    else if (poolTab === 'liquiditaet') acts = liqPoolActions;
+    else acts = [...sortedActions, ...benchmarkPoolActions, ...liqPoolActions].sort((a, b) => getImpact(b) - getImpact(a));
     return acts;
-  }, [sortedActions, benchmarkPoolActions, poolTab, TOP_N]);
+  }, [sortedActions, benchmarkPoolActions, liqPoolActions, poolTab, TOP_N]);
 
   // Liquiditätshebel
   const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
@@ -396,7 +412,97 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         <div className="copper-line" />
       </div>
 
-      {/* ─── 0. EMPFOHLENE MAẞNAHMEN (NEU) ─────────────────────────────────── */}
+      {/* ─── 1. STEUERUNGS-KPIs (ERWEITERT) ──────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-3">
+          <span style={DOT} />
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>STEUERUNGS-COCKPIT</span>
+        </div>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+          {[
+            { label: 'AKTIV', value: String(kpis.active_count), color: 'var(--text-primary)', sub: `${kpis.carry_over_count} Carry-Over` },
+            { label: 'UMGESETZT', value: String(kpis.done_count), color: '#2E8B57', sub: '' },
+            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#E65100', sub: 'Offenes Potenzial' },
+            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100', sub: 'Realisierter EBIT' },
+            { label: 'POTENZIAL TOTAL', value: fmtEur(kpis.total_potenzial), color: 'var(--text-primary)', sub: 'Alle Maßnahmen' },
+            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#E65100', sub: 'Realisierung %' },
+            { label: 'NEU DIESEN MONAT', value: String(kpis.new_this_month), color: '#1565C0', sub: `von ${allCurrentItems.length} gesamt` },
+          ].map((kpi, i) => (
+            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #F7F5F2)', border: '1px solid var(--border-color)' }}>
+              <div className="text-xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
+              <div className="text-xs mt-0.5 uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</div>
+              {kpi.sub && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>{kpi.sub}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── 2. BENCHMARKVERGLEICH ────────────────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-1">
+          <span style={DOT} />
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
+          {rawBenchmarks.length === 0 && (
+            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#FFF8E1', color: '#E65100' }}>Branchenzielwerte</span>
+          )}
+        </div>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+          {rawBenchmarks.length > 0 ? 'Branchenvergleich der wichtigsten Kennzahlen' : 'Zielwerte — Istwerte werden nach Datenpflege angezeigt'}
+        </p>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {benchmarks.map((b: any, i: number) => (
+            <BenchmarkGauge key={i} isProxy={!!b.isProxy} label={b.kpi_label || `KPI ${i + 1}`}
+              current={Number(b.current ?? 0)} targetMin={Number(b.target_min ?? 0)} targetMid={Number(b.target_mid ?? 0)} targetMax={Number(b.target_max ?? 0)} />
+          ))}
+        </div>
+      </div>
+
+      {/* ─── 3. LIQUIDITÄTSHEBEL ──────────────────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span style={DOT} />
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>LIQUIDITÄTSHEBEL</span>
+          </div>
+          {totalLiqImpact > 0 && (
+            <div className="text-right">
+              <div className="text-lg font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(totalLiqImpact)}</div>
+              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>LIQUIDITÄTSEFFEKT P.M.</div>
+            </div>
+          )}
+        </div>
+        <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Operative Hebel zur kurzfristigen Liquiditätsverbesserung</p>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {liqLevers.map((lever, i) => {
+            const leverKey = `liq_${i}`;
+            if (!!liqLeversArchived[leverKey]) return null;
+            return (
+              <div key={i} className="p-4 rounded-xl relative" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
+                {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
+                <div className="flex justify-between items-start mb-2">
+                  <div className="font-bold text-sm pr-3 flex-1" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(lever.impact)}</div>
+                    <button onClick={() => setLiqLeversArchived(prev => ({ ...prev, [leverKey]: true }))} className="text-xs px-2 py-1 rounded text-gray-500 hover:text-gray-700 transition-colors">✓</button>
+                  </div>
+                </div>
+                <ul className="space-y-1">
+                  {lever.items.map((item, j) => (
+                    <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <span style={{ color: '#C8A96E', flexShrink: 0 }}>✓</span>{item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── 4. EMPFOHLENE MAẞNAHMEN ─────────────────────────────────────── */}
       {visibleRecs.length > 0 && (
         <div className="card" style={{ borderLeft: '4px solid #C8A96E' }}>
           <div className="flex items-center justify-between mb-1">
@@ -449,54 +555,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
       )}
 
-      {/* ─── 1. STEUERUNGS-KPIs (ERWEITERT) ──────────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-3">
-          <span style={DOT} />
-          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>STEUERUNGS-COCKPIT</span>
-        </div>
-        <div style={COPPER_LINE} />
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-          {[
-            { label: 'AKTIV', value: String(kpis.active_count), color: 'var(--text-primary)', sub: `${kpis.carry_over_count} Carry-Over` },
-            { label: 'UMGESETZT', value: String(kpis.done_count), color: '#2E8B57', sub: '' },
-            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#E65100', sub: 'Offenes Potenzial' },
-            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100', sub: 'Realisierter EBIT' },
-            { label: 'POTENZIAL TOTAL', value: fmtEur(kpis.total_potenzial), color: 'var(--text-primary)', sub: 'Alle Maßnahmen' },
-            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#E65100', sub: 'Realisierung %' },
-            { label: 'NEU DIESEN MONAT', value: String(kpis.new_this_month), color: '#1565C0', sub: `von ${allCurrentItems.length} gesamt` },
-          ].map((kpi, i) => (
-            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #F7F5F2)', border: '1px solid var(--border-color)' }}>
-              <div className="text-xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
-              <div className="text-xs mt-0.5 uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</div>
-              {kpi.sub && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>{kpi.sub}</div>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ─── 2. BENCHMARKVERGLEICH ────────────────────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center gap-2 mb-1">
-          <span style={DOT} />
-          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
-          {rawBenchmarks.length === 0 && (
-            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#FFF8E1', color: '#E65100' }}>Branchenzielwerte</span>
-          )}
-        </div>
-        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-          {rawBenchmarks.length > 0 ? 'Branchenvergleich der wichtigsten Kennzahlen' : 'Zielwerte — Istwerte werden nach Datenpflege angezeigt'}
-        </p>
-        <div style={COPPER_LINE} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {benchmarks.map((b: any, i: number) => (
-            <BenchmarkGauge key={i} isProxy={!!b.isProxy} label={b.kpi_label || `KPI ${i + 1}`}
-              current={Number(b.current ?? 0)} targetMin={Number(b.target_min ?? 0)} targetMid={Number(b.target_mid ?? 0)} targetMax={Number(b.target_max ?? 0)} />
-          ))}
-        </div>
-      </div>
-
-      {/* ─── 3. EBIT-HEBEL ────────────────────────────────────────────────── */}
+      {/* ─── 4. EBIT-HEBEL ────────────────────────────────────────────────── */}
       {sortedActions.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-1">
@@ -548,70 +607,6 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
       )}
 
-      {/* ─── 4. LIQUIDITÄTSHEBEL ──────────────────────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            <span style={DOT} />
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>LIQUIDITÄTSHEBEL</span>
-          </div>
-          {totalLiqImpact > 0 && (
-            <div className="text-right">
-              <div className="text-lg font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(totalLiqImpact)}</div>
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>LIQUIDITÄTSEFFEKT P.M.</div>
-            </div>
-          )}
-        </div>
-        <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Operative Hebel zur kurzfristigen Liquiditätsverbesserung</p>
-        <div style={COPPER_LINE} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          {liqLevers.map((lever, i) => {
-            const leverKey = `liq_${i}`;
-            if (!!liqLeversArchived[leverKey]) return null;
-            return (
-              <div key={i} className="p-4 rounded-xl relative" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
-                {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
-                <div className="flex justify-between items-start mb-2">
-                  <div className="font-bold text-sm pr-3 flex-1" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(lever.impact)}</div>
-                    <button onClick={() => setLiqLeversArchived(prev => ({ ...prev, [leverKey]: true }))} className="text-xs px-2 py-1 rounded text-gray-500 hover:text-gray-700 transition-colors">✓</button>
-                  </div>
-                </div>
-                <ul className="space-y-1">
-                  {lever.items.map((item, j) => (
-                    <li key={j} className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <span style={{ color: '#C8A96E', flexShrink: 0 }}>✓</span>{item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-        <details className="rounded-xl border border-gray-300 bg-gray-50 p-3" style={{ marginTop: '1rem' }} open={Object.values(liqLeversArchived).some(v => v)}>
-          <summary className="text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Archiv ({Object.values(liqLeversArchived).filter(v => v).length} abgeschlossen)</summary>
-          <div className="mt-3 space-y-2">
-            {!Object.values(liqLeversArchived).some(v => v) && <div className="text-xs text-center py-2" style={{ color: 'var(--text-secondary)' }}>Klicke ✓ um erledigte Hebel zu archivieren</div>}
-            {liqLevers.map((lever, i) => {
-              const leverKey = `liq_${i}`;
-              if (!liqLeversArchived[leverKey]) return null;
-              return (
-                <div key={i} className="p-3 rounded-lg bg-white border border-gray-200 opacity-60">
-                  <div className="flex justify-between items-start">
-                    <div className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: '#2E7D32' }}>✓</span>
-                      <button onClick={() => setLiqLeversArchived(prev => { const n = { ...prev }; delete n[leverKey]; return n; })} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">↩️</button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      </div>
-
       {/* ─── 5. MAẞNAHMENPOOL (bestehend, mit Engine-Integration) ─────── */}
       <div className="card">
         <div className="flex items-center justify-between mb-1">
@@ -619,14 +614,15 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             <span style={DOT} />
             <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>MAẞNAHMENPOOL</span>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--border-color)', color: 'var(--text-secondary)' }}>{sortedActions.length + benchmarkPoolActions.length} verfügbar</span>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: 'var(--border-color)', color: 'var(--text-secondary)' }}>{sortedActions.length + benchmarkPoolActions.length + liqPoolActions.length} verfügbar</span>
         </div>
         <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>Maßnahmen auswählen und in den Tracker übernehmen</p>
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 flex-wrap">
           {([
-            ['alle', `Alle ${sortedActions.length + benchmarkPoolActions.length}`],
+            ['alle', `Alle ${sortedActions.length + benchmarkPoolActions.length + liqPoolActions.length}`],
             ['vertraege', `Verträge ${Math.min(TOP_N, sortedActions.length)}`],
             ['benchmarks', `Benchmarks ${benchmarkPoolActions.length}`],
+            ['liquiditaet', `Liquidität ${liqPoolActions.length}`],
           ] as [PoolTab, string][]).map(([key, lbl]) => (
             <button key={key} onClick={() => setPoolTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(poolTab === key)}>{lbl}</button>
           ))}
@@ -636,23 +632,40 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             const key = action.action_key || action.contract_id || `a${idx}`;
             const selected = selectedKeys.has(key);
             const impact = getImpact(action);
-            const isTop = !action.isBenchmark && sortedActions.indexOf(action) < TOP_N;
+            const isTop = !action.isBenchmark && !action.isLiquidity && sortedActions.indexOf(action) < TOP_N;
             const isBench = !!action.isBenchmark;
+            const isLiq = !!action.isLiquidity;
+            // Badge styling per type
+            const badgeStyle = isLiq
+              ? { background: '#E3F2FD', color: '#1565C0' }
+              : isBench
+              ? { background: '#E8F5E9', color: '#2E7D32' }
+              : { background: '#FFF3E0', color: '#E65100' };
+            const badgeText = isLiq ? 'LIQ' : isBench ? 'BM' : 'VTR';
+
             return (
-              <div key={key} onClick={() => handleTogglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
+              <div key={key} onClick={() => handleTogglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : action.isBiggest ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
                 <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
                   {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
                 </div>
-                <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={isBench ? { background: '#E8F5E9', color: '#2E7D32' } : { background: '#FFF3E0', color: '#E65100' }}>
-                  {isBench ? 'BM' : 'VTR'}
+                <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={badgeStyle}>
+                  {badgeText}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}</div>
+                  <div className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                    {action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}
+                    {action.isBiggest && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#C8A96E', color: '#fff', fontSize: '0.6rem' }}>GRÖSSTER HEBEL</span>}
+                  </div>
                   {action.category && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{action.category}</div>}
                 </div>
                 <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
                   {isBench ? (
                     <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: '#E8F5E9', color: '#2E7D32' }}>BENCHMARK</span>
+                  ) : isLiq ? (
+                    <>
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: '#E3F2FD', color: '#1565C0' }}>LIQUIDITÄT</span>
+                      {impact > 0 && <div className="text-xs font-bold" style={{ color: '#1565C0' }}>+{fmtEur(impact)}/M</div>}
+                    </>
                   ) : (
                     <>
                       <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
@@ -663,6 +676,37 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
               </div>
             );
           })}
+
+          {/* Archiv für erledigte Liquiditätshebel (nur im Liquiditäts-Tab sichtbar) */}
+          {poolTab === 'liquiditaet' && archivedLiqCount > 0 && (
+            <details className="mt-4">
+              <summary className="text-xs font-semibold cursor-pointer px-3 py-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.03)', color: 'var(--text-secondary)' }}>
+                Archiv — {archivedLiqCount} erledigte Liquiditätshebel
+              </summary>
+              <div className="mt-2 space-y-2">
+                {liqLevers.map((lever, i) => {
+                  const leverKey = `liq_${i}`;
+                  if (!liqLeversArchived[leverKey]) return null;
+                  return (
+                    <div key={leverKey} className="flex items-center gap-3 p-3 rounded-xl" style={{ border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)', opacity: 0.7 }}>
+                      <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: '#E3F2FD', color: '#1565C0' }}>LIQ</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm line-through" style={{ color: 'var(--text-secondary)' }}>{lever.title}</div>
+                        <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lever.items.join(' · ')}</div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLiqLeversArchived(prev => ({ ...prev, [leverKey]: false })); }}
+                        className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                        style={{ background: 'rgba(21,101,192,0.1)', color: '#1565C0', border: '1px solid rgba(21,101,192,0.2)' }}
+                      >
+                        Wiederherstellen
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
         </div>
       </div>
 
