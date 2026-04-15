@@ -26,91 +26,140 @@ const FALLBACK_BENCHMARKS = [
 function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isProxy }: {
   label: string; current: number; targetMin: number; targetMid: number; targetMax: number; isProxy?: boolean;
 }) {
-  // Use slightly wider range for better visualization
-  const range = Math.max(targetMax, current) * 1.15 || 1;
-  const pctCurrent = (current / range) * 100;
-  const pctMin = (targetMin / range) * 100;
-  const pctMax = (targetMax / range) * 100;
-  const pctMid = (targetMid / range) * 100;
-
-  // Status: In target (grün), Below target (rot), Above target (grün-dunkel)
-  const inTarget = current > 0 && current >= targetMin && current <= targetMax;
-  const belowTarget = current > 0 && current < targetMin;
-  const aboveTarget = current > 0 && current > targetMax;
   const hasValue = current > 0;
+  const isAbsScale = targetMax > 10; // Stundensatz/Preis = absolute Werte, keine 0-100 Skala
+  const inTarget = hasValue && current >= targetMin && current <= targetMax;
+  const belowTarget = hasValue && current < targetMin;
 
-  // Farblogik: GRÜN = im Bereich, GELB = leicht unter, ROT = deutlich unter
-  let barColor = '#ccc'; // Keine Daten
+  // Für %-KPIs: Skala 0-100 (zeige % als Score). Für €-KPIs: absolute Skala
+  let score = 0;
+  let scoreLabel = '–';
   if (hasValue) {
-    if (inTarget) barColor = '#2E8B57'; // Grün: im Zielbereich
-    else if (belowTarget) {
-      const gap = (targetMin - current) / targetMin;
-      barColor = gap > 0.2 ? '#C43830' : '#E8A76A'; // Rot wenn >20% unter, sonst gelb
-    } else barColor = '#2E8B57'; // Grün: über Ziel
+    if (isAbsScale) {
+      // Absolute Werte (z.B. Stundensatz): direkt anzeigen
+      score = current;
+      scoreLabel = `${Math.round(current)} €`;
+    } else {
+      // Prozent-KPIs (Marge, Produktivität, PKQ): als 0-100 Score
+      score = Math.round(current * 100);
+      scoreLabel = `${score} / 100`;
+    }
   }
 
-  const fmt = (v: number) => v > 0 && v < 1 ? fmtPct(v) : v > 0 ? String(Math.round(v)) : '–';
-  const statusText = !hasValue ? 'Keine Daten' : inTarget ? '✓ Im Plan' : belowTarget ? 'Optimierbar' : 'Überzeugt';
+  // Zielbereich auf gleicher Skala
+  const scMin = isAbsScale ? targetMin : Math.round(targetMin * 100);
+  const scMid = isAbsScale ? targetMid : Math.round(targetMid * 100);
+  const scMax = isAbsScale ? targetMax : Math.round(targetMax * 100);
+  const scCur = isAbsScale ? current : Math.round(current * 100);
+
+  // Gauge-Balken: Position relativ zur Skala
+  const scaleMax = isAbsScale ? Math.max(targetMax * 1.25, current * 1.1) : 100;
+  const pctCurrent = hasValue ? Math.min((scCur / scaleMax) * 100, 100) : 0;
+  const pctMin = (scMin / scaleMax) * 100;
+  const pctMax = Math.min((scMax / scaleMax) * 100, 100);
+  const pctMid = (scMid / scaleMax) * 100;
+
+  // Farblogik
+  let barColor = '#ccc';
+  let statusText = 'Keine Daten';
+  let statusBg = '#F5F5F5';
+  let statusColor = '#999';
+  if (hasValue) {
+    if (inTarget) {
+      barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32';
+    } else if (belowTarget) {
+      const gap = (targetMin - current) / targetMin;
+      if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
+      else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
+    } else {
+      barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
+    }
+  }
+
+  // Erklärtext für den Kontext
+  const lbl = (label || '').toLowerCase();
+  let explanation = '';
+  if (lbl.includes('produktiv')) explanation = hasValue ? `${score}% der Kapazität werden produktiv genutzt` : 'Anteil produktiv genutzter Arbeitsstunden';
+  else if (lbl.includes('stundensatz') || lbl.includes('preis')) explanation = hasValue ? `Durchschnittlicher Verrechnungssatz` : 'Durchschnittlicher Verrechnungssatz je Stunde';
+  else if (lbl.includes('personal') || lbl.includes('lohn')) explanation = hasValue ? `${score}% des Umsatzes gehen in Personalkosten` : 'Personalkostenanteil am Umsatz';
 
   return (
     <div className="card">
       <div className="flex justify-between items-start mb-2">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{label}</div>
-          <div className="text-sm font-bold mt-0.5" style={{ color: hasValue ? barColor : 'var(--text-secondary)' }}>
-            {hasValue ? (current < 1 ? fmtPct(current) : `${Math.round(current)}`) : '–'}
+          <div className="text-xl font-bold mt-0.5" style={{ color: hasValue ? barColor : 'var(--text-secondary)' }}>
+            {scoreLabel}
           </div>
         </div>
-        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{
-          background: barColor === '#2E8B57' ? '#E8F5E9' : barColor === '#E8A76A' ? '#FFF8E1' : '#FFEBEE',
-          color: barColor === '#2E8B57' ? '#2E7D32' : barColor === '#E8A76A' ? '#E65100' : '#C43830'
-        }}>
+        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: statusBg, color: statusColor }}>
           {statusText}
         </span>
       </div>
 
-      {/* Bar mit Zielbereich */}
-      <div className="relative h-3 rounded-full" style={{ backgroundColor: 'var(--border-color)' }}>
-        {/* Zielbereich-Hintergrund */}
-        <div className="absolute h-3 rounded-full" style={{
+      {explanation && (
+        <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>{explanation}</div>
+      )}
+
+      {/* Gauge-Balken */}
+      <div className="relative h-4 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+        {/* Zielkorridor (grüner Hintergrund) */}
+        <div className="absolute h-4 rounded" style={{
           left: `${pctMin}%`,
           width: `${Math.max(0, pctMax - pctMin)}%`,
-          backgroundColor: 'rgba(46,139,87,0.12)'
+          backgroundColor: 'rgba(46,139,87,0.15)',
+          borderLeft: '2px solid rgba(46,139,87,0.4)',
+          borderRight: '2px solid rgba(46,139,87,0.4)',
         }} />
         {/* Ist-Wert Balken */}
         {hasValue && (
-          <div className="absolute h-3 rounded-full transition-all" style={{
-            width: `${Math.min(pctCurrent, 100)}%`,
-            backgroundColor: barColor
+          <div className="absolute h-4 rounded-full transition-all" style={{
+            width: `${pctCurrent}%`,
+            backgroundColor: barColor,
+            opacity: 0.85,
           }} />
         )}
-        {/* Zielwert-Markierung */}
-        <div className="absolute top-0 w-0.5 h-3" style={{
+        {/* Zielwert-Nadel */}
+        <div className="absolute top-0 h-4" style={{
           left: `${pctMid}%`,
-          backgroundColor: 'rgba(0,0,0,0.3)'
+          width: 2,
+          backgroundColor: '#333',
+          borderRadius: 1,
         }} />
       </div>
 
-      {/* Bereichs-Labels */}
-      <div className="flex justify-between text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
-        <span><strong>Min:</strong> {fmt(targetMin)}</span>
-        <span><strong>Ziel:</strong> {fmt(targetMid)}</span>
-        <span><strong>Max:</strong> {fmt(targetMax)}</span>
+      {/* Legende unter dem Balken */}
+      <div className="flex justify-between text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+        <span>{isAbsScale ? '0 €' : '0'}</span>
+        <span style={{ color: '#2E8B57', fontWeight: 600 }}>Ziel: {isAbsScale ? `${Math.round(scMid)} €` : scMid}</span>
+        <span>{isAbsScale ? `${Math.round(scaleMax)} €` : '100'}</span>
       </div>
 
-      {/* Info-Text */}
+      {/* Istwert-Quelle */}
       {!hasValue && (
-        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)' }}>
           Istwert wird nach Datenpflege angezeigt
         </div>
       )}
       {hasValue && isProxy && (
-        <div className="text-xs mt-1.5 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
+        <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
           Berechnet aus Finanzdaten
         </div>
       )}
     </div>
   );
+}
+
+/** Konkrete Maßnahmen je nach Vertragstyp und Marge */
+function getMassnahmeText(action: any, rank: number): string {
+  const margin = Number(action.margin_pct ?? 0);
+  const name = (action.action_label || action.contract_name || '').toLowerCase();
+
+  if (margin < 0) return 'Vertrag kündigen oder Nachverhandlung mit Preisanpassung +15–20%';
+  if (margin < 0.05) return 'Stundensatz um 10–15% erhöhen, Materialzuschlag prüfen, Einsatzplanung optimieren';
+  if (margin < 0.08) return 'Einsatzzeiten verdichten, Fahrtkosten reduzieren, Leistungsumfang anpassen';
+  if (margin < 0.12) return 'Zusatzleistungen anbieten, Vertragslaufzeit verlängern, Preisindex-Klausel einbauen';
+  return 'Vertrag als Referenz nutzen, Konditionen bei Verlängerung halten';
 }
 
 type TrackerStatus = 'Offen' | 'In Bearbeitung' | 'Umgesetzt';
@@ -371,15 +420,23 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
               const impact = getImpact(action);
               const badge = getEbitBadge(action, rank);
               return (
-                <div key={action.action_key || idx} className="flex items-center gap-3 p-3.5 rounded-xl" style={{ border: '1px solid var(--border-color)', background: '#fff' }}>
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#C8A96E', color: '#fff' }}>{rank}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${rank}`}</div>
-                    <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Aufwand: mittel · Wirkung: 1–3 Monate</div>
+                <div key={action.action_key || idx} className="p-3.5 rounded-xl" style={{ border: '1px solid var(--border-color)', background: '#fff' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#C8A96E', color: '#fff' }}>{rank}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${rank}`}</div>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        Marge: {fmtPct(action.margin_pct)} · Wirkung: 1–3 Monate
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
+                      <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: badge.bg, color: badge.color }}>{badge.text}</span>
+                    </div>
                   </div>
-                  <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
-                    <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: badge.bg, color: badge.color }}>{badge.text}</span>
+                  {/* Konkrete Maßnahme */}
+                  <div className="mt-2 ml-11 text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(200,169,110,0.08)', color: 'var(--text-secondary)', borderLeft: '3px solid #C8A96E' }}>
+                    → {getMassnahmeText(action, rank)}
                   </div>
                 </div>
               );
