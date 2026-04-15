@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     const draftId: string = gmailJson.id;
     const threadId: string = gmailJson.message?.threadId || draftId;
-        const draftUrl = `https://mail.google.com/mail/u/0/#drafts/${threadId}`;
+        const draftUrl = `https://mail.google.com/mail/u/1/#drafts/${threadId}`;
 
     return NextResponse.json({ success: true, draftId, draftUrl });
   } catch (error) {
