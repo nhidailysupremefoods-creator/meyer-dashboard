@@ -8,6 +8,8 @@ import {
   updateItemStatus, removeItem as removeEngineItem, getAutoCompleteHints,
   computeKPIs, sortByPriority, applyCarryOver, deduplicateItems,
   type MassnahmeItem, type MassnahmeStatus, type Recommendation, type EngineState,
+  type BenchmarkInput, type LiquidityLeverInput,
+  estimateBenchmarkEurImpact,
 } from '@/lib/massnahmen-engine';
 
 interface Props {
@@ -257,15 +259,10 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
   }, [rawBenchmarks, data, industryTargets]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ENGINE STATE
+  // ENGINE STATE (wird nach benchmarks + liqLevers initialisiert, s.u.)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const [engineState, setEngineState] = useState<EngineState>(() => runEngine(customer, period, actions));
-
-  // Re-run engine wenn sich Kunde oder Periode ändert
-  useEffect(() => {
-    setEngineState(runEngine(customer, period, actions));
-  }, [customer, period, actions]);
+  const [engineState, setEngineState] = useState<EngineState>({ items: [], recommendations: [], kpis: { active_count: 0, done_count: 0, open_pipeline: 0, realized_ebit: 0, total_potenzial: 0, capture_rate: 0, carry_over_count: 0, new_this_month: 0 } });
 
   const { items, recommendations, kpis } = engineState;
 
@@ -339,11 +336,22 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
   const selectedKeys = useMemo(() => new Set(items.map(i => i.action_key)), [items]);
 
   const benchmarkPoolActions = useMemo(() =>
-    benchmarks.map((b: any, i: number) => ({
-      action_key: `bench_${i}`, action_label: b.kpi_label || `Benchmark ${i + 1}`,
-      contract_name: b.kpi_label, category: 'Benchmark-Maßnahme', impact_eur: 0, ebit_potential_eur: 0,
-      isBenchmark: true, belowTarget: Number(b.current ?? 0) > 0 && Number(b.current) < Number(b.target_min ?? b.target_mid ?? 0),
-    })), [benchmarks]);
+    benchmarks.map((b: any, i: number) => {
+      const cur = Number(b.current ?? 0);
+      const tMin = Number(b.target_min ?? 0);
+      const tMid = Number(b.target_mid ?? 0);
+      const lbl = (b.kpi_label || '').toLowerCase();
+      const lowerIsBetter = lbl.includes('personal') || lbl.includes('lohn') || lbl.includes('pkq');
+      const gapToMid = lowerIsBetter ? cur - tMid : tMid - cur;
+      const hasGap = cur > 0 && gapToMid > 0;
+      const eurImpact = hasGap ? estimateBenchmarkEurImpact(b.kpi_label, cur, tMid, monthlyRevenue) : 0;
+      return {
+        action_key: `bench_${i}`, action_label: b.kpi_label || `Benchmark ${i + 1}`,
+        contract_name: b.kpi_label, category: 'Benchmark-Maßnahme',
+        impact_eur: eurImpact, ebit_potential_eur: eurImpact,
+        isBenchmark: true, belowTarget: hasGap,
+      };
+    }), [benchmarks, monthlyRevenue]);
 
   // Liquiditätshebel — MUSS vor liqPoolActions deklariert werden
   const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
@@ -357,6 +365,28 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
     ];
   }, [totalEbitPotential]);
   const totalLiqImpact = liqLevers.reduce((s, l) => s + l.impact, 0);
+
+  // ─── Engine initialisieren (nach benchmarks + liqLevers verfügbar) ────────
+  const monthlyRevenue = Number((data as any)?.wirkung?.revenue ?? (data as any)?.overview?.revenue ?? 0);
+
+  const benchmarkInputs: BenchmarkInput[] = useMemo(() =>
+    benchmarks.map((b: any) => ({
+      kpi_label: b.kpi_label || '',
+      current: Number(b.current ?? 0),
+      target_min: Number(b.target_min ?? 0),
+      target_mid: Number(b.target_mid ?? 0),
+      target_max: Number(b.target_max ?? 0),
+      isProxy: !!b.isProxy,
+    })), [benchmarks]);
+
+  const liqLeverInputs: LiquidityLeverInput[] = useMemo(() =>
+    liqLevers.map(l => ({ title: l.title, impact: l.impact, biggest: l.biggest, items: l.items })),
+    [liqLevers]);
+
+  // Re-run engine wenn sich Daten ändern
+  useEffect(() => {
+    setEngineState(runEngine(customer, period, actions, benchmarkInputs, liqLeverInputs, monthlyRevenue));
+  }, [customer, period, actions, benchmarkInputs, liqLeverInputs, monthlyRevenue]);
 
   // Liquiditätshebel als Pool-Items
   const liqPoolActions = useMemo(() =>
@@ -502,59 +532,6 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
       </div>
 
-      {/* ─── 4. EMPFOHLENE MAẞNAHMEN ─────────────────────────────────────── */}
-      {visibleRecs.length > 0 && (
-        <div className="card" style={{ borderLeft: '4px solid #C8A96E' }}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <span style={{ ...DOT, background: '#C8A96E', width: 10, height: 10 }} />
-              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>EMPFOHLENE MAẞNAHMEN</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#FFF3E0', color: '#E65100' }}>
-                {visibleRecs.length} Vorschläge
-              </span>
-            </div>
-            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Basierend auf Ihren aktuellen KPIs
-            </span>
-          </div>
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-            Das System hat die folgenden Maßnahmen als besonders wirkungsvoll identifiziert
-          </p>
-          <div style={COPPER_LINE} />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {visibleRecs.map((rec) => (
-              <div key={rec.action_key} className="p-4 rounded-xl" style={{ border: '1.5px solid rgba(200,169,110,0.4)', background: 'linear-gradient(135deg, rgba(200,169,110,0.04) 0%, rgba(255,255,255,1) 100%)' }}>
-                <div className="flex items-start justify-between mb-2">
-                  <UrgencyBadge urgency={rec.urgency} />
-                  {rec.potenzial > 0 && (
-                    <span className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(rec.potenzial)}</span>
-                  )}
-                </div>
-                <div className="font-bold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>{rec.label}</div>
-                <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{rec.reason}</div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAcceptRecommendation(rec)}
-                    className="flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all"
-                    style={{ background: '#C8A96E', color: '#fff', border: 'none', cursor: 'pointer' }}
-                  >
-                    Übernehmen
-                  </button>
-                  <button
-                    onClick={() => setDismissedRecs(prev => { const n = new Set(Array.from(prev)); n.add(rec.action_key); return n; })}
-                    className="px-3 py-2 rounded-lg text-xs font-bold transition-all"
-                    style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', cursor: 'pointer' }}
-                  >
-                    Später
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ─── 4. EBIT-HEBEL ────────────────────────────────────────────────── */}
       {sortedActions.length > 0 && (
         <div className="card">
@@ -607,7 +584,70 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
       )}
 
-      {/* ─── 5. MAẞNAHMENPOOL (bestehend, mit Engine-Integration) ─────── */}
+      {/* ─── 5. EMPFOHLENE MAẞNAHMEN (nach EBIT-Hebel) ────────────────── */}
+      {visibleRecs.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #C8A96E' }}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span style={{ ...DOT, background: '#C8A96E', width: 10, height: 10 }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>EMPFOHLENE MAẞNAHMEN</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#FFF3E0', color: '#E65100' }}>
+                {visibleRecs.length} Vorschläge
+              </span>
+            </div>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Verträge · Benchmarks · Liquidität
+            </span>
+          </div>
+          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Das System hat die folgenden Maßnahmen als besonders wirkungsvoll identifiziert
+          </p>
+          <div style={COPPER_LINE} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {visibleRecs.map((rec) => {
+              const catBadge = rec.category === 'BENCHMARK'
+                ? { bg: '#E8F5E9', color: '#2E7D32', text: 'BM' }
+                : rec.category === 'LIQUIDITAET'
+                ? { bg: '#E3F2FD', color: '#1565C0', text: 'LIQ' }
+                : { bg: '#FFF3E0', color: '#E65100', text: 'VTR' };
+              return (
+                <div key={rec.action_key} className="p-4 rounded-xl" style={{ border: '1.5px solid rgba(200,169,110,0.4)', background: 'linear-gradient(135deg, rgba(200,169,110,0.04) 0%, rgba(255,255,255,1) 100%)' }}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <UrgencyBadge urgency={rec.urgency} />
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: catBadge.bg, color: catBadge.color }}>{catBadge.text}</span>
+                    </div>
+                    {rec.potenzial > 0 && (
+                      <span className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(rec.potenzial)}</span>
+                    )}
+                  </div>
+                  <div className="font-bold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>{rec.label}</div>
+                  <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{rec.reason}</div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAcceptRecommendation(rec)}
+                      className="flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                      style={{ background: '#C8A96E', color: '#fff', border: 'none', cursor: 'pointer' }}
+                    >
+                      Übernehmen
+                    </button>
+                    <button
+                      onClick={() => setDismissedRecs(prev => { const n = new Set(Array.from(prev)); n.add(rec.action_key); return n; })}
+                      className="px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                      style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                    >
+                      Später
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 6. MAẞNAHMENPOOL (bestehend, mit Engine-Integration) ─────── */}
       <div className="card">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -799,18 +839,19 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                       </td>
                       <td className="py-3 px-3" style={{ minWidth: 160 }}>
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 relative h-3 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
-                            <div className="absolute h-3 rounded-full transition-all" style={{ width: `${item.realization}%`, background: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E8A76A' : '#E0E0E0' }} />
-                          </div>
+                          {trackerTab === 'aktiv' ? (
+                            <input type="range" min={0} max={100} step={5} value={item.realization}
+                              onChange={e => handleUpdateStatus(item.action_key, { realization: Number(e.target.value) })}
+                              className="flex-1" style={{ accentColor: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#C8A96E' : '#999', height: 6 }} />
+                          ) : (
+                            <div className="flex-1 relative h-2.5 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+                              <div className="absolute h-2.5 rounded-full transition-all" style={{ width: `${item.realization}%`, background: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E8A76A' : '#E0E0E0' }} />
+                            </div>
+                          )}
                           <span className="text-sm font-bold w-10 text-right" style={{ color: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E65100' : 'var(--text-secondary)' }}>
                             {item.realization}%
                           </span>
                         </div>
-                        {trackerTab === 'aktiv' && (
-                          <input type="range" min={0} max={100} step={5} value={item.realization}
-                            onChange={e => handleUpdateStatus(item.action_key, { realization: Number(e.target.value) })}
-                            className="w-full mt-1" style={{ accentColor: '#C8A96E', height: 4 }} />
-                        )}
                         {isAutoCompleteCandidate && trackerTab === 'aktiv' && (
                           <div className="text-xs mt-1 px-2 py-1 rounded" style={{ background: 'rgba(16,185,129,0.08)', color: '#2E7D32' }}>
                             → Abschluss empfohlen

@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { extractKPIs, generateLeitfadenHtml } from '@/lib/leitfaden-generator';
+import { getMarginTargetsForCustomer } from '@/lib/config';
 
 /**
  * Printable PDF export page
  * Loads all 4 pages of dashboard data and renders them in print-friendly HTML.
+ * Seite 5 (Gesprächsleitfaden) wird dynamisch aus den KPI-Daten generiert.
  * Opens via: /dashboard/print?customer=...&period=...
  * Triggers window.print() automatically when all data is loaded.
  */
@@ -29,9 +32,9 @@ export default function PrintPage() {
   const [p2, setP2] = useState<any>(null);
   const [p3, setP3] = useState<any>(null);
   const [p4, setP4] = useState<any>(null);
-  const [leitfaden, setLeitfaden] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [customerMeta, setCustomerMeta] = useState<any>(null);
   const printed = useRef(false);
 
   useEffect(() => {
@@ -54,18 +57,19 @@ export default function PrintPage() {
         setP3(r3);
         setP4(r4);
 
-        // Try loading Leitfaden (optional — skip on error)
+        // Try to load customer metadata for industry segment
         try {
           const token = api.getToken() || '';
-          const lr = await fetch(
-            `/api/admin/leitfaden?customer=${encodeURIComponent(customer)}&period=${encodeURIComponent(period)}`,
+          const cr = await fetch(
+            `/api/admin/customers?_t=${Date.now()}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          const ld = await lr.json();
-          if (ld.leitfaden_html) setLeitfaden(ld.leitfaden_html);
-          else if (ld.leitfaden) setLeitfaden(`<p>${String(ld.leitfaden).replace(/\n/g,'<br>')}</p>`);
+          const cd = await cr.json();
+          const custs = cd?.customers || cd?.data?.customers || [];
+          const match = custs.find((c: any) => c.customer_id === customer);
+          if (match) setCustomerMeta(match);
         } catch {
-          // Leitfaden is optional
+          // Customer meta is optional
         }
       } catch (err: any) {
         setError(`Fehler beim Laden: ${err.message}`);
@@ -76,6 +80,22 @@ export default function PrintPage() {
 
     loadAll();
   }, [customer, period]);
+
+  // Generate dynamic Leitfaden from P1-P4 data
+  const leitfadenHtml = useMemo(() => {
+    if (!p1 || !p2 || !p3 || !p4) return null;
+    try {
+      const kpis = extractKPIs(p1, p2, p3, p4);
+      const industrySegment = customerMeta?.industry_segment;
+      const targets = industrySegment
+        ? (() => { const t = getMarginTargetsForCustomer(industrySegment); return t ? { warn: t[0], good: t[1] } : { warn: 0.07, good: 0.12 }; })()
+        : { warn: 0.07, good: 0.12 };
+      const customerName = (customerMeta?.name || customerMeta?.display_name || customer).replace(/_/g, ' ');
+      return generateLeitfadenHtml(kpis, customerName, targets);
+    } catch {
+      return null;
+    }
+  }, [p1, p2, p3, p4, customer, customerMeta]);
 
   // Auto-print once all data is loaded
   useEffect(() => {
@@ -130,7 +150,7 @@ export default function PrintPage() {
           onClick={() => window.print()}
           style={{ padding: '0.75rem 2rem', backgroundColor: '#B08A6A', color: 'white', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
         >
-          🖨️ Als PDF speichern
+          Als PDF speichern
         </button>
         <button
           onClick={() => window.close()}
@@ -170,7 +190,7 @@ export default function PrintPage() {
             { label: 'Marge', value: fmtPct(d1.margin_pct || 0) },
             { label: 'Kostenquote', value: fmtPct(Math.abs(d1.cost || 0) / Math.max(d1.revenue || 1, 1)) },
             { label: 'Personalkosten', value: fmtEur(Math.abs(d1.payroll_cost || d1.cost_variable || 0)) },
-            { label: 'Status', value: d1.status_color === 'GREEN' ? '🟢 Gut' : d1.status_color === 'YELLOW' ? '🟡 Warnung' : '🔴 Kritisch' },
+            { label: 'Status', value: d1.status_color === 'GREEN' ? 'Gut' : d1.status_color === 'YELLOW' ? 'Warnung' : 'Kritisch' },
           ].map((item, idx) => (
             <div
               key={idx}
@@ -248,7 +268,7 @@ export default function PrintPage() {
             { label: 'Break-Even MRR', value: fmtEur(d3.break_even_revenue || d3.breakeven_revenue || 0) },
             { label: 'Ø Monatliche Kosten', value: fmtEur(Math.abs(d3.avg_monthly_cost || d3.avg_cost || 0)) },
             { label: 'Liquiditäts-Score', value: `${Math.round(d3.liquidity_score || d3.score || 0)}/100` },
-            { label: 'Status', value: (d3.liquidity_months || 0) >= 3 ? '🟢 Sicher' : (d3.liquidity_months || 0) >= 1.5 ? '🟡 Anspannung' : '🔴 Kritisch' },
+            { label: 'Status', value: (d3.liquidity_months || 0) >= 3 ? 'Sicher' : (d3.liquidity_months || 0) >= 1.5 ? 'Anspannung' : 'Kritisch' },
           ].map((item, idx) => (
             <div key={idx} style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}>
               <p style={{ margin: '0 0 0.25rem', fontSize: '0.7rem', textTransform: 'uppercase', color: '#888' }}>{item.label}</p>
@@ -269,7 +289,7 @@ export default function PrintPage() {
         {/* Monatsfokus */}
         {fokus && (fokus.impact_eur || fokus.ebit_potential_eur) ? (
           <div style={{ backgroundColor: '#B08A6A', borderRadius: '8px', padding: '1.25rem', color: 'white', marginBottom: '1.5rem' }}>
-            <p style={{ margin: '0 0 0.25rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.85 }}>🎯 MONATSFOKUS</p>
+            <p style={{ margin: '0 0 0.25rem', fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.85 }}>MONATSFOKUS</p>
             <p style={{ margin: '0', fontSize: '1.1rem', fontWeight: 'bold' }}>{fokus.action_label || '–'}</p>
             <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem', opacity: 0.9 }}>
               EBIT-Potenzial: {fmtEur(fokus.impact_eur || fokus.ebit_potential_eur || 0)}
@@ -337,23 +357,23 @@ export default function PrintPage() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          PAGE 5: Gesprächsleitfaden (if available)
+          PAGE 5: Gesprächsleitfaden (dynamisch aus KPI-Daten)
       ══════════════════════════════════════════════ */}
-      {leitfaden && (
+      {leitfadenHtml && (
         <div>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 'bold', borderBottom: '3px solid #B08A6A', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
             Seite 5 – Gesprächsleitfaden
           </h2>
           <div
             style={{ lineHeight: 1.7, fontSize: '0.9rem' }}
-            dangerouslySetInnerHTML={{ __html: leitfaden }}
+            dangerouslySetInnerHTML={{ __html: leitfadenHtml }}
           />
         </div>
       )}
 
       {/* Footer */}
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #ddd', textAlign: 'center', fontSize: '0.75rem', color: '#aaa' }}>
-        Meyer Decision GbR · Steuerungs-Dashboard · {customer.replace(/_/g, ' ')} · {periodLabel} · {today}
+        Meyer Decision GmbH · Steuerungs-Dashboard · {customer.replace(/_/g, ' ')} · {periodLabel} · {today}
       </div>
 
       {/* Print CSS */}

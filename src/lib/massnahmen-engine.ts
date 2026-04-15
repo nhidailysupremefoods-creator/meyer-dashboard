@@ -144,6 +144,63 @@ function computePriorityScore(opts: {
   return Math.round(score);
 }
 
+// ─── Benchmark-Daten für Empfehlungen ────────────────────────────────────────
+
+export interface BenchmarkInput {
+  kpi_label: string;
+  current: number;
+  target_min: number;
+  target_mid: number;
+  target_max: number;
+  isProxy?: boolean;
+}
+
+export interface LiquidityLeverInput {
+  title: string;
+  impact: number;
+  biggest: boolean;
+  items: string[];
+}
+
+/**
+ * Schätzt den monatlichen EBIT-Effekt einer Benchmark-Verbesserung.
+ * - Produktivität: Gap × geschätzte Monats-Arbeitsstunden × Stundensatz
+ * - Stundensatz: Gap × geschätzte produktive Stunden/Monat
+ * - Personalkostenquote: Gap × geschätzter Monatsumsatz (Einsparung)
+ */
+export function estimateBenchmarkEurImpact(
+  label: string,
+  current: number,
+  targetMid: number,
+  monthlyRevenue?: number,
+): number {
+  const lbl = (label || '').toLowerCase();
+  const rev = monthlyRevenue && monthlyRevenue > 0 ? monthlyRevenue : 300000; // Fallback
+
+  if (lbl.includes('produktiv')) {
+    // Gap in Prozentpunkten × geschätzte Stunden × Stundensatz
+    const gapPct = Math.max(0, targetMid - current); // z.B. 0.10 = 10pp
+    const monthlyHours = 130; // ~1560/12 pro Mitarbeiter, vereinfacht
+    const avgHourlyRate = rev > 100000 ? Math.round(rev / 1500) : 90;
+    return Math.round(gapPct * monthlyHours * avgHourlyRate * 10); // ×10 für Team-Skalierung
+  }
+
+  if (lbl.includes('stundensatz') || lbl.includes('preis')) {
+    // Gap in EUR × geschätzte produktive Stunden/Monat
+    const gapEur = Math.max(0, targetMid - current); // z.B. 15€
+    const productiveHoursMonth = 1200; // ~1400 × 0.85 für ganzes Team
+    return Math.round(gapEur * productiveHoursMonth);
+  }
+
+  if (lbl.includes('personal') || lbl.includes('lohn') || lbl.includes('pkq')) {
+    // Gap × Monatsumsatz = Einsparpotenzial
+    const gapPct = Math.max(0, current - targetMid); // lower is better
+    return Math.round(gapPct * rev);
+  }
+
+  return 0;
+}
+
 // ─── Automatische Empfehlungen generieren ────────────────────────────────────
 
 export function generateRecommendations(
@@ -151,10 +208,15 @@ export function generateRecommendations(
   existingItems: MassnahmeItem[],
   period: string,
   maxRecommendations: number = 5,
+  benchmarkData?: BenchmarkInput[],
+  liquidityLevers?: LiquidityLeverInput[],
+  monthlyRevenue?: number,
 ): Recommendation[] {
   const existingKeys = new Set(existingItems.map(i => i.action_key));
   const candidates: Recommendation[] = [];
+  const fmtEur = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
+  // ─── 1. Vertrags-Empfehlungen ──────────────────────────────────────────────
   for (const action of actions) {
     const key = action.action_key || action.contract_id || '';
     if (!key) continue;
@@ -177,10 +239,10 @@ export function generateRecommendations(
       reason = `Sehr niedrige Marge (${(margin * 100).toFixed(1)}%) — Preisanpassung notwendig`;
       urgency = 'HOCH';
     } else if (potenzial > 5000) {
-      reason = `Hohes EBIT-Potenzial von ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(potenzial)} p.M.`;
+      reason = `Hohes EBIT-Potenzial von ${fmtEur(potenzial)} p.M.`;
       urgency = 'HOCH';
     } else if (potenzial > 2000) {
-      reason = `EBIT-Potenzial von ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(potenzial)} p.M. identifiziert`;
+      reason = `EBIT-Potenzial von ${fmtEur(potenzial)} p.M. identifiziert`;
       urgency = 'MITTEL';
     } else {
       reason = `Optimierungspotenzial: Marge ${(margin * 100).toFixed(1)}% — Branchenziel ≥ 10%`;
@@ -204,6 +266,124 @@ export function generateRecommendations(
       reason,
       urgency,
     });
+  }
+
+  // ─── 2. Benchmark-Empfehlungen ─────────────────────────────────────────────
+  if (benchmarkData && benchmarkData.length > 0) {
+    for (let i = 0; i < benchmarkData.length; i++) {
+      const b = benchmarkData[i];
+      const key = `bench_${i}`;
+      if (existingKeys.has(key)) continue;
+
+      const cur = Number(b.current ?? 0);
+      const tMin = Number(b.target_min ?? 0);
+      const tMid = Number(b.target_mid ?? 0);
+      if (cur <= 0) continue; // Keine Ist-Daten → kein Vorschlag
+
+      const lbl = (b.kpi_label || '').toLowerCase();
+      const lowerIsBetter = lbl.includes('personal') || lbl.includes('lohn') || lbl.includes('pkq');
+      // gapToMid: positiv = noch Luft nach oben (bzw. nach unten bei PKQ)
+      const gapToMid = lowerIsBetter ? cur - tMid : tMid - cur;
+
+      // Überperformer: Wert ist besser als target_mid → kein Vorschlag nötig
+      if (gapToMid <= 0) continue;
+
+      // Drei Zonen: kritisch (unter/über min), Korridor (zwischen min und mid), drüber
+      const isCritical = lowerIsBetter ? cur > tMid * 1.15 : cur < tMin;
+      const isInCorridor = !isCritical && gapToMid > 0; // im Korridor aber noch nicht bei mid
+
+      const eurImpact = estimateBenchmarkEurImpact(b.kpi_label, cur, tMid, monthlyRevenue);
+
+      let reason = '';
+      let urgency: 'KRITISCH' | 'HOCH' | 'MITTEL' = 'MITTEL';
+      const isAbsScale = tMid > 10; // Stundensatz in EUR
+      const gapDisplay = isAbsScale
+        ? `${Math.round(Math.abs(gapToMid))} €`
+        : `${Math.round(Math.abs(gapToMid) * 100)} Punkte`;
+
+      if (lbl.includes('produktiv')) {
+        if (isCritical) {
+          reason = `Produktivität ${gapDisplay} unter Branchenziel — Leerlaufzeiten reduzieren, Einsatzplanung straffen`;
+          urgency = 'HOCH';
+        } else if (isInCorridor) {
+          reason = `Produktivität im Korridor, aber ${gapDisplay} unter Zielwert — Auslastung und Schichtübergaben optimieren`;
+        }
+      } else if (lbl.includes('stundensatz') || lbl.includes('preis')) {
+        if (isCritical) {
+          reason = `Stundensatz ${gapDisplay} unter Branchenziel — Preiserhöhung bei Vertragsverlängerung`;
+          urgency = 'HOCH';
+        } else if (isInCorridor) {
+          reason = `Stundensatz im Korridor, noch ${gapDisplay} bis Zielwert — Staffelpreise für Zusatzleistungen einführen`;
+        }
+      } else if (lowerIsBetter) {
+        if (isCritical) {
+          reason = `Personalkostenquote ${gapDisplay} über Ziel — Überstunden abbauen, Automatisierung prüfen`;
+          urgency = 'HOCH';
+        } else if (isInCorridor) {
+          reason = `PKQ im Korridor, aber ${gapDisplay} über Zielwert — Einsatzeffizienz steigern`;
+        }
+      }
+
+      if (!reason) continue;
+
+      if (eurImpact > 5000) urgency = urgency === 'MITTEL' ? 'HOCH' : urgency;
+
+      const potenzial = eurImpact;
+      if (eurImpact > 0) {
+        reason += ` (≈ ${fmtEur(eurImpact)} p.M.)`;
+      }
+
+      candidates.push({
+        action_key: key,
+        label: b.kpi_label || `Benchmark ${i + 1}`,
+        description: `Benchmark-Optimierung: ${b.kpi_label}`,
+        category: 'BENCHMARK',
+        potenzial,
+        priority_score: computePriorityScore({
+          potenzial,
+          status: 'OPEN',
+          realization: 0,
+          carry_over_count: 0,
+        }),
+        reason,
+        urgency,
+      });
+    }
+  }
+
+  // ─── 3. Liquiditäts-Empfehlungen ───────────────────────────────────────────
+  if (liquidityLevers && liquidityLevers.length > 0) {
+    for (let i = 0; i < liquidityLevers.length; i++) {
+      const lever = liquidityLevers[i];
+      const key = `liq_${i}`;
+      if (existingKeys.has(key)) continue;
+
+      const impact = Number(lever.impact ?? 0);
+      if (impact <= 0) continue;
+
+      let urgency: 'KRITISCH' | 'HOCH' | 'MITTEL' = 'MITTEL';
+      if (lever.biggest) urgency = 'HOCH';
+      if (impact > 5000) urgency = urgency === 'MITTEL' ? 'HOCH' : urgency;
+
+      const topItems = lever.items.slice(0, 2).join(', ');
+      const reason = `Liquiditätseffekt ${fmtEur(impact)} p.M. — ${topItems}`;
+
+      candidates.push({
+        action_key: key,
+        label: lever.title,
+        description: lever.items.join(' · '),
+        category: 'LIQUIDITAET',
+        potenzial: impact,
+        priority_score: computePriorityScore({
+          potenzial: impact,
+          status: 'OPEN',
+          realization: 0,
+          carry_over_count: 0,
+        }) + (lever.biggest ? 5 : 0), // Biggest-Lever Bonus
+        reason,
+        urgency,
+      });
+    }
   }
 
   // Sortierung: Kritische zuerst, dann EBIT-Impact
@@ -346,7 +526,7 @@ export function addFromPool(
     action_key: key,
     label: action.action_label || action.contract_name || '',
     description: action.category || '',
-    category: action.isBenchmark ? 'BENCHMARK' : 'VERTRAG',
+    category: action.isLiquidity ? 'LIQUIDITAET' : action.isBenchmark ? 'BENCHMARK' : 'VERTRAG',
     potenzial,
     created_period: period,
     current_period: period,
@@ -444,6 +624,9 @@ export function runEngine(
   customer: string,
   period: string,
   actions: any[],
+  benchmarkData?: BenchmarkInput[],
+  liquidityLevers?: LiquidityLeverInput[],
+  monthlyRevenue?: number,
 ): EngineState {
   // 1. Bestehende Maßnahmen laden
   let items = loadItems(customer);
@@ -457,8 +640,11 @@ export function runEngine(
   // 4. Priorisierung
   items = sortByPriority(items);
 
-  // 5. Empfehlungen generieren (nur neue, noch nicht im Tracker)
-  const recommendations = generateRecommendations(actions, items, period);
+  // 5. Empfehlungen generieren (Verträge + Benchmarks + Liquidität)
+  const recommendations = generateRecommendations(
+    actions, items, period, 5,
+    benchmarkData, liquidityLevers, monthlyRevenue,
+  );
 
   // 6. KPIs berechnen
   const kpis = computeKPIs(items, period);
