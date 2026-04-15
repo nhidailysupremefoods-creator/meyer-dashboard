@@ -191,7 +191,7 @@ export default function Page1Gesamtlage({ data, industrySegment }: Props) {
   return (
     <div>
       {/* —— Section Title —— */}
-      <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: 0 }}>
         <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.35rem', letterSpacing: '0.3px' }}>
           Monatliche Gesamtlage
         </h2>

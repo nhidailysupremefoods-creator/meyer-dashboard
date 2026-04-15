@@ -441,7 +441,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
 
   return (
     <div>
-      <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: '0 auto' }}>
+      <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: 0 }}>
         <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.35rem', letterSpacing: '0.3px' }}>Maßnahmen</h2>
         <p style={{ fontSize: '0.95rem', color: '#888', margin: 0, fontWeight: 400 }}>Steuerungs-Cockpit — Optimierungspotenziale erkennen, priorisieren und umsetzen</p>
       </div>
