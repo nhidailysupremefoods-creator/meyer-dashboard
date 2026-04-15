@@ -335,6 +335,22 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
   // Pool-Logik (bestehend)
   const selectedKeys = useMemo(() => new Set(items.map(i => i.action_key)), [items]);
 
+  // Liquiditätshebel — MUSS vor liqPoolActions deklariert werden
+  const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
+  const liqLevers = useMemo(() => {
+    const base = totalEbitPotential > 0 ? totalEbitPotential : 10000;
+    return [
+      { title: 'Cashflow planbar machen', impact: Math.round(base * 0.008), biggest: false, items: ['Top-10 Kunden Rhythmus geben', 'Wartungsverträge voraus abrechnen', '13-Wochen-Cashflow-Forecast führen'] },
+      { title: 'Working Capital freisetzen', impact: Math.round(base * 0.455), biggest: false, items: ['Forderungen sofort einziehen', '50% Anzahlung bei Neuaufträgen', 'Zahlungsziel auf 14 Tage'] },
+      { title: 'Margenschwache Verträge korrigieren', impact: Math.round(base * 0.46), biggest: true, items: ['Verlustverträge kündigen / nachverhandeln', 'Stundensätze +8–12% erhöhen', 'Materialquote <35% durchsetzen'] },
+      { title: 'Zahlungsströme synchronisieren', impact: Math.round(base * 0.077), biggest: false, items: ['Zahltermine 1./15. durchsetzen', 'Lieferantenzahlungen bündeln', 'Reserve 3 Monate aufbauen'] },
+    ];
+  }, [totalEbitPotential]);
+  const totalLiqImpact = liqLevers.reduce((s, l) => s + l.impact, 0);
+
+  // ─── Engine initialisieren (nach benchmarks + liqLevers verfügbar) ────────
+  const monthlyRevenue = Number((data as any)?.wirkung?.revenue ?? (data as any)?.overview?.revenue ?? 0);
+
   const benchmarkPoolActions = useMemo(() =>
     benchmarks.map((b: any, i: number) => {
       const cur = Number(b.current ?? 0);
@@ -352,22 +368,6 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         isBenchmark: true, belowTarget: hasGap,
       };
     }), [benchmarks, monthlyRevenue]);
-
-  // Liquiditätshebel — MUSS vor liqPoolActions deklariert werden
-  const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
-  const liqLevers = useMemo(() => {
-    const base = totalEbitPotential > 0 ? totalEbitPotential : 10000;
-    return [
-      { title: 'Cashflow planbar machen', impact: Math.round(base * 0.008), biggest: false, items: ['Top-10 Kunden Rhythmus geben', 'Wartungsverträge voraus abrechnen', '13-Wochen-Cashflow-Forecast führen'] },
-      { title: 'Working Capital freisetzen', impact: Math.round(base * 0.455), biggest: false, items: ['Forderungen sofort einziehen', '50% Anzahlung bei Neuaufträgen', 'Zahlungsziel auf 14 Tage'] },
-      { title: 'Margenschwache Verträge korrigieren', impact: Math.round(base * 0.46), biggest: true, items: ['Verlustverträge kündigen / nachverhandeln', 'Stundensätze +8–12% erhöhen', 'Materialquote <35% durchsetzen'] },
-      { title: 'Zahlungsströme synchronisieren', impact: Math.round(base * 0.077), biggest: false, items: ['Zahltermine 1./15. durchsetzen', 'Lieferantenzahlungen bündeln', 'Reserve 3 Monate aufbauen'] },
-    ];
-  }, [totalEbitPotential]);
-  const totalLiqImpact = liqLevers.reduce((s, l) => s + l.impact, 0);
-
-  // ─── Engine initialisieren (nach benchmarks + liqLevers verfügbar) ────────
-  const monthlyRevenue = Number((data as any)?.wirkung?.revenue ?? (data as any)?.overview?.revenue ?? 0);
 
   const benchmarkInputs: BenchmarkInput[] = useMemo(() =>
     benchmarks.map((b: any) => ({
