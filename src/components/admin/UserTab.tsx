@@ -44,6 +44,11 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
 
     if (Object.keys(updates).length === 0) return;
 
+    // Apps Script requires customer_id to always be present for adminUpdateUser
+    if (!updates.customer_id) {
+      updates.customer_id = user?.customer_id || '__GLOBAL__';
+    }
+
     setSaving(email);
     try {
       const ok = await updateUser(email, updates);
@@ -58,9 +63,10 @@ export default function UserTab({ users, customers, onUpdate }: UserTabProps) {
 
   const handleDelete = async (email: string) => {
     if (!window.confirm(`M\u00f6chten Sie den Benutzer ${email} wirklich l\u00f6schen?`)) return;
+    const user = users.find((u) => u.email === email);
     setDeletingEmail(email);
     try {
-      const success = await updateUser(email, { is_active: false });
+      const success = await updateUser(email, { is_active: false, customer_id: user?.customer_id || '__GLOBAL__' });
       if (success) await onUpdate();
     } finally { setDeletingEmail(null); }
   };

@@ -288,6 +288,8 @@ async function rejectRegistration(
 
 /**
  * Update customer
+ * Apps Script expects: customer_id + individual update fields
+ * Also sends updates as JSON string for backwards compatibility with adminUpdateCustomer
  */
 async function updateCustomer(
   customerId: string,
@@ -299,7 +301,14 @@ async function updateCustomer(
   const res = await fetch('/api/admin/update_customer', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, customer_id: customerId, ...updates }),
+    body: JSON.stringify({
+      token,
+      customer_id: customerId,
+      // Send as JSON string for Apps Script adminUpdateCustomer which expects params.updates
+      updates: JSON.stringify(updates),
+      // Also spread individual fields for any route that reads params directly
+      ...updates,
+    }),
   });
 
   return handleResponse(res);
@@ -307,6 +316,7 @@ async function updateCustomer(
 
 /**
  * Update user
+ * Apps Script expects: email + customer_id (always required) + optional role, is_active
  */
 async function updateUser(
   email: string,
@@ -326,6 +336,8 @@ async function updateUser(
 
 /**
  * Toggle month release
+ * Apps Script expects: customer_id, report_month (YYYY_MM), release ("true"/"false")
+ * Also send is_released for backwards compatibility
  */
 async function toggleRelease(
   customerId: string,
@@ -335,10 +347,21 @@ async function toggleRelease(
   const token = getToken();
   if (!token) throw new APIError('Nicht eingeloggt');
 
+  // Normalize month to YYYY_MM format (Apps Script expects underscores)
+  const normalizedMonth = month.replace(/-/g, '_');
+
   const res = await fetch('/api/admin/release_month', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, customer_id: customerId, report_month: month, release: isReleased }),
+    body: JSON.stringify({
+      token,
+      customer_id: customerId,
+      report_month: normalizedMonth,
+      // Send as string explicitly (admin route handler stringifies anyway)
+      release: String(isReleased),
+      // Alias for backwards compatibility with different Apps Script versions
+      is_released: String(isReleased),
+    }),
   });
 
   return handleResponse(res);

@@ -7,6 +7,137 @@ interface LeitfadenTabProps {
   customers: Array<{ customer_id: string; name?: string; display_name?: string }>;
 }
 
+/**
+ * Client-side Leitfaden generator — fallback when Apps Script _buildLeitfadenFallback fails.
+ * Fetches page1 + page4 data directly and builds advisory content locally.
+ */
+async function generateLeitfadenClientSide(customer: string, period: string): Promise<any> {
+  // Fetch page1 and page4 data in parallel
+  const [p1, p4] = await Promise.all([
+    api.fetchPageData(1, customer, period).catch(() => null),
+    api.fetchPageData(4, customer, period).catch(() => null),
+  ]);
+
+  const d1 = p1?.data || p1 || {};
+  const d4 = p4?.data || p4 || {};
+
+  // Extract KPIs from page1
+  const revenue = Number(d1.revenue || 0);
+  const profit = Number(d1.profit || d1.ebit || 0);
+  const marginPct = Number(d1.margin_pct || (revenue > 0 ? profit / revenue : 0));
+  const costTotal = Number(d1.cost || d1.cost_total || 0);
+  const costVariable = Number(d1.cost_variable || d1.payroll_cost || 0);
+  const bankBalance = Number(d1.bank_balance_eur || 0);
+  const liquidityMonths = Number(d1.liquidity_months || 0);
+  const revMom = Number(d1.revenue_mom_pct || 0);
+  const profitMom = Number(d1.profit_mom_pct || 0);
+  const statusColor = String(d1.status_color || 'YELLOW');
+
+  // Compute cost MoM safely (revenue_mom - profit_mom = implied cost pressure)
+  const costMomReal = revMom - profitMom;
+  const costAbs = Math.abs(costTotal);
+  const payrollQuote = revenue > 0 ? costVariable / revenue : 0;
+
+  // Actions from page4
+  const actions: any[] = Array.isArray(d4.actions) ? d4.actions : [];
+  const totalPotential = actions.reduce((s: number, a: any) =>
+    s + Number(a.impact_eur || a.ebit_potential_eur || 0), 0);
+
+  // Determine status
+  const isKritisch = marginPct < 0.05 || statusColor === 'RED';
+  const isWarnung = marginPct < 0.10 || statusColor === 'YELLOW';
+  const statusLabel = isKritisch ? 'KRITISCH' : isWarnung ? 'WARNUNG' : 'STABIL';
+
+  // Build scores
+  const scoreLeistung = Math.min(25, Math.round(marginPct * 100));
+  const scoreStruktur = Math.min(25, Math.round(Math.min(liquidityMonths / 3, 1) * 25));
+  const scoreTrend = Math.min(25, profitMom > 0 ? Math.round(Math.min(profitMom * 100, 25)) : Math.max(0, Math.round(12 + profitMom * 100)));
+  const scoreStabilitaet = statusColor === 'GREEN' ? 20 : statusColor === 'YELLOW' ? 12 : 5;
+  const totalScore = scoreLeistung + scoreStruktur + scoreTrend + scoreStabilitaet;
+
+  // Find weakest dimension
+  const dims = [
+    { name: 'Leistung (Marge & Ertrag)', score: scoreLeistung },
+    { name: 'Struktur (Liquidität)', score: scoreStruktur },
+    { name: 'Trend (Entwicklung)', score: scoreTrend },
+    { name: 'Stabilität', score: scoreStabilitaet },
+  ];
+  const weakest = dims.reduce((a, b) => a.score < b.score ? a : b);
+
+  // Format helpers
+  const fmtE = (n: number) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  const fmtP = (n: number) => `${(n * 100).toFixed(1)}%`;
+  const sign = (n: number) => n >= 0 ? `+${fmtP(n)}` : fmtP(n);
+
+  // Build situation text
+  const situation = [
+    `Status: ${statusLabel} — EBIT-Marge ${fmtP(marginPct)}, Gewinn ${fmtE(profit)}.`,
+    revenue > 0 ? `Umsatz: ${fmtE(revenue)} (MoM: ${sign(revMom)}).` : '',
+    costAbs > 0 ? `Gesamtkosten: ${fmtE(costAbs)}${costMomReal > 0.02 ? ' — Kostendruck erkennbar' : costMomReal < -0.02 ? ' — Kostenentlastung' : ''}.` : '',
+    bankBalance > 0 ? `Bankbestand: ${fmtE(bankBalance)} (Reichweite: ${liquidityMonths.toFixed(1)} Monate).` : '',
+    payrollQuote > 0 ? `Personalkostenquote: ${fmtP(payrollQuote)}.` : '',
+  ].filter(Boolean).join('\n');
+
+  // Cost analysis
+  const analyse = costMomReal > 0.03
+    ? `Die Kosten steigen stärker als der Umsatz (Kostendruck ${sign(costMomReal)}). Handlungsbedarf bei der Kostenstruktur.`
+    : costMomReal < -0.03
+    ? `Positive Entwicklung: Kosten sinken relativ zum Umsatz (Entlastung ${sign(costMomReal)}).`
+    : `Kosten- und Umsatzentwicklung sind weitgehend ausgewogen.`;
+
+  // Highlights
+  const highlights: string[] = [];
+  if (isKritisch) highlights.push(`EBIT-Marge mit ${fmtP(marginPct)} unter kritischer Schwelle`);
+  if (liquidityMonths < 1.5) highlights.push(`Liquiditätsreichweite nur ${liquidityMonths.toFixed(1)} Monate — Engpass droht`);
+  if (totalPotential > 0) highlights.push(`EBIT-Hebelpotenzial: ${fmtE(totalPotential)} identifiziert`);
+  if (payrollQuote > 0.55) highlights.push(`Personalkostenquote ${fmtP(payrollQuote)} überschreitet Zielkorridor`);
+  if (revMom < -0.05) highlights.push(`Umsatzrückgang ${sign(revMom)} — Vertragssituation prüfen`);
+  if (profitMom > 0.05) highlights.push(`Gewinnentwicklung positiv (${sign(profitMom)})`);
+
+  // Massnahmen from page4 actions
+  const massnahmen = actions.slice(0, 5).map((a: any) => ({
+    label: a.action_label || a.contract_name || a.label || 'Maßnahme',
+    beschreibung: a.description || '',
+    impact_eur: Number(a.impact_eur || a.ebit_potential_eur || 0),
+  }));
+
+  // Call agenda
+  const callAgenda = isKritisch
+    ? `KRITISCHER STATUS — Sofortige Maßnahmen besprechen:\n1. Liquiditätssicherung (${fmtE(bankBalance)} Bestand, ${liquidityMonths.toFixed(1)} Monate)\n2. Top-3 EBIT-Hebel priorisieren (Potenzial ${fmtE(totalPotential)})\n3. Kostenstruktur analysieren und Sofortmaßnahmen definieren`
+    : isWarnung
+    ? `WARNUNG — Fokus auf Verbesserung:\n1. EBIT-Marge von ${fmtP(marginPct)} Richtung Ziel 10% bringen\n2. Maßnahmenpool aktivieren (${actions.length} Hebel, ${fmtE(totalPotential)} Potenzial)\n3. Monatliche Fortschrittskontrolle vereinbaren`
+    : `STABIL — Wachstum sichern:\n1. Benchmark-Performance beibehalten\n2. Weitere Optimierungshebel identifizieren\n3. Quartals-Review planen`;
+
+  // Next steps
+  const naechsteSchritte: any = {};
+  if (isKritisch || liquidityMonths < 1.5) {
+    naechsteSchritte.sofort = ['Liquiditätsplan erstellen', 'Zahlungsziele mit Lieferanten verlängern', 'Forderungsmanagement intensivieren'];
+  }
+  naechsteSchritte.kurzfristig = ['Top-3 Maßnahmen aus EBIT-Hebel-Pool starten', 'Kostenstruktur mit Verantwortlichen besprechen'];
+  naechsteSchritte.mittelfristig = ['Monatliches KPI-Monitoring etablieren', 'Benchmark-Zielwerte je Quartal anpassen'];
+
+  return {
+    success: true,
+    advisory: {
+      situation,
+      analyse,
+      scores: {
+        leistung: scoreLeistung,
+        struktur: scoreStruktur,
+        trend: scoreTrend,
+        stabilitaet: scoreStabilitaet,
+        total: totalScore,
+      },
+      massnahmen,
+      highlights,
+      gespraechshinweis: callAgenda,
+      naechste_schritte: naechsteSchritte,
+      schwaechste_dimension: `${weakest.name} (${weakest.score}/25) — hier liegt der größte Verbesserungshebel.`,
+    },
+    _generated: 'client-side-fallback',
+  };
+}
+
 const fmtEur = (n: any) =>
   n != null
     ? new Intl.NumberFormat('de-DE', {
@@ -89,19 +220,32 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
       const token = api.getToken();
       if (!token) throw new Error('Nicht eingeloggt');
 
-      const params = new URLSearchParams({
-        token,
-        customer: selectedCustomer,
-        period: selectedPeriod,
-      });
-      const res = await fetch(`/api/admin/leitfaden?${params}`);
-      const data = await res.json();
-
-      if (data.error && !data.success) {
-        setError(data.error || 'Leitfaden konnte nicht generiert werden');
-      } else {
-        setResult(data);
+      // Try Apps Script first
+      let data: any = null;
+      try {
+        const params = new URLSearchParams({
+          token,
+          customer: selectedCustomer,
+          period: selectedPeriod,
+        });
+        const res = await fetch(`/api/admin/leitfaden?${params}`);
+        data = await res.json();
+      } catch {
+        data = null;
       }
+
+      // If Apps Script failed (e.g. "costMom is not defined"), use client-side fallback
+      if (!data || (data.error && !data.success)) {
+        console.warn('[Leitfaden] Apps Script failed, using client-side fallback:', data?.error);
+        try {
+          data = await generateLeitfadenClientSide(selectedCustomer, selectedPeriod);
+        } catch (fallbackErr: any) {
+          setError(`Leitfaden konnte nicht generiert werden: ${fallbackErr.message || 'Keine Daten verfügbar'}`);
+          return;
+        }
+      }
+
+      setResult(data);
     } catch (err: any) {
       setError(err.message || 'Fehler beim Generieren des Leitfadens');
     } finally {
