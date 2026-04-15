@@ -6,7 +6,7 @@
 .pageSubtitle { font-size: 0.95rem; color: #888; margin: 0; }
 
 /* Hero â rounded card, matches kpiSection content width */
-.heroSection { background: linear-gradient(135deg,#192231 0%,#1e2a3a 50%,#243447 100%); padding: 2rem 2rem 1.75rem; margin: 0 auto 2rem; max-width: calc(1400px - 4rem); border-radius: 12px; }
+.heroSection { background: linear-gradient(135deg,#192231 0%,#1e2a3a 50%,#243447 100%); padding: 2rem 2rem 1.75rem; margin: 0 auto 2rem; max-width: 1400px; border-radius: 12px; }
 .heroTop { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
 .heroLabel { color:rgba(255,255,255,0.55); font-size:0.8rem; font-weight:600; letter-spacing:2px; text-transform:uppercase; }
 .heroBadgeRot { background:#E53935; color:#fff; font-size:0.75rem; font-weight:700; letter-spacing:1.5px; padding:0.4rem 1rem; border-radius:6px; text-transform:uppercase; }
@@ -67,7 +67,7 @@
 .bankChart { width:100%; height:auto; display:block; }
 
 /* Stress â rounded card, matches kpiSection content width */
-.stressSection { background:linear-gradient(135deg,#192231 0%,#1a2535 100%); padding:2rem; text-align:center; max-width:calc(1400px - 4rem); margin:0 auto 2rem; border-radius:12px; }
+.stressSection { background:linear-gradient(135deg,#192231 0%,#1a2535 100%); padding:2rem; text-align:center; max-width:1400px; margin:0 auto 2rem; border-radius:12px; }
 .stressLabel { font-size:0.78rem; color:rgba(255,255,255,0.45); letter-spacing:2px; text-transform:uppercase; margin-bottom:0.75rem; }
 .stressRed { font-size:3rem; font-weight:800; color:#EF9A9A; line-height:1.1; margin-bottom:0.5rem; }
 .stressGreen { font-size:3rem; font-weight:800; color:#A5D6A7; line-height:1.1; margin-bottom:0.5rem; }

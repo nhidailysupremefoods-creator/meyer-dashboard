@@ -37,7 +37,7 @@
   background: linear-gradient(135deg, #192231 0%, #1e2a3a 50%, #243447 100%);
   padding: 2rem 2rem 1.75rem;
   margin: 0 2rem 2rem;
-  max-width: calc(1400px - 4rem);
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
   margin-bottom: 2rem;
