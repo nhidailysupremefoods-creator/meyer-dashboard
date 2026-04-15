@@ -45,7 +45,7 @@ export default function DashboardLayout({
     <div className="min-h-screen flex flex-col" style={{backgroundColor: 'var(--background)'}}>
       {/* Navigation Bar */}
       <nav className="sticky top-0 z-50 shadow-lg" style={{backgroundColor: 'var(--primary)', color: 'white'}}>
-        <div className="mx-auto px-4 sm:px-6 lg:px-8" style={{ maxWidth: 1600 }}>
+        <div className="mx-auto px-4 sm:px-6 lg:px-8" style={{ maxWidth: 1400 }}>
           <div className="flex justify-between items-center h-16">
             {/* Logo and Title */}
             <div className="flex items-center gap-6">
@@ -109,13 +109,13 @@ export default function DashboardLayout({
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 mx-auto w-full px-4 sm:px-6 lg:px-8 py-8" style={{ maxWidth: 1600 }}>
+      <main className="flex-1 mx-auto w-full px-4 sm:px-6 lg:px-8 py-8" style={{ maxWidth: 1400 }}>
         {children}
       </main>
 
       {/* Footer */}
       <footer className="mt-16" style={{backgroundColor: 'var(--background-card)', borderTop: '1px solid var(--border-color)'}}>
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm" style={{ maxWidth: 1600 }} style={{color: 'var(--text-secondary)'}}>
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm" style={{ maxWidth: 1400, color: 'var(--text-secondary)' }}>
           <p>Meyer Decision GbR — Steuerungs-Dashboard v6</p>
           <p className="mt-2 text-xs">© 2026 Meyer Decision GbR. Alle Rechte vorbehalten.</p>
         </div>
