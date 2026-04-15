@@ -29,19 +29,19 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
 }) {
   const hasValue = current > 0;
   const isAbsScale = targetMax > 10; // Stundensatz/Preis = absolute Werte, keine 0-100 Skala
-  const inTarget = hasValue && current >= targetMin && current <= targetMax;
-  const belowTarget = hasValue && current < targetMin;
+  const lbl = (label || '').toLowerCase();
+
+  // Personalkostenquote: NIEDRIGER = BESSER (je weniger % an Personalkosten, desto besser)
+  const lowerIsBetter = lbl.includes('personal') || lbl.includes('lohn') || lbl.includes('pkq');
 
   // Für %-KPIs: Skala 0-100 (zeige % als Score). Für €-KPIs: absolute Skala
   let score = 0;
   let scoreLabel = '–';
   if (hasValue) {
     if (isAbsScale) {
-      // Absolute Werte (z.B. Stundensatz): direkt anzeigen
       score = current;
       scoreLabel = `${Math.round(current)} €`;
     } else {
-      // Prozent-KPIs (Marge, Produktivität, PKQ): als 0-100 Score
       score = Math.round(current * 100);
       scoreLabel = `${score} / 100`;
     }
@@ -60,25 +60,42 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
   const pctMax = Math.min((scMax / scaleMax) * 100, 100);
   const pctMid = (scMid / scaleMax) * 100;
 
-  // Farblogik
+  // ── Stabile Bewertungslogik ───────────────────────────────────────────
+  // Für "höher=besser" (Produktivität, Stundensatz): über targetMid = Übertrifft
+  // Für "niedriger=besser" (PKQ): unter targetMid = Übertrifft
   let barColor = '#ccc';
   let statusText = 'Keine Daten';
   let statusBg = '#F5F5F5';
   let statusColor = '#999';
   if (hasValue) {
-    if (inTarget) {
-      barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32';
-    } else if (belowTarget) {
-      const gap = (targetMin - current) / targetMin;
-      if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
-      else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
+    if (lowerIsBetter) {
+      // PKQ: niedriger = besser
+      if (current <= targetMin) {
+        barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
+      } else if (current <= targetMid) {
+        barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32';
+      } else if (current <= targetMax) {
+        barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100';
+      } else {
+        barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830';
+      }
     } else {
-      barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
+      // Produktivität, Stundensatz: höher = besser
+      if (current >= targetMax) {
+        barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
+      } else if (current >= targetMid) {
+        barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
+      } else if (current >= targetMin) {
+        barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32';
+      } else {
+        const gap = targetMin > 0 ? (targetMin - current) / targetMin : 0;
+        if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
+        else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
+      }
     }
   }
 
   // Erklärtext für den Kontext
-  const lbl = (label || '').toLowerCase();
   let explanation = '';
   if (lbl.includes('produktiv')) explanation = hasValue ? `${score}% der Kapazität werden produktiv genutzt` : 'Anteil produktiv genutzter Arbeitsstunden';
   else if (lbl.includes('stundensatz') || lbl.includes('preis')) explanation = hasValue ? `Durchschnittlicher Verrechnungssatz` : 'Durchschnittlicher Verrechnungssatz je Stunde';
