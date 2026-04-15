@@ -413,63 +413,56 @@ export default function OperationsPage() {
     }
   }
 
-  // ── Gmail Compose Fallback ───────────────────────────────
-  // Opens Gmail compose and copies the CI-formatted HTML to clipboard.
-  // Gmail compose URL only supports plain text, so the user pastes (Ctrl+V)
-  // to get the full CI-formatted version inside Gmail.
-  async function openGmailCompose(email: EmailPreview): Promise<boolean> {
-    // Build attachment reminder as plain text prefix
-    const attachmentNote = email.attachments.length > 0
-      ? `📎 BITTE ANHÄNGEN VOR DEM SENDEN:\n${email.attachments.map(a => `  • ${a.name} (${a.size})`).join('\n')}\n\n──────────────────────────────────────\n\n`
-      : '';
-
-    // Build clean plain-text fallback (used if clipboard fails)
-    const plainBody = email.body
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n\n')
-      .replace(/<\/li>/gi, '\n')
-      .replace(/<\/tr>/gi, '\n')
+  // ── Plain-text body for URL fallback ────────────────────
+  function toPlainText(html: string): string {
+    return html
+      .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n').replace(/<\/tr>/gi, '\n')
       .replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
       .replace(/&nbsp;/g, ' ').replace(/&middot;/g, '·').replace(/&ndash;/g, '–')
       .replace(/&auml;/g, 'ä').replace(/&ouml;/g, 'ö').replace(/&uuml;/g, 'ü')
       .replace(/&Auml;/g, 'Ä').replace(/&Ouml;/g, 'Ö').replace(/&Uuml;/g, 'Ü')
-      .replace(/&szlig;/g, 'ß').replace(/&rarr;/g, '→').replace(/&#9656;/g, '▸')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-
-    // Try to write the full CI HTML to clipboard so user can paste into Gmail
-    let clipboardOk = false;
-    try {
-      const htmlBlob = new Blob([email.body], { type: 'text/html' });
-      const textBlob = new Blob([attachmentNote + plainBody], { type: 'text/plain' });
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob }),
-      ]);
-      clipboardOk = true;
-    } catch {
-      // Clipboard API unavailable – fall back to plain text in URL body param
-    }
-
-    // Open Gmail compose; if clipboard worked, leave body empty (user will paste)
-    const params = new URLSearchParams({
-      view: 'cm',
-      fs: '1',
-      to: email.to,
-      su: email.subject,
-      body: clipboardOk ? '' : attachmentNote + plainBody,
-    });
-    window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
-
-    return clipboardOk;
+      .replace(/&szlig;/g, 'ß').replace(/&szlig;/g, 'ß').replace(/&rarr;/g, '→')
+      .replace(/&#9656;/g, '▸').replace(/\n{3,}/g, '\n\n').trim();
   }
 
-  // ── SEND: Real Email Dispatch ───────────────────────────
+  // ── SEND ─────────────────────────────────────────────────
+  // Priority order:
+  //   1. Gmail API (Next.js route) → creates proper HTML draft, opens it
+  //   2. Apps Script (CORS fallback – likely fails)
+  //   3. Gmail compose URL with plain text
   async function handleSend(emailPreview: EmailPreview) {
     const key = `${emailPreview.type}-${emailPreview.customer_id}`;
     setSendingKey(key);
 
-    // Try backend API first (Apps Script → GmailApp.sendEmail)
+    // ── 1. Gmail API via Next.js route ──────────────────────
+    try {
+      const res = await fetch('/api/internal/create-gmail-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailPreview.to,
+          from: emailPreview.from,
+          subject: emailPreview.subject,
+          body: emailPreview.body,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.draftUrl) {
+        updateSentStatus(emailPreview.type, emailPreview.customer_id);
+        window.open(json.draftUrl, '_blank');
+        showToast(`Entwurf erstellt – bitte in Gmail prüfen und senden`, 'success');
+        setSendingKey(null);
+        setPreview(null);
+        return;
+      }
+      // json.error means OAuth not configured – fall through silently
+    } catch {
+      // Network error – fall through
+    }
+
+    // ── 2. Apps Script (GmailApp.sendEmail) ────────────────
     const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
     if (API_BASE) {
       try {
@@ -489,30 +482,29 @@ export default function OperationsPage() {
         const json = await res.json();
         if (json.success) {
           updateSentStatus(emailPreview.type, emailPreview.customer_id);
-          showToast(`E-Mail "${emailPreview.subject}" erfolgreich gesendet an ${emailPreview.to}`, 'success');
+          showToast(`E-Mail erfolgreich gesendet an ${emailPreview.to}`, 'success');
           setSendingKey(null);
           setPreview(null);
           return;
         }
-        if (json.error) {
-          showToast(`Fehler: ${json.error}`, 'error');
-          setSendingKey(null);
-          return;
-        }
       } catch {
-        // Network/CORS error – fall through to Gmail compose fallback
+        // CORS / network error – fall through
       }
     }
 
-    // Fallback: Copy CI HTML to clipboard, open Gmail compose
-    const clipboardOk = await openGmailCompose(emailPreview);
+    // ── 3. Gmail compose URL (plain text fallback) ──────────
+    const attachmentNote = emailPreview.attachments.length > 0
+      ? `📎 BITTE ANHÄNGEN:\n${emailPreview.attachments.map(a => `  • ${a.name} (${a.size})`).join('\n')}\n\n${'─'.repeat(40)}\n\n`
+      : '';
+    const params = new URLSearchParams({
+      view: 'cm', fs: '1',
+      to: emailPreview.to,
+      su: emailPreview.subject,
+      body: attachmentNote + toPlainText(emailPreview.body),
+    });
+    window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
     updateSentStatus(emailPreview.type, emailPreview.customer_id);
-    showToast(
-      clipboardOk
-        ? `Gmail geöffnet – Ctrl+V drücken für CI-formatierte E-Mail`
-        : `Gmail geöffnet – bitte E-Mail an ${emailPreview.to} jetzt senden`,
-      'success'
-    );
+    showToast(`Gmail geöffnet – bitte E-Mail an ${emailPreview.to} senden`, 'success');
     setSendingKey(null);
     setPreview(null);
   }
