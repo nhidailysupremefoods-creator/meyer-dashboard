@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Customer } from '@/types';
 import { getEinsatzlogikOptionsForIndustry, INDUSTRY_SEGMENTS } from '@/lib/config';
 
@@ -34,7 +34,46 @@ export default function CustomerTab({ customers, onUpdate, onUpdateCustomer }: C
   const [editingStatus, setEditingStatus] = useState<Record<string, boolean | undefined>>({});
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Track saved values until server data catches up (prevents dropdown snapping)
+  const savedValues = useRef<Record<string, {
+    industry_segment?: string;
+    einsatzlogik_segment?: string;
+    subscription_type?: string;
+    is_active?: boolean;
+  }>>({});
+
+  // When customers prop updates (background refresh), clear editing state for
+  // customers whose server data now matches saved values.
+  useEffect(() => {
+    const saved = savedValues.current;
+    if (Object.keys(saved).length === 0) return;
+
+    const toDelete: string[] = [];
+    for (const [cid, vals] of Object.entries(saved)) {
+      const serverCustomer = customers.find((c) => c.customer_id === cid);
+      if (!serverCustomer) continue;
+
+      const industryMatch = !vals.industry_segment || serverCustomer.industry_segment === vals.industry_segment;
+      const einsatzMatch = vals.einsatzlogik_segment === undefined || serverCustomer.einsatzlogik_segment === vals.einsatzlogik_segment;
+      const subMatch = !vals.subscription_type || serverCustomer.subscription_type === vals.subscription_type;
+      const statusMatch = vals.is_active === undefined || serverCustomer.is_active === vals.is_active;
+
+      if (industryMatch && einsatzMatch && subMatch && statusMatch) {
+        toDelete.push(cid);
+      }
+    }
+
+    if (toDelete.length > 0) {
+      toDelete.forEach((cid) => delete saved[cid]);
+      setEditingIndustry((prev) => { const n = { ...prev }; toDelete.forEach((c) => delete n[c]); return n; });
+      setEditingEinsatzlogik((prev) => { const n = { ...prev }; toDelete.forEach((c) => delete n[c]); return n; });
+      setEditingSubscription((prev) => { const n = { ...prev }; toDelete.forEach((c) => delete n[c]); return n; });
+      setEditingStatus((prev) => { const n = { ...prev }; toDelete.forEach((c) => delete n[c]); return n; });
+    }
+  }, [customers]);
+
   const handleSave = async (customerId: string) => {
+    const customer = customers.find((c) => c.customer_id === customerId);
     const newIndustry = editingIndustry[customerId];
     const newEinsatzlogik = editingEinsatzlogik[customerId];
     const newSubscription = editingSubscription[customerId];
@@ -54,11 +93,14 @@ export default function CustomerTab({ customers, onUpdate, onUpdateCustomer }: C
 
       const success = await onUpdateCustomer(customerId, updates);
       if (success) {
-        // Clear editing state
-        setEditingIndustry((prev) => { const n = { ...prev }; delete n[customerId]; return n; });
-        setEditingEinsatzlogik((prev) => { const n = { ...prev }; delete n[customerId]; return n; });
-        setEditingSubscription((prev) => { const n = { ...prev }; delete n[customerId]; return n; });
-        setEditingStatus((prev) => { const n = { ...prev }; delete n[customerId]; return n; });
+        // Keep editing state — don't clear yet!
+        // Track saved values so useEffect can clear once server data catches up.
+        savedValues.current[customerId] = {
+          industry_segment: newIndustry || customer?.industry_segment,
+          einsatzlogik_segment: newEinsatzlogik !== undefined ? (newEinsatzlogik || '') : customer?.einsatzlogik_segment,
+          subscription_type: newSubscription || customer?.subscription_type,
+          is_active: newStatus !== undefined ? newStatus : customer?.is_active,
+        };
         setSuccessMsg(`${customerId} gespeichert`);
         setTimeout(() => setSuccessMsg(null), 2000);
       } else {
@@ -89,6 +131,9 @@ export default function CustomerTab({ customers, onUpdate, onUpdateCustomer }: C
   };
 
   const hasChanges = (customerId: string, customer: Customer) => {
+    // If just saved, don't show "Speichern" button (editing state kept to prevent dropdown snap)
+    if (savedValues.current[customerId]) return false;
+
     return (editingIndustry[customerId] && editingIndustry[customerId] !== customer.industry_segment) ||
            (editingEinsatzlogik[customerId] !== undefined && editingEinsatzlogik[customerId] !== (customer.einsatzlogik_segment || '')) ||
            (editingSubscription[customerId] && editingSubscription[customerId] !== (customer.subscription_type || '')) ||

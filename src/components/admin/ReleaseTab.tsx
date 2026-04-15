@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Customer, Release } from '@/types';
 
 const S = {
@@ -26,6 +26,34 @@ export default function ReleaseTab({ customers, releases, onUpdate, onToggleRele
   const [optimisticToggles, setOptimisticToggles] = useState<Record<string, boolean>>({});
 
   const getMonthKey = (month: string) => month.replace(/_/g, '-');
+
+  // Clean up optimistic toggles once server data confirms the change
+  useEffect(() => {
+    if (Object.keys(optimisticToggles).length === 0) return;
+
+    const serverReleasedSet = new Set<string>();
+    releases
+      .filter((r) => r.customer_id === selectedCustomer)
+      .forEach((r) => {
+        if (r.is_released) serverReleasedSet.add(getMonthKey(r.report_month));
+      });
+
+    const toDelete: string[] = [];
+    Object.entries(optimisticToggles).forEach(([key, isReleased]) => {
+      // If server agrees with our optimistic state, we can clean it up
+      if (isReleased === serverReleasedSet.has(key)) {
+        toDelete.push(key);
+      }
+    });
+
+    if (toDelete.length > 0) {
+      setOptimisticToggles((prev) => {
+        const n = { ...prev };
+        toDelete.forEach((k) => delete n[k]);
+        return n;
+      });
+    }
+  }, [releases, selectedCustomer, optimisticToggles]);
 
   const customerReleases = useMemo(() => {
     return releases.filter((r) => r.customer_id === selectedCustomer);

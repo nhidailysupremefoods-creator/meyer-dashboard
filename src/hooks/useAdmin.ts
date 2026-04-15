@@ -57,6 +57,8 @@ export function useAdmin(): UseAdminReturn {
 
   // Prevent concurrent init calls
   const initInFlight = useRef(false);
+  // Debounce timer for background refreshes after mutations
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const init = useCallback(async () => {
     // Skip if already loading
@@ -168,8 +170,9 @@ export function useAdmin(): UseAdminReturn {
   }, []);
 
   /**
-   * Helper: Call API, check success, trigger background refresh.
+   * Helper: Call API, check success, trigger debounced background refresh.
    * Returns true immediately on success — doesn't wait for init() to complete.
+   * Debouncing prevents multiple rapid mutations from each triggering a full refresh.
    */
   const mutate = useCallback(
     async (
@@ -182,8 +185,12 @@ export function useAdmin(): UseAdminReturn {
         if (!response.success) {
           throw new APIError(response.error || `${errorLabel} fehlgeschlagen`);
         }
-        // Background refresh — don't await, let UI stay snappy
-        init().catch(() => {});
+        // Debounced background refresh — coalesce rapid mutations into one refresh
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        refreshTimer.current = setTimeout(() => {
+          init().catch(() => {});
+          refreshTimer.current = null;
+        }, 500);
         return true;
       } catch (err: any) {
         const errorMsg = err instanceof APIError ? err.message : errorLabel;
