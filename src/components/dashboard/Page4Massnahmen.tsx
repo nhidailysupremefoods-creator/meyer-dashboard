@@ -8,6 +8,7 @@ interface Props {
   data: any;
   customer: string;
   period: string;
+  industrySegment?: string;
 }
 
 const fmtEur = (n: any) =>
@@ -211,12 +212,54 @@ interface TrackerItem {
 const DOT = { width: 8, height: 8, borderRadius: '50%', background: '#8B6A40', flexShrink: 0 as const, display: 'inline-block' as const };
 const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius: 1, marginBottom: '1rem' };
 
-export default function Page4Massnahmen({ data, customer, period }: Props) {
+export default function Page4Massnahmen({ data, customer, period, industrySegment }: Props) {
   const actions: any[] = useMemo(() => (data as any)?.actions || [], [data]);
   const rawBenchmarks: any[] = (data as any)?.benchmarks || [];
+
+  // Use industry-specific targets from config.ts when available
+  const industryTargets = useMemo(() => {
+    if (!industrySegment) return null;
+    const einsatzlogik = (data as any)?.einsatzlogik_segment || undefined;
+    return getTargetsForCustomer(industrySegment, einsatzlogik);
+  }, [industrySegment, data]);
+
   const benchmarks = useMemo(() => {
-    const base = rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS;
-    if (base.some((b: any) => Number(b.current ?? 0) > 0)) return base;
+    // If API returns actual benchmark data with current values, use those
+    if (rawBenchmarks.length > 0 && rawBenchmarks.some((b: any) => Number(b.current ?? 0) > 0)) {
+      // Overlay industry targets if available
+      if (industryTargets) {
+        return rawBenchmarks.map((b: any) => {
+          const lbl = (b.kpi_label || '').toLowerCase();
+          if (lbl.includes('produktiv') && industryTargets.productivity_hours_target) {
+            return { ...b, target_min: (industryTargets.productivity_hours_low || 1400) / 2000, target_mid: industryTargets.productivity_hours_target / 2000, target_max: (industryTargets.productivity_hours_high || 1800) / 2000 };
+          }
+          if ((lbl.includes('stundensatz') || lbl.includes('preis')) && industryTargets.target_hourly_rate) {
+            const [lo, mid, hi] = industryTargets.target_hourly_rate;
+            return { ...b, target_min: lo, target_mid: mid, target_max: hi };
+          }
+          if ((lbl.includes('personal') || lbl.includes('lohn')) && industryTargets.target_payroll_cost_pct) {
+            const [lo, mid, hi] = industryTargets.target_payroll_cost_pct;
+            return { ...b, target_min: lo, target_mid: mid, target_max: hi };
+          }
+          return b;
+        });
+      }
+      return rawBenchmarks;
+    }
+
+    // Build benchmarks from industry targets or fallback
+    const targets = industryTargets;
+    // productivity_hours in config are absolute (1300-1700h/year) — convert to utilization rate assuming ~2000h/year capacity
+    const prodLow = targets?.productivity_hours_low ? targets.productivity_hours_low / 2000 : 0.70;
+    const prodMid = targets?.productivity_hours_target ? targets.productivity_hours_target / 2000 : 0.80;
+    const prodHigh = targets?.productivity_hours_high ? targets.productivity_hours_high / 2000 : 0.90;
+    const base: any[] = targets ? [
+      { kpi_label: 'Produktivität', current: 0, target_min: prodLow, target_mid: prodMid, target_max: prodHigh },
+      { kpi_label: 'Stundensatz (€)', current: 0, target_min: targets.target_hourly_rate?.[0] || 95, target_mid: targets.target_hourly_rate?.[1] || 105, target_max: targets.target_hourly_rate?.[2] || 120 },
+      { kpi_label: 'Personalkostenquote', current: 0, target_min: targets.target_payroll_cost_pct?.[0] || 0.40, target_mid: targets.target_payroll_cost_pct?.[1] || 0.45, target_max: targets.target_payroll_cost_pct?.[2] || 0.55 },
+    ] : (rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS);
+
+    // Calculate proxy current values from available margin data
     const wirkungMargin = Number((data as any)?.wirkung?.margin_pct ?? 0);
     const actionsArr: any[] = (data as any)?.actions || [];
     let avgMargin = wirkungMargin;
@@ -234,7 +277,7 @@ export default function Page4Massnahmen({ data, customer, period }: Props) {
       else if (label.includes('personal') || label.includes('lohn')) proxyValue = Math.max(0.32, Math.min(0.70, 0.55 - avgMargin * 0.6));
       return proxyValue > 0 ? { ...b, current: proxyValue, isProxy: true } : b;
     });
-  }, [rawBenchmarks, data]);
+  }, [rawBenchmarks, data, industryTargets]);
   const trackerData: any[] = (data as any)?.tracker || [];
 
   const [ebitTab, setEbitTab] = useState<EbitTab>('top');

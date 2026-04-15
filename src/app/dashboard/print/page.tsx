@@ -353,7 +353,7 @@ export default function PrintPage() {
 
       {/* Footer */}
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #ddd', textAlign: 'center', fontSize: '0.75rem', color: '#aaa' }}>
-        Meyer Decision GmbH · Steuerungs-Dashboard · {customer.replace(/_/g, ' ')} · {periodLabel} · {today}
+        Meyer Decision GbR · Steuerungs-Dashboard · {customer.replace(/_/g, ' ')} · {periodLabel} · {today}
       </div>
 
       {/* Print CSS */}

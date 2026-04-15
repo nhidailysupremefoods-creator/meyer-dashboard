@@ -79,11 +79,26 @@ async function handleAdminRequest(
       appScriptAction = `admin_${action}`;
     }
 
-    // Extract token from headers or query params
+    // For POST requests, parse body FIRST so we can extract token from it
+    let bodyData: Record<string, any> = {};
+    if (method === 'POST') {
+      try {
+        bodyData = await req.json();
+      } catch {
+        // Body might be empty or not JSON, that's okay
+      }
+    }
+
+    // Extract token from headers, query params, OR body
     const headerObj = Object.fromEntries(
       Array.from(req.headers.entries()).map(([k, v]) => [k.toLowerCase(), v])
     );
-    const token = extractToken(headerObj, req.nextUrl.searchParams);
+    let token = extractToken(headerObj, req.nextUrl.searchParams);
+
+    // Fallback: check body for token (POST requests send token in JSON body)
+    if (!token && bodyData.token && typeof bodyData.token === 'string') {
+      token = bodyData.token;
+    }
 
     if (!token) {
       return NextResponse.json(
@@ -108,19 +123,12 @@ async function handleAdminRequest(
       }
     });
 
-    // For POST requests, also merge body fields
-    if (method === 'POST') {
-      try {
-        const body = await req.json();
-        Object.entries(body).forEach(([key, value]) => {
-          if (value !== null && value !== undefined && key !== 'token') {
-            params_obj[key] = String(value);
-          }
-        });
-      } catch {
-        // Body might be empty or not JSON, that's okay
+    // Merge body fields (already parsed above)
+    Object.entries(bodyData).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && key !== 'token') {
+        params_obj[key] = String(value);
       }
-    }
+    });
 
     // Call Apps Script via GET with all params as URL parameters
     // (Apps Script doGet/apiDispatch only uses URL parameters)

@@ -649,16 +649,24 @@ export default function Page1Gesamtlage({ data }: Props) {
                     />
                   </g>
 
-                  {/* Data points and tooltips — pointerEvents: none damit Bars hover bekommen */}
+                  {/* Vertical crosshair + Data points + tooltips */}
                   {pts.map((pt, idx) => {
                     const isHov = hoverIdx === idx;
-                    const tooltipW = 140;
-                    const tooltipH = isHov ? 72 : 0;
-                    const tx = Math.min(Math.max(pt.x - tooltipW / 2, 62), 610);
-                    const ty = Math.max(pt.y - tooltipH - 8, 10);
+                    const tooltipW = 150;
+                    const tooltipH = isHov ? 88 : 0;
+                    const tx = Math.min(Math.max(pt.x - tooltipW / 2, 62), 600);
+                    const ty = Math.max(pt.y - tooltipH - 12, 10);
 
                     return (
                       <g key={idx} style={{ pointerEvents: 'none' }}>
+                        {/* Vertical crosshair line on hover */}
+                        {isHov && (
+                          <line
+                            x1={pt.x} y1={25} x2={pt.x} y2={BASELINE}
+                            stroke="#B08A6A" strokeWidth="1" strokeDasharray="3 3" opacity="0.35"
+                          />
+                        )}
+
                         {/* Data point circle */}
                         <circle
                           cx={pt.x}
@@ -674,100 +682,39 @@ export default function Page1Gesamtlage({ data }: Props) {
                           }}
                         />
 
-                        {/* Enhanced tooltip with all key metrics */}
+                        {/* Tooltip with 4 key metrics */}
                         {isHov && (
                           <g>
-                            {/* Tooltip background with border */}
                             <rect
-                              x={tx}
-                              y={ty}
-                              width={tooltipW}
-                              height={tooltipH}
-                              rx="6"
-                              ry="6"
-                              fill="var(--navy)"
-                              opacity="0.95"
-                              stroke="#B08A6A"
-                              strokeWidth="1"
-                              style={{
-                                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.25))',
-                              }}
+                              x={tx} y={ty} width={tooltipW} height={tooltipH}
+                              rx="6" ry="6" fill="var(--navy)" opacity="0.96"
+                              stroke="#B08A6A" strokeWidth="1"
+                              style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}
                             />
 
                             {/* Month label */}
-                            <text
-                              x={tx + tooltipW / 2}
-                              y={ty + 14}
-                              textAnchor="middle"
-                              fontSize="10"
-                              fontWeight="700"
-                              fill="#B08A6A"
-                            >
+                            <text x={tx + tooltipW / 2} y={ty + 14} textAnchor="middle" fontSize="10" fontWeight="700" fill="#B08A6A">
                               {pt.label}
                             </text>
 
+                            {/* Separator */}
+                            <line x1={tx + 8} y1={ty + 20} x2={tx + tooltipW - 8} y2={ty + 20} stroke="rgba(176,138,106,0.25)" strokeWidth="0.5" />
+
                             {/* Revenue */}
-                            <text
-                              x={tx + 6}
-                              y={ty + 30}
-                              fontSize="9"
-                              fontWeight="500"
-                              fill="rgba(255,255,255,0.75)"
-                            >
-                              Umsatz:
-                            </text>
-                            <text
-                              x={tx + tooltipW - 6}
-                              y={ty + 30}
-                              textAnchor="end"
-                              fontSize="9"
-                              fontWeight="600"
-                              fill="rgba(255,255,255,0.95)"
-                            >
-                              {fmtEur(pt.rev)}
-                            </text>
+                            <text x={tx + 8} y={ty + 34} fontSize="9" fontWeight="500" fill="rgba(255,255,255,0.7)">Umsatz:</text>
+                            <text x={tx + tooltipW - 8} y={ty + 34} textAnchor="end" fontSize="9" fontWeight="600" fill="rgba(255,255,255,0.95)">{fmtEur(pt.rev)}</text>
+
+                            {/* Kosten */}
+                            <text x={tx + 8} y={ty + 49} fontSize="9" fontWeight="500" fill="rgba(255,255,255,0.7)">Kosten:</text>
+                            <text x={tx + tooltipW - 8} y={ty + 49} textAnchor="end" fontSize="9" fontWeight="600" fill="rgba(255,255,255,0.85)">{fmtEur(pt.cost)}</text>
 
                             {/* EBIT */}
-                            <text
-                              x={tx + 6}
-                              y={ty + 45}
-                              fontSize="9"
-                              fontWeight="500"
-                              fill="rgba(255,255,255,0.75)"
-                            >
-                              EBIT:
-                            </text>
-                            <text
-                              x={tx + tooltipW - 6}
-                              y={ty + 45}
-                              textAnchor="end"
-                              fontSize="9"
-                              fontWeight="600"
-                              fill={pt.val >= 0 ? '#6ECF91' : '#E88080'}
-                            >
-                              {fmtEur(pt.val)}
-                            </text>
+                            <text x={tx + 8} y={ty + 64} fontSize="9" fontWeight="500" fill="rgba(255,255,255,0.7)">EBIT:</text>
+                            <text x={tx + tooltipW - 8} y={ty + 64} textAnchor="end" fontSize="9" fontWeight="600" fill={pt.val >= 0 ? '#6ECF91' : '#E88080'}>{fmtEur(pt.val)}</text>
 
                             {/* Margin */}
-                            <text
-                              x={tx + 6}
-                              y={ty + 60}
-                              fontSize="9"
-                              fontWeight="500"
-                              fill="rgba(255,255,255,0.75)"
-                            >
-                              Marge:
-                            </text>
-                            <text
-                              x={tx + tooltipW - 6}
-                              y={ty + 60}
-                              textAnchor="end"
-                              fontSize="9"
-                              fontWeight="600"
-                              fill="#E8A838"
-                            >
-                              {fmtPct(pt.margin)}
-                            </text>
+                            <text x={tx + 8} y={ty + 79} fontSize="9" fontWeight="500" fill="rgba(255,255,255,0.7)">Marge:</text>
+                            <text x={tx + tooltipW - 8} y={ty + 79} textAnchor="end" fontSize="9" fontWeight="600" fill="#E8A838">{fmtPct(pt.margin)}</text>
                           </g>
                         )}
                       </g>

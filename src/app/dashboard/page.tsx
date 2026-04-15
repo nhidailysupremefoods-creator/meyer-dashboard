@@ -163,6 +163,7 @@ export default function DashboardPage() {
             data={currentPageData}
             customer={selectedCustomer}
             period={selectedPeriod}
+            industrySegment={industrySegment}
           />
         );
       default:

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Email und Zugriffscode erforderlich',
+          error: 'E-Mail und Passwort erforderlich',
         },
         { status: 400 }
       );
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Email und Zugriffscode müssen Strings sein',
+          error: 'E-Mail und Passwort m\u00fcssen Strings sein',
         },
         { status: 400 }
       );

@@ -12,7 +12,7 @@ import { callAppsScriptPublic } from '@/lib/apps-script-client';
  *
  * Response:
  * {
- *   ok: boolean,
+ *   success: boolean,
  *   message?: string,
  *   error?: string
  * }
@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     if (!email) {
       return NextResponse.json(
         {
-          ok: false,
-          error: 'Email erforderlich',
+          success: false,
+          error: 'E-Mail-Adresse erforderlich',
         },
         { status: 400 }
       );
@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
     if (typeof email !== 'string') {
       return NextResponse.json(
         {
-          ok: false,
-          error: 'Email muss ein String sein',
+          success: false,
+          error: 'E-Mail muss ein String sein',
         },
         { status: 400 }
       );
@@ -48,13 +48,22 @@ export async function POST(req: NextRequest) {
       email: email.trim(),
     });
 
+    // Normalize response: Apps Script may return {ok:true} but frontend expects {success:true}
+    if (result.ok !== undefined && result.success === undefined) {
+      result.success = result.ok;
+    }
+    // If neither ok nor success is set, treat as success if no error
+    if (result.success === undefined && !result.error) {
+      result.success = true;
+    }
+
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('Password reset request error:', err);
     return NextResponse.json(
       {
-        ok: false,
-        error: err.message || 'Anfrage zum Zurücksetzen des Passworts fehlgeschlagen',
+        success: false,
+        error: err.message || 'Passwort-Zur\u00fccksetzung fehlgeschlagen. Bitte versuchen Sie es sp\u00e4ter erneut.',
       },
       { status: 500 }
     );

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Email, Code und neues Passwort erforderlich',
+          error: 'E-Mail, Code und neues Passwort erforderlich',
         },
         { status: 400 }
       );
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Email, Code und Passwort müssen Strings sein',
+          error: 'E-Mail, Code und Passwort m\u00fcssen Strings sein',
         },
         { status: 400 }
       );
@@ -57,13 +57,21 @@ export async function POST(req: NextRequest) {
       new_password: password,
     });
 
+    // Normalize response: Apps Script may return {ok:true} but frontend expects {success:true}
+    if (result.ok !== undefined && result.success === undefined) {
+      result.success = result.ok;
+    }
+    if (result.success === undefined && !result.error) {
+      result.success = true;
+    }
+
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('Password reset confirm error:', err);
     return NextResponse.json(
       {
-        ok: false,
-        error: err.message || 'Passwort-Zurücksetzen fehlgeschlagen',
+        success: false,
+        error: err.message || 'Passwort-Zur\u00fccksetzung fehlgeschlagen',
       },
       { status: 500 }
     );
