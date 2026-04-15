@@ -178,18 +178,8 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{
-            fontFamily: 'Manrope, sans-serif',
-            fontWeight: 800,
-            fontSize: '1.5rem',
-            color: 'var(--text-primary)',
-            letterSpacing: '0.08em',
-            margin: '0 0 0.25rem 0',
-          }}>
-            <span>MEYER</span>
-            <span style={{ color: 'var(--copper)', margin: '0 0.5rem', fontWeight: 300 }}>|</span>
-            <span>DECISION</span>
-          </h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-login.svg" alt="Meyer Decision" style={{ height: 44, width: 'auto', marginBottom: '0.5rem' }} />
           <p style={{
             color: 'var(--text-secondary)',
             fontSize: '0.75rem',

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 52" fill="none">
+  <!-- MEYER text - Navy (für hellen Hintergrund) -->
+  <text x="16" y="34" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="20" letter-spacing="3" fill="#192231">MEYER</text>
+  <!-- Copper divider -->
+  <rect x="130" y="10" width="2" height="32" rx="1" fill="#B08A6A"/>
+  <!-- DECISION text - Navy -->
+  <text x="146" y="34" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="20" letter-spacing="3" fill="#192231">DECISION</text>
+</svg>

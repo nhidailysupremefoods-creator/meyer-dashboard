@@ -1,10 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 44" fill="none">
-  <!-- Background pill -->
-  <rect width="220" height="44" rx="8" fill="#1D3557"/>
-  <!-- MEYER text -->
-  <text x="16" y="29" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="17" letter-spacing="2.5" fill="#F7F5F2">MEYER</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 44" fill="none">
+  <!-- MEYER text - Offwhite (für Navy-Header) -->
+  <text x="12" y="29" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="17" letter-spacing="2.5" fill="#F0EDE8">MEYER</text>
   <!-- Copper divider -->
-  <rect x="100" y="10" width="1.5" height="24" rx="0.75" fill="#B08A6A"/>
-  <!-- DECISION text -->
-  <text x="110" y="29" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="17" letter-spacing="2.5" fill="#F7F5F2">DECISION</text>
+  <rect x="108" y="10" width="2" height="24" rx="1" fill="#B08A6A"/>
+  <!-- DECISION text - Offwhite -->
+  <text x="122" y="29" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="17" letter-spacing="2.5" fill="#F0EDE8">DECISION</text>
 </svg>
