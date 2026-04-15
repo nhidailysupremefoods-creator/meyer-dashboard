@@ -442,7 +442,7 @@ export default function Page1Gesamtlage({ data, industrySegment }: Props) {
             </span>
           </div>
           {/* viewBox expanded for better spacing */}
-          <svg viewBox="0 0 750 280" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+          <svg viewBox="0 0 750 280" style={{ width: '100%', maxWidth: 700, height: 'auto', overflow: 'visible', display: 'block', margin: '0 auto' }}>
             <defs>
               {/* Revenue bar gradient - subtle dark blue */}
               <linearGradient id="p1barGrad" x1="0" y1="0" x2="0" y2="1">
