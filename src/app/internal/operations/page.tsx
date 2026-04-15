@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/internal-os/utils';
 
 // ── Workflow Steps ──────────────────────────────────────
 
-const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: sting; sentKey: keyof OperationsCustomer }[] = [
+const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer }[] = [
   { type: 'angebot',    label: 'Angebot',      icon: '📄', sentKey: 'angebot_sent' },
   { type: 'vertrag',    label: 'DL-Vertrag',   icon: '📝', sentKey: 'vertrag_sent' },
   { type: 'unterlagen', label: 'Unterlagen',    icon: '📎', sentKey: 'unterlagen_sent' },
@@ -22,7 +22,7 @@ const SENDERS = [
 ];
 
 const OPS_STORAGE_KEY = 'meyer-internal-os-operations';
-export const CRM_SYNC_KEY = 'meyer-crm-sync';
+const CRM_SYNC_KEY = 'meyer-crm-sync';
 
 function loadOperations(): OperationsCustomer[] {
   if (typeof window === 'undefined') return SEED_OPERATIONS;

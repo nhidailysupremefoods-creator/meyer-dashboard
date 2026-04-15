@@ -149,7 +149,7 @@ export function useAdmin(): UseAdminReturn {
       flatReleases = flatReleases.map((r) => ({
         ...r,
         report_month: r.report_month || '',
-        is_released: r.is_released === true || r.is_released === 'true' || r.is_released === 'TRUE',
+        is_released: r.is_released === true || (r.is_released as unknown) === 'true' || (r.is_released as unknown) === 'TRUE',
       }));
       setReleases(flatReleases);
     } catch (err: any) {

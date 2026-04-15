@@ -305,11 +305,11 @@ export const BENCHMARK_CONFIG_LEGACY = {
  * Type definition for KPI targets
  */
 export interface KPITargets {
-  target_margin_pct?: [number, number, number]; // [low, mid, high]
-  target_hourly_rate?: [number, number, number];
-  target_payroll_cost_pct?: [number, number, number];
-  target_contribution_margin_pct?: [number, number, number];
-  sla_cost_quota_pct?: [number, number, number];
+  target_margin_pct?: readonly [number, number, number] | [number, number, number]; // [low, mid, high]
+  target_hourly_rate?: readonly [number, number, number] | [number, number, number];
+  target_payroll_cost_pct?: readonly [number, number, number] | [number, number, number];
+  target_contribution_margin_pct?: readonly [number, number, number] | [number, number, number];
+  sla_cost_quota_pct?: readonly [number, number, number] | [number, number, number];
   hour_variance_pct?: number;
   cost_variance_pct?: number;
   productivity_hours_low?: number;
@@ -384,7 +384,7 @@ export function getEinsatzlogikOptionsForIndustry(
   }
 
   // Return the options for this industry
-  return EINSATZLOGIK_OPTIONS[industry] as Array<{ code: string; label: string }>;
+  return [...EINSATZLOGIK_OPTIONS[industry]] as Array<{ code: string; label: string }>;
 }
 
 /**
@@ -397,7 +397,7 @@ export function getEinsatzlogikOptionsForIndustry(
 export function getMarginTargetsForCustomer(
   industrySegment: string,
   einsatzlogik?: string
-): [number, number, number] | null {
+): readonly [number, number, number] | [number, number, number] | null {
   const targets = getTargetsForCustomer(industrySegment, einsatzlogik);
   return targets.target_margin_pct || null;
 }
@@ -412,7 +412,7 @@ export function getMarginTargetsForCustomer(
 export function getHourlyRateTargets(
   industrySegment: string,
   einsatzlogik?: string
-): [number, number, number] | null {
+): readonly [number, number, number] | [number, number, number] | null {
   const targets = getTargetsForCustomer(industrySegment, einsatzlogik);
   return targets.target_hourly_rate || null;
 }
@@ -427,7 +427,7 @@ export function getHourlyRateTargets(
 export function getPayrollCostTargets(
   industrySegment: string,
   einsatzlogik?: string
-): [number, number, number] | null {
+): readonly [number, number, number] | [number, number, number] | null {
   const targets = getTargetsForCustomer(industrySegment, einsatzlogik);
   return targets.target_payroll_cost_pct || null;
 }
@@ -441,7 +441,7 @@ export function getPayrollCostTargets(
 export function getContributionMarginTargets(
   industrySegment: string,
   einsatzlogik?: string
-): [number, number, number] | null {
+): readonly [number, number, number] | [number, number, number] | null {
   const targets = getTargetsForCustomer(industrySegment, einsatzlogik);
   return targets.target_contribution_margin_pct || null;
 }
@@ -557,7 +557,7 @@ export function getEinsatzlogikLabel(
     return einsatzlogikCode; // Fallback to code if not found
   }
 
-  const options = EINSATZLOGIK_OPTIONS[industry] as Array<{ code: string; label: string }>;
+  const options = EINSATZLOGIK_OPTIONS[industry] as ReadonlyArray<{ readonly code: string; readonly label: string }>;
   const found = options.find((opt) => opt.code === einsatzlogikCode);
   return found?.label || einsatzlogikCode;
 }
