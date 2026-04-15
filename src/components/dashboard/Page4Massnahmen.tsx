@@ -33,8 +33,8 @@ const FALLBACK_BENCHMARKS = [
 ];
 
 // ─── Benchmark Gauge Component (unchanged) ───────────────────────────────────
-function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isProxy }: {
-  label: string; current: number; targetMin: number; targetMid: number; targetMax: number; isProxy?: boolean;
+function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isProxy, monthlyRevenue }: {
+  label: string; current: number; targetMin: number; targetMid: number; targetMax: number; isProxy?: boolean; monthlyRevenue?: number;
 }) {
   const hasValue = current > 0;
   const isAbsScale = targetMax > 10;
@@ -108,35 +108,40 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
       {!hasValue && <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)' }}>Istwert wird nach Datenpflege angezeigt</div>}
       {hasValue && belowTarget && (
         <div className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(196,56,48,0.06)', borderLeft: '3px solid #C43830', color: 'var(--text-secondary)' }}>
-          → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale)}
+          → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale, monthlyRevenue)}
         </div>
       )}
       {hasValue && inTarget && scCur < scMid && (
         <div className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(232,167,106,0.08)', borderLeft: '3px solid #E8A76A', color: 'var(--text-secondary)' }}>
-          → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale)}
+          → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale, monthlyRevenue)}
         </div>
       )}
     </div>
   );
 }
 
-function getBenchmarkMassnahme(label: string, current: number, min: number, mid: number, isAbsScale: boolean): string {
+function getBenchmarkMassnahme(label: string, current: number, min: number, mid: number, isAbsScale: boolean, monthlyRevenue?: number): string {
   const lbl = (label || '').toLowerCase();
   const gap = mid - current;
+  // EUR-Impact berechnen: Werte zurück in Originalskala konvertieren (Gauge zeigt 0-100, Engine erwartet 0-1)
+  const rawCur = isAbsScale ? current : current / 100;
+  const rawMid = isAbsScale ? mid : mid / 100;
+  const eurImpact = (monthlyRevenue && monthlyRevenue > 0) ? estimateBenchmarkEurImpact(label, rawCur, rawMid, monthlyRevenue) : 0;
+  const eurStr = eurImpact > 0 ? ` — Potenzial ≈ ${new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(eurImpact)}/Monat` : '';
   if (lbl.includes('produktiv')) {
-    if (current < min) return `Produktivität ${gap} Punkte unter Ziel: Leerlaufzeiten reduzieren, Einsatzplanung straffen`;
-    return `Noch ${gap} Punkte bis Zielwert: Schichtübergaben optimieren, Auslastung verbessern`;
+    if (current < min) return `Produktivität ${gap} Punkte unter Ziel: Leerlaufzeiten reduzieren, Einsatzplanung straffen${eurStr}`;
+    return `Noch ${gap} Punkte bis Zielwert: Schichtübergaben optimieren, Auslastung verbessern${eurStr}`;
   }
   if (lbl.includes('stundensatz') || lbl.includes('preis')) {
     const gapEur = Math.round(mid - current);
-    if (current < min) return `Stundensatz ${gapEur} € unter Ziel: Preiserhöhung bei Vertragsverlängerung`;
-    return `Noch ${gapEur} € bis Zielwert: Staffelpreise für Zusatzleistungen einführen`;
+    if (current < min) return `Stundensatz ${gapEur} € unter Ziel: Preiserhöhung bei Vertragsverlängerung${eurStr}`;
+    return `Noch ${gapEur} € bis Zielwert: Staffelpreise für Zusatzleistungen einführen${eurStr}`;
   }
   if (lbl.includes('personal') || lbl.includes('lohn')) {
-    if (current > mid) return `PKQ ${current - mid} Punkte über Ziel: Überstunden abbauen, Automatisierung prüfen`;
-    return `PKQ im Zielbereich, aber optimierbar: Einsatzeffizienz steigern`;
+    if (current > mid) return `PKQ ${current - mid} Punkte über Ziel: Überstunden abbauen, Automatisierung prüfen${eurStr}`;
+    return `PKQ im Zielbereich, aber optimierbar: Einsatzeffizienz steigern${eurStr}`;
   }
-  return `Wert ${gap > 0 ? gap + ' Punkte unter' : 'im'} Zielbereich — Optimierungspotenzial vorhanden`;
+  return `Wert ${gap > 0 ? gap + ' Punkte unter' : 'im'} Zielbereich — Optimierungspotenzial vorhanden${eurStr}`;
 }
 
 function getMassnahmeText(action: any, rank: number): string {
@@ -484,7 +489,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {benchmarks.map((b: any, i: number) => (
             <BenchmarkGauge key={i} isProxy={!!b.isProxy} label={b.kpi_label || `KPI ${i + 1}`}
-              current={Number(b.current ?? 0)} targetMin={Number(b.target_min ?? 0)} targetMid={Number(b.target_mid ?? 0)} targetMax={Number(b.target_max ?? 0)} />
+              current={Number(b.current ?? 0)} targetMin={Number(b.target_min ?? 0)} targetMid={Number(b.target_mid ?? 0)} targetMax={Number(b.target_max ?? 0)} monthlyRevenue={monthlyRevenue} />
           ))}
         </div>
       </div>
@@ -852,11 +857,6 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                             {item.realization}%
                           </span>
                         </div>
-                        {isAutoCompleteCandidate && trackerTab === 'aktiv' && (
-                          <div className="text-xs mt-1 px-2 py-1 rounded" style={{ background: 'rgba(16,185,129,0.08)', color: '#2E7D32' }}>
-                            → Abschluss empfohlen
-                          </div>
-                        )}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-sm whitespace-nowrap" style={{ color: realized > 0 ? '#2E8B57' : 'var(--text-secondary)' }}>
                         {realized > 0 ? fmtEur(realized) : '–'}
