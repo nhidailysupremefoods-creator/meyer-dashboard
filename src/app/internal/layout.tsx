@@ -38,9 +38,7 @@ function InternalOSLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Sidebar */}
         <aside className="ios-sidebar">
           <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontSize: '20px', fontWeight: 700, color: '#fff' }}>
-              Meyer Decision
-            </div>
+            <img src="/logo-sidebar.png" alt="Meyer Decision" style={{ height: 26, width: 'auto', display: 'block' }} />
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Internal OS</div>
           </div>
 
