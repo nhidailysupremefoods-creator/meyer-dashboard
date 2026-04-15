@@ -314,13 +314,24 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
           </div>
 
           {/* ═══ OVERVIEW TAB ═══ */}
-          {activePage === 'overview' && (
+          {activePage === 'overview' && (() => {
+            const margeOk = d.marginPct >= marginTargets.good;
+            const margeWarn = d.marginPct >= marginTargets.warn && !margeOk;
+            const margeKrit = !margeOk && !margeWarn;
+            const revTrend = d.revMom > 0.01 ? 'gestiegen' : d.revMom < -0.01 ? 'gefallen' : 'stabil geblieben';
+            const profTrend = d.profitMom > 0.01 ? 'verbessert' : d.profitMom < -0.01 ? 'verschlechtert' : 'unverändert geblieben';
+            const liqKritisch = d.liquidityMonths < 1.5;
+            const topActions = d.actions.slice(0, 3);
+
+            return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+              {/* KPI-Übersicht kompakt */}
               <div className="card" style={{ borderLeft: `4px solid ${statusClr}` }}>
-                <SectionHeader title="Call-Vorbereitung auf einen Blick" />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem', marginBottom: '1rem' }}>
+                <SectionHeader title="Kennzahlen auf einen Blick" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem' }}>
                   <KPIBox label="EBIT" value={fmtE(d.profit)} color={d.profit >= 0 ? '#10b981' : '#ef4444'} />
-                  <KPIBox label="Marge" value={fmtP(d.marginPct)} color={d.marginPct >= marginTargets.good ? '#10b981' : d.marginPct >= marginTargets.warn ? '#f59e0b' : '#ef4444'} sub={`Ziel: ${fmtP(marginTargets.good)}`} />
+                  <KPIBox label="Marge" value={fmtP(d.marginPct)} color={margeOk ? '#10b981' : margeWarn ? '#f59e0b' : '#ef4444'} sub={`Ziel: ${fmtP(marginTargets.good)}`} />
                   <KPIBox label="Umsatz" value={fmtE(d.revenue)} color="var(--offwhite)" sub={sign(d.revMom)} />
                   <KPIBox label="Bankbestand" value={fmtE(d.bankBalance)} color="var(--offwhite)" sub={`${d.liquidityMonths.toFixed(1)} Mon.`} />
                   <KPIBox label="Score" value={`${d.totalScore}/100`} color={d.totalScore >= 60 ? '#10b981' : d.totalScore >= 40 ? '#f59e0b' : '#ef4444'} />
@@ -328,35 +339,90 @@ export default function LeitfadenTab({ customers }: LeitfadenTabProps) {
                 </div>
               </div>
 
-              <div className="card">
-                <SectionHeader title="60-Minuten Zeitplan" subtitle="Empfohlene Zeiteinteilung für den Management-Call" />
-                {[
-                  { time: '0–5 Min', phase: 'Eröffnung', desc: 'Begrüßung, Agenda, Rückblick letzte Maßnahmen' },
-                  { time: '5–15 Min', phase: 'Gesamtlage', desc: `Status ${statusLabel}, Marge ${fmtP(d.marginPct)}, Trend besprechen` },
-                  { time: '15–25 Min', phase: 'Verträge', desc: `${d.criticalContracts.length} kritische von ${d.contracts.length} Verträgen analysieren` },
-                  { time: '25–35 Min', phase: 'Liquidität', desc: `Bankbestand ${fmtE(d.bankBalance)}, Reichweite ${d.liquidityMonths.toFixed(1)} Monate, Score ${d.totalScore}/100` },
-                  { time: '35–50 Min', phase: 'Maßnahmen', desc: `${d.actions.length} EBIT-Hebel (${fmtE(d.totalPotential)}), gemeinsam 3–5 auswählen` },
-                  { time: '50–60 Min', phase: 'Abschluss', desc: 'Zusammenfassung, Verantwortlichkeiten, nächster Termin' },
-                ].map((row, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: i < 5 ? '1px solid var(--border-color)' : 'none', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--copper)', minWidth: 65 }}>{row.time}</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--offwhite)', minWidth: 100 }}>{row.phase}</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{row.desc}</span>
-                  </div>
-                ))}
+              {/* AUSFORMULIERTER CALL-ABLAUF */}
+              <div className="card" style={{ borderLeft: '4px solid var(--copper)' }}>
+                <SectionHeader title="Call-Skript zum Vorlesen" subtitle="Ausformulierter Ablauf für den 60-Minuten Management-Call" />
+
+                {/* PHASE 1: Eröffnung */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>0–5 Minuten — Eröffnung</div>
+                  <Speech>
+                    Guten Tag, schön dass es heute klappt. Ich habe die aktuellen Zahlen für {customerName} ausgewertet und einen strukturierten Ablauf vorbereitet. Wir gehen heute durch vier Bereiche: Zuerst die Gesamtlage — wie steht das Unternehmen diesen Monat da. Dann schauen wir auf die einzelnen Verträge und identifizieren, wo es hakt. Danach besprechen wir die Liquiditätslage und den Finanzstabilitäts-Score. Und zum Schluss treffen wir gemeinsam Entscheidungen über konkrete Maßnahmen. Insgesamt etwa eine Stunde. Passt das so?
+                  </Speech>
+                </div>
+
+                {/* PHASE 2: Gesamtlage */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>5–15 Minuten — Gesamtlage</div>
+                  <Speech>
+                    {isKritisch
+                      ? `Lassen Sie mich direkt offen sein: Die aktuelle Lage bei ${customerName} stufe ich als kritisch ein. Die EBIT-Marge liegt bei ${fmtP(d.marginPct)} — unser Zielwert wäre ${fmtP(marginTargets.good)}. Der Umsatz ist gegenüber dem Vormonat ${revTrend} (${sign(d.revMom)}), und das Ergebnis hat sich ${profTrend} (${sign(d.profitMom)}). Das EBIT liegt bei ${fmtE(d.profit)}. Wenn wir das nicht aktiv angehen, verschärft sich die Situation weiter. Aber genau dafür sind wir heute hier — ich habe konkrete Hebel identifiziert.`
+                      : margeWarn
+                        ? `Die Gesamtlage bei ${customerName} zeigt ein gemischtes Bild. Die EBIT-Marge liegt bei ${fmtP(d.marginPct)} — das ist noch unter unserem Zielwert von ${fmtP(marginTargets.good)}, aber wir sind nicht im roten Bereich. Der Umsatz ist gegenüber dem Vormonat ${revTrend} (${sign(d.revMom)}), und das Ergebnis hat sich ${profTrend} (${sign(d.profitMom)}). Das EBIT beträgt ${fmtE(d.profit)}. Da gibt es Potenzial — lassen Sie uns gleich schauen, wo.`
+                        : `Die Gesamtlage bei ${customerName} ist solide. Die EBIT-Marge liegt bei ${fmtP(d.marginPct)} — das liegt ${d.marginPct >= marginTargets.good * 1.1 ? 'deutlich ' : ''}über unserem Zielwert von ${fmtP(marginTargets.good)}. Der Umsatz ist gegenüber dem Vormonat ${revTrend} (${sign(d.revMom)}), das Ergebnis hat sich ${profTrend} (${sign(d.profitMom)}). Das EBIT beträgt ${fmtE(d.profit)}. Die Grundlage stimmt — trotzdem schauen wir heute, ob wir noch Potenzial heben können.`
+                    }
+                  </Speech>
+                </div>
+
+                {/* PHASE 3: Verträge */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>15–25 Minuten — Verträge</div>
+                  <Speech>
+                    {d.criticalContracts.length > 0
+                      ? `Schauen wir jetzt auf die Vertragsebene. Insgesamt laufen ${d.contracts.length} Verträge, davon sind ${d.criticalContracts.length} mit einer Marge unter 5% — die müssen wir uns genauer anschauen. ${d.criticalContracts.length > 0 ? `Der auffälligste ist ${d.criticalContracts[0]?.contract_name || d.criticalContracts[0]?.action_label || 'der erste kritische Vertrag'} mit einer Marge von ${fmtP(Number(d.criticalContracts[0]?.margin_pct || 0))}.` : ''} Mein Vorschlag: Wir nehmen die zwei bis drei schlechtesten Verträge und besprechen jeweils, ob es ein Preisthema ist, ein Personalthema, oder ob der Vertrag strukturell nicht passt.`
+                      : `Auf Vertragsebene sieht es gut aus: Von ${d.contracts.length} laufenden Verträgen ist aktuell keiner unter der kritischen 5%-Marge-Schwelle. Der monatliche Gesamtumsatz aus Verträgen liegt bei ${fmtE(d.totalMRR)}. Trotzdem lohnt es sich, die Verteilung kurz anzuschauen — gibt es Verträge, die wir weiter optimieren können?`
+                    }
+                  </Speech>
+                </div>
+
+                {/* PHASE 4: Liquidität */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>25–35 Minuten — Liquidität &amp; Score</div>
+                  <Speech>
+                    {liqKritisch
+                      ? `Bei der Liquidität muss ich deutlich werden: Der Bankbestand liegt bei ${fmtE(d.bankBalance)}, das entspricht einer Reichweite von ${d.liquidityMonths.toFixed(1)} Monaten. Das ist zu wenig — wir sollten mindestens 2 bis 3 Monate Puffer haben. Der Finanzstabilitäts-Score steht bei ${d.totalScore} von 100 Punkten. Die schwächste Dimension ist ${d.weakestDim.name} mit nur ${d.weakestDim.score} von 25 Punkten — da liegt der größte Hebel. Hier brauchen wir kurzfristige Maßnahmen.`
+                      : `Der Bankbestand liegt bei ${fmtE(d.bankBalance)}, das gibt uns eine Reichweite von ${d.liquidityMonths.toFixed(1)} Monaten. ${d.liquidityMonths >= 3 ? 'Das ist ein solider Puffer.' : 'Da ist noch Luft nach oben — ideal wären 3 Monate.'} Der Finanzstabilitäts-Score liegt bei ${d.totalScore} von 100 Punkten. Die schwächste Dimension ist ${d.weakestDim.name} mit ${d.weakestDim.score} von 25 Punkten — wenn wir den Score weiter verbessern wollen, sollten wir dort ansetzen.`
+                    }
+                  </Speech>
+                </div>
+
+                {/* PHASE 5: Maßnahmen */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>35–50 Minuten — Maßnahmen &amp; Entscheidungen</div>
+                  <Speech>
+                    Jetzt kommen wir zum wichtigsten Teil. Ich habe insgesamt {d.actions.length} EBIT-Hebel identifiziert, die zusammen ein Potenzial von {fmtE(d.totalPotential)} ergeben.
+                    {topActions.length > 0 ? ` Die drei größten Hebel sind: ${topActions.map((a: any, i: number) =>
+                      `${i === topActions.length - 1 && i > 0 ? 'und ' : ''}${a.action_label || a.contract_name || `Maßnahme ${i + 1}`} mit ${fmtE(Number(a.impact_eur || a.ebit_potential_eur || 0))} EBIT-Potenzial`
+                    ).join(', ')}.` : ''} Mein Vorschlag: Wir wählen gemeinsam drei bis fünf Maßnahmen aus und legen für jede einen Verantwortlichen und einen Termin fest. So haben Sie nach dem Call einen konkreten Aktionsplan.
+                  </Speech>
+                </div>
+
+                {/* PHASE 6: Abschluss */}
+                <div>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--copper)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem' }}>50–60 Minuten — Abschluss</div>
+                  <Speech>
+                    Lassen Sie mich zusammenfassen, was wir heute besprochen haben: {isKritisch ? `Die Lage ist angespannt, aber wir haben konkrete Hebel identifiziert.` : `Das Unternehmen steht ${margeOk ? 'gut' : 'ordentlich'} da, und wir haben Optimierungspotenzial gefunden.`} Wir haben uns auf die wichtigsten Maßnahmen geeinigt — ich fasse die im Monatsreport zusammen mit Euro-Effekt und Verantwortlichkeiten. Beim nächsten Call schauen wir als Erstes, wie sich die Maßnahmen entwickelt haben. Wann passt Ihnen der nächste Termin — in vier Wochen?
+                  </Speech>
+                </div>
               </div>
 
+              {/* ACHTUNG-BOX bei kritischen Kunden */}
               {isKritisch && (
                 <div className="card" style={{ borderLeft: '4px solid #ef4444', background: 'rgba(239,68,68,0.04)' }}>
                   <SectionHeader title="⚠️ Achtung vor dem Call" />
-                  <p style={{ fontSize: '0.85rem', color: 'var(--offwhite)', lineHeight: 1.6 }}>
-                    Dieser Kunde ist im Status <strong style={{ color: '#ef4444' }}>KRITISCH</strong>. Bereiten Sie sich darauf vor, unbequeme Wahrheiten anzusprechen.
-                    Die Liquiditätsreichweite liegt bei {d.liquidityMonths.toFixed(1)} Monaten. Fokus auf Sofortmaßnahmen.
+                  <p style={{ fontSize: '0.85rem', color: 'var(--offwhite)', lineHeight: 1.7 }}>
+                    Dieser Kunde ist im Status <strong style={{ color: '#ef4444' }}>KRITISCH</strong>.
+                    Bereiten Sie sich darauf vor, unbequeme Wahrheiten klar und direkt anzusprechen.
+                    Die Liquiditätsreichweite liegt bei nur {d.liquidityMonths.toFixed(1)} Monaten — das bedeutet,
+                    ohne Gegenmaßnahmen wird es in absehbarer Zeit eng. Vermeiden Sie Beschönigungen,
+                    aber bleiben Sie konstruktiv: Zeigen Sie konkrete Wege auf, nicht nur Probleme.
+                    Der Geschäftsführer muss nach dem Call das Gefühl haben, dass es einen klaren Plan gibt.
                   </p>
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* ═══ SEITE 1: GESAMTLAGE ═══ */}
           {activePage === 'seite1' && (
