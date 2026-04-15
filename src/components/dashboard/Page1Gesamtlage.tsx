@@ -189,18 +189,18 @@ export default function Page1Gesamtlage({ data, industrySegment }: Props) {
   const CHART_H = 165;    // height of chart area in SVG units
 
   return (
-    <div className="space-y-5">
+    <div>
       {/* —— Section Title —— */}
-      <div>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+      <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: '0 auto' }}>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.35rem', letterSpacing: '0.3px' }}>
           Monatliche Gesamtlage
         </h2>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+        <p style={{ fontSize: '0.95rem', color: '#888', margin: 0, fontWeight: 400 }}>
           Wie steht das Unternehmen diesen Monat?
         </p>
-        <div className="copper-line" />
       </div>
 
+      <div className="space-y-5" style={{ maxWidth: 1400, margin: '0 auto', padding: '0 2rem' }}>
       {/* —— Hero + 4 KPI Tiles —— */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch">
         <div
@@ -765,6 +765,7 @@ export default function Page1Gesamtlage({ data, industrySegment }: Props) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

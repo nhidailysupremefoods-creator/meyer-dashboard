@@ -440,12 +440,12 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Maßnahmen</h2>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Steuerungs-Cockpit — Optimierungspotenziale erkennen, priorisieren und umsetzen</p>
-        <div className="copper-line" />
+    <div>
+      <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: '0 auto' }}>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.35rem', letterSpacing: '0.3px' }}>Maßnahmen</h2>
+        <p style={{ fontSize: '0.95rem', color: '#888', margin: 0, fontWeight: 400 }}>Steuerungs-Cockpit — Optimierungspotenziale erkennen, priorisieren und umsetzen</p>
       </div>
+      <div className="space-y-6" style={{ maxWidth: 1400, margin: '0 auto', padding: '0 2rem' }}>
 
       {/* ─── 1. STEUERUNGS-KPIs (ERWEITERT) ──────────────────────────────── */}
       <div className="card">
@@ -894,6 +894,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             </p>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
