@@ -581,13 +581,19 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           })}
         </div>
 
-        {/* Archive Section */}
-        {Object.values(liqLeversArchived).some(v => v) && (
-          <details className="rounded-xl border border-gray-300 bg-gray-50 p-3" style={{ marginTop: '1rem' }}>
-            <summary className="text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-              📦 Archiv ({Object.values(liqLeversArchived).filter(v => v).length} abgeschlossen)
-            </summary>
+        {/* Archive Section — immer sichtbar */}
+        <details className="rounded-xl border border-gray-300 bg-gray-50 p-3" style={{ marginTop: '1rem' }}
+          open={Object.values(liqLeversArchived).some(v => v)}
+        >
+          <summary className="text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+            📦 Archiv ({Object.values(liqLeversArchived).filter(v => v).length} abgeschlossen)
+          </summary>
             <div className="mt-3 space-y-2">
+              {!Object.values(liqLeversArchived).some(v => v) && (
+                <div className="text-xs text-center py-2" style={{ color: 'var(--text-secondary)' }}>
+                  Klicke ✓ um erledigte Hebel zu archivieren
+                </div>
+              )}
               {liqLevers.map((lever, i) => {
                 const leverKey = `liq_${i}`;
                 const isArchived = !!liqLeversArchived[leverKey];
@@ -612,7 +618,6 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
               })}
             </div>
           </details>
-        )}
       </div>
 
       {/* 4. MAẞNAHMENPOOL — Verträge + Benchmarks */}
