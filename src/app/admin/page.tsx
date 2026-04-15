@@ -237,7 +237,7 @@ export default function AdminPage() {
       </div>
 
       {/* Content — actions passed as props, NOT via separate useAdmin() instances */}
-      <div style={{ flex: 1, maxWidth: 1200, margin: '0 auto', width: '100%', padding: '1.5rem' }}>
+      <div style={{ flex: 1, maxWidth: activeTab === 'leitfaden' ? 1600 : 1200, margin: '0 auto', width: '100%', padding: '1.5rem', transition: 'max-width 0.2s ease' }}>
         {activeTab === 'customers' && (
           <CustomerTab
             customers={customers}
