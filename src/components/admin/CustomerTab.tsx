@@ -53,7 +53,7 @@ export default function CustomerTab({ customers, onUpdate }: CustomerTabProps) {
   };
 
   const handleDelete = async (customerId: string) => {
-    if (!window.confirm(`M\u00f6chten Sie den Mandanten "${customerId}" wirklich deaktivieren?`)) return;
+    if (!window.confirm(`Möchten Sie den Mandanten "${customerId}" wirklich deaktivieren?`)) return;
     setDeleting(customerId);
     try {
       const success = await updateCustomer(customerId, { is_active: false });
@@ -110,7 +110,7 @@ export default function CustomerTab({ customers, onUpdate }: CustomerTabProps) {
                       }}
                       style={S.sel}
                     >
-                      <option value="">-- Ausw\u00e4hlen --</option>
+                      <option value="">– Auswählen –</option>
                       {INDUSTRY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </td>
@@ -121,7 +121,7 @@ export default function CustomerTab({ customers, onUpdate }: CustomerTabProps) {
                       disabled={!einsatzlogikOptions.length}
                       style={{ ...S.sel, color: einsatzlogikOptions.length ? 'var(--offwhite)' : 'var(--text-secondary)', opacity: einsatzlogikOptions.length ? 1 : 0.5 }}
                     >
-                      <option value="">-- Ausw\u00e4hlen --</option>
+                      <option value="">– Auswählen –</option>
                       {einsatzlogikOptions.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
                     </select>
                   </td>
@@ -147,7 +147,7 @@ export default function CustomerTab({ customers, onUpdate }: CustomerTabProps) {
                           disabled={saving === c.customer_id || loading}
                           style={{ padding: '0.35rem 0.85rem', background: 'var(--copper)', color: 'var(--navy)', borderRadius: 6, border: 'none', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: saving === c.customer_id ? 0.6 : 1 }}
                         >
-                          {saving === c.customer_id ? 'Speichern\u2026' : 'Speichern'}
+                          {saving === c.customer_id ? 'Speichern…' : 'Speichern'}
                         </button>
                       ) : (
                         <button
@@ -155,7 +155,7 @@ export default function CustomerTab({ customers, onUpdate }: CustomerTabProps) {
                           disabled={deleting === c.customer_id || loading}
                           style={{ padding: '0.35rem 0.65rem', background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', opacity: deleting === c.customer_id ? 0.6 : 1 }}
                         >
-                          {deleting === c.customer_id ? 'L\u00f6schen\u2026' : 'L\u00f6schen'}
+                          {deleting === c.customer_id ? 'Löschen…' : 'Löschen'}
                         </button>
                       )}
                     </div>

@@ -109,19 +109,39 @@ export function useAdmin(): UseAdminReturn {
       setAudit(normalizedAudit);
 
       // Transform releases: Apps Script returns nested {CUSTOMER_ID: {releases: [...], available_months: [...]}}
-      // Frontend expects flat Release[] array
+      // Frontend expects flat Release[] array with proper boolean is_released
       const rawReleases = d.releases;
       let flatReleases: Release[] = [];
       if (Array.isArray(rawReleases)) {
         flatReleases = rawReleases;
       } else if (rawReleases && typeof rawReleases === 'object') {
         // Nested format from adminInitAll() — flatten all customer release arrays
-        Object.values(rawReleases).forEach((customerData: any) => {
+        Object.entries(rawReleases).forEach(([custId, customerData]: [string, any]) => {
           if (customerData?.releases && Array.isArray(customerData.releases)) {
-            flatReleases.push(...customerData.releases);
+            customerData.releases.forEach((r: any) => {
+              flatReleases.push({
+                ...r,
+                customer_id: r.customer_id || custId,
+              });
+            });
+          }
+          // Also handle flat array per customer (e.g., {CUST_ID: [{report_month, is_released}]})
+          if (Array.isArray(customerData)) {
+            customerData.forEach((r: any) => {
+              flatReleases.push({
+                ...r,
+                customer_id: r.customer_id || custId,
+              });
+            });
           }
         });
       }
+      // Normalize is_released to proper boolean (BQ might return string 'true'/'false')
+      flatReleases = flatReleases.map((r) => ({
+        ...r,
+        report_month: r.report_month || '',
+        is_released: r.is_released === true || r.is_released === 'true' || r.is_released === 'TRUE',
+      }));
       setReleases(flatReleases);
     } catch (err: any) {
       const errorMsg =
