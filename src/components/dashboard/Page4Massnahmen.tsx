@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { getTargetsForCustomer } from '@/lib/config';
+import {
+  runEngine, loadItems, saveItems, acceptRecommendation, addFromPool,
+  updateItemStatus, removeItem as removeEngineItem, getAutoCompleteHints,
+  computeKPIs, sortByPriority, applyCarryOver, deduplicateItems,
+  type MassnahmeItem, type MassnahmeStatus, type Recommendation, type EngineState,
+} from '@/lib/massnahmen-engine';
 
 interface Props {
   data: any;
@@ -17,77 +23,51 @@ const fmtEur = (n: any) =>
 const fmtPct = (n: any) =>
   n != null ? `${(Number(n) * 100).toFixed(1)} %` : '–';
 
-// Fallback-Benchmarks falls API keine Daten liefert
+// ─── Fallback-Benchmarks ─────────────────────────────────────────────────────
 const FALLBACK_BENCHMARKS = [
   { kpi_label: 'Produktivität', current: 0, target_min: 0.70, target_mid: 0.80, target_max: 0.90 },
   { kpi_label: 'Stundensatz (€)', current: 0, target_min: 95, target_mid: 105, target_max: 120 },
   { kpi_label: 'Personalkostenquote', current: 0, target_min: 0.40, target_mid: 0.45, target_max: 0.55 },
 ];
 
+// ─── Benchmark Gauge Component (unchanged) ───────────────────────────────────
 function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isProxy }: {
   label: string; current: number; targetMin: number; targetMid: number; targetMax: number; isProxy?: boolean;
 }) {
   const hasValue = current > 0;
-  const isAbsScale = targetMax > 10; // Stundensatz/Preis = absolute Werte, keine 0-100 Skala
+  const isAbsScale = targetMax > 10;
   const lbl = (label || '').toLowerCase();
-
-  // Personalkostenquote: NIEDRIGER = BESSER (je weniger % an Personalkosten, desto besser)
   const lowerIsBetter = lbl.includes('personal') || lbl.includes('lohn') || lbl.includes('pkq');
 
-  // Für %-KPIs: Skala 0-100 (zeige % als Score). Für €-KPIs: absolute Skala
   let score = 0;
   let scoreLabel = '–';
   if (hasValue) {
-    if (isAbsScale) {
-      score = current;
-      scoreLabel = `${Math.round(current)} €`;
-    } else {
-      score = Math.round(current * 100);
-      scoreLabel = `${score} / 100`;
-    }
+    if (isAbsScale) { score = current; scoreLabel = `${Math.round(current)} €`; }
+    else { score = Math.round(current * 100); scoreLabel = `${score} / 100`; }
   }
 
-  // Zielbereich auf gleicher Skala
   const scMin = isAbsScale ? targetMin : Math.round(targetMin * 100);
   const scMid = isAbsScale ? targetMid : Math.round(targetMid * 100);
   const scMax = isAbsScale ? targetMax : Math.round(targetMax * 100);
   const scCur = isAbsScale ? current : Math.round(current * 100);
 
-  // Gauge-Balken: Position relativ zur Skala
   const scaleMax = isAbsScale ? Math.max(targetMax * 1.25, current * 1.1) : 100;
   const pctCurrent = hasValue ? Math.min((scCur / scaleMax) * 100, 100) : 0;
   const pctMin = (scMin / scaleMax) * 100;
   const pctMax = Math.min((scMax / scaleMax) * 100, 100);
   const pctMid = (scMid / scaleMax) * 100;
 
-  // ── Stabile Bewertungslogik ───────────────────────────────────────────
-  // Für "höher=besser" (Produktivität, Stundensatz): über targetMid = Übertrifft
-  // Für "niedriger=besser" (PKQ): unter targetMid = Übertrifft
-  let barColor = '#ccc';
-  let statusText = 'Keine Daten';
-  let statusBg = '#F5F5F5';
-  let statusColor = '#999';
+  let barColor = '#ccc', statusText = 'Keine Daten', statusBg = '#F5F5F5', statusColor = '#999';
   if (hasValue) {
     if (lowerIsBetter) {
-      // PKQ: niedriger = besser
-      if (current <= targetMin) {
-        barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
-      } else if (current <= targetMid) {
-        barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32';
-      } else if (current <= targetMax) {
-        barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100';
-      } else {
-        barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830';
-      }
+      if (current <= targetMin) { barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20'; }
+      else if (current <= targetMid) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32'; }
+      else if (current <= targetMax) { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
+      else { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
     } else {
-      // Produktivität, Stundensatz: höher = besser
-      if (current >= targetMax) {
-        barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
-      } else if (current >= targetMid) {
-        barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20';
-      } else if (current >= targetMin) {
-        barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32';
-      } else {
+      if (current >= targetMid) { barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20'; }
+      else if (current >= targetMin) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32'; }
+      else {
         const gap = targetMin > 0 ? (targetMin - current) / targetMin : 0;
         if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
         else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
@@ -95,14 +75,12 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
     }
   }
 
-  // Zielbereichs-Flags für Maßnahmen-Hinweise
   const belowTarget = hasValue && (lowerIsBetter ? scCur > scMax : scCur < scMin);
   const inTarget = hasValue && !belowTarget && (lowerIsBetter ? scCur <= scMax : scCur >= scMin);
 
-  // Erklärtext für den Kontext
   let explanation = '';
   if (lbl.includes('produktiv')) explanation = hasValue ? `${score}% der Kapazität werden produktiv genutzt` : 'Anteil produktiv genutzter Arbeitsstunden';
-  else if (lbl.includes('stundensatz') || lbl.includes('preis')) explanation = hasValue ? `Durchschnittlicher Verrechnungssatz` : 'Durchschnittlicher Verrechnungssatz je Stunde';
+  else if (lbl.includes('stundensatz') || lbl.includes('preis')) explanation = hasValue ? 'Durchschnittlicher Verrechnungssatz' : 'Durchschnittlicher Verrechnungssatz je Stunde';
   else if (lbl.includes('personal') || lbl.includes('lohn')) explanation = hasValue ? `${score}% des Umsatzes gehen in Personalkosten` : 'Personalkostenanteil am Umsatz';
 
   return (
@@ -110,61 +88,22 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
       <div className="flex justify-between items-start mb-2">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{label}</div>
-          <div className="text-xl font-bold mt-0.5" style={{ color: hasValue ? barColor : 'var(--text-secondary)' }}>
-            {scoreLabel}
-          </div>
+          <div className="text-xl font-bold mt-0.5" style={{ color: hasValue ? barColor : 'var(--text-secondary)' }}>{scoreLabel}</div>
         </div>
-        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: statusBg, color: statusColor }}>
-          {statusText}
-        </span>
+        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: statusBg, color: statusColor }}>{statusText}</span>
       </div>
-
-      {explanation && (
-        <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>{explanation}</div>
-      )}
-
-      {/* Gauge-Balken */}
+      {explanation && <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>{explanation}</div>}
       <div className="relative h-4 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
-        {/* Zielkorridor (grüner Hintergrund) */}
-        <div className="absolute h-4 rounded" style={{
-          left: `${pctMin}%`,
-          width: `${Math.max(0, pctMax - pctMin)}%`,
-          backgroundColor: 'rgba(46,139,87,0.15)',
-          borderLeft: '2px solid rgba(46,139,87,0.4)',
-          borderRight: '2px solid rgba(46,139,87,0.4)',
-        }} />
-        {/* Ist-Wert Balken */}
-        {hasValue && (
-          <div className="absolute h-4 rounded-full transition-all" style={{
-            width: `${pctCurrent}%`,
-            backgroundColor: barColor,
-            opacity: 0.85,
-          }} />
-        )}
-        {/* Zielwert-Nadel */}
-        <div className="absolute top-0 h-4" style={{
-          left: `${pctMid}%`,
-          width: 2,
-          backgroundColor: '#333',
-          borderRadius: 1,
-        }} />
+        <div className="absolute h-4 rounded" style={{ left: `${pctMin}%`, width: `${Math.max(0, pctMax - pctMin)}%`, backgroundColor: 'rgba(46,139,87,0.15)', borderLeft: '2px solid rgba(46,139,87,0.4)', borderRight: '2px solid rgba(46,139,87,0.4)' }} />
+        {hasValue && <div className="absolute h-4 rounded-full transition-all" style={{ width: `${pctCurrent}%`, backgroundColor: barColor, opacity: 0.85 }} />}
+        <div className="absolute top-0 h-4" style={{ left: `${pctMid}%`, width: 2, backgroundColor: '#333', borderRadius: 1 }} />
       </div>
-
-      {/* Legende unter dem Balken */}
       <div className="flex justify-between text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
         <span>{isAbsScale ? '0 €' : '0'}</span>
         <span style={{ color: '#2E8B57', fontWeight: 600 }}>Ziel: {isAbsScale ? `${Math.round(scMid)} €` : scMid}</span>
         <span>{isAbsScale ? `${Math.round(scaleMax)} €` : '100'}</span>
       </div>
-
-      {/* Keine Daten */}
-      {!hasValue && (
-        <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)' }}>
-          Istwert wird nach Datenpflege angezeigt
-        </div>
-      )}
-
-      {/* Konkrete Maßnahme wenn unter Ziel oder knapp im Ziel */}
+      {!hasValue && <div className="text-xs mt-1 text-center" style={{ color: 'var(--text-secondary)' }}>Istwert wird nach Datenpflege angezeigt</div>}
       {hasValue && belowTarget && (
         <div className="text-xs mt-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(196,56,48,0.06)', borderLeft: '3px solid #C43830', color: 'var(--text-secondary)' }}>
           → {getBenchmarkMassnahme(label, scCur, scMin, scMid, isAbsScale)}
@@ -179,33 +118,27 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
   );
 }
 
-/** Konkrete Maßnahmen pro Benchmark-KPI */
 function getBenchmarkMassnahme(label: string, current: number, min: number, mid: number, isAbsScale: boolean): string {
   const lbl = (label || '').toLowerCase();
   const gap = mid - current;
-
   if (lbl.includes('produktiv')) {
-    if (current < min) return `Produktivität ${gap} Punkte unter Ziel: Leerlaufzeiten reduzieren, Einsatzplanung straffen, unproduktive Tätigkeiten (Fahrt, Admin) minimieren`;
-    return `Noch ${gap} Punkte bis Zielwert: Schichtübergaben optimieren, Auslastung bei Randzeiten verbessern`;
+    if (current < min) return `Produktivität ${gap} Punkte unter Ziel: Leerlaufzeiten reduzieren, Einsatzplanung straffen`;
+    return `Noch ${gap} Punkte bis Zielwert: Schichtübergaben optimieren, Auslastung verbessern`;
   }
   if (lbl.includes('stundensatz') || lbl.includes('preis')) {
     const gapEur = Math.round(mid - current);
-    if (current < min) return `Stundensatz ${gapEur} € unter Ziel: Preiserhöhung bei nächster Vertragsverlängerung, Zuschläge für Sonderleistungen einführen`;
-    return `Noch ${gapEur} € bis Zielwert: Staffelpreise für Zusatzleistungen, Indexklauseln in Neuverträge`;
+    if (current < min) return `Stundensatz ${gapEur} € unter Ziel: Preiserhöhung bei Vertragsverlängerung`;
+    return `Noch ${gapEur} € bis Zielwert: Staffelpreise für Zusatzleistungen einführen`;
   }
   if (lbl.includes('personal') || lbl.includes('lohn')) {
-    // Bei PKQ ist NIEDRIGER besser — unter Ziel heißt hier: Quote zu HOCH
-    if (current > mid) return `PKQ ${current - mid} Punkte über Ziel: Überstunden abbauen, Leiharbeit prüfen, Automatisierung von Routineaufgaben`;
-    return `PKQ im Zielbereich, aber optimierbar: Schulungskosten prüfen, Krankenquote senken, Einsatzeffizienz steigern`;
+    if (current > mid) return `PKQ ${current - mid} Punkte über Ziel: Überstunden abbauen, Automatisierung prüfen`;
+    return `PKQ im Zielbereich, aber optimierbar: Einsatzeffizienz steigern`;
   }
   return `Wert ${gap > 0 ? gap + ' Punkte unter' : 'im'} Zielbereich — Optimierungspotenzial vorhanden`;
 }
 
-/** Konkrete Maßnahmen je nach Vertragstyp und Marge */
 function getMassnahmeText(action: any, rank: number): string {
   const margin = Number(action.margin_pct ?? 0);
-  const name = (action.action_label || action.contract_name || '').toLowerCase();
-
   if (margin < 0) return 'Vertrag kündigen oder Nachverhandlung mit Preisanpassung +15–20%';
   if (margin < 0.05) return 'Stundensatz um 10–15% erhöhen, Materialzuschlag prüfen, Einsatzplanung optimieren';
   if (margin < 0.08) return 'Einsatzzeiten verdichten, Fahrtkosten reduzieren, Leistungsumfang anpassen';
@@ -213,31 +146,60 @@ function getMassnahmeText(action: any, rank: number): string {
   return 'Vertrag als Referenz nutzen, Konditionen bei Verlängerung halten';
 }
 
-type TrackerStatus = 'Offen' | 'In Bearbeitung' | 'Umgesetzt';
+// ─── Style Constants ─────────────────────────────────────────────────────────
 type EbitTab = 'top' | 'sonstige';
 type PoolTab = 'alle' | 'vertraege' | 'benchmarks';
 type TrackerTab = 'aktiv' | 'umgesetzt';
 
-interface TrackerItem {
-  key: string;
-  label: string;
-  description: string;
-  potenzial: number;
-  month: string;
-  status: TrackerStatus;
-  realization: number;
-  note: string;
-  archived: boolean;
-}
-
 const DOT = { width: 8, height: 8, borderRadius: '50%', background: '#8B6A40', flexShrink: 0 as const, display: 'inline-block' as const };
 const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius: 1, marginBottom: '1rem' };
+
+// ─── Status Badge Component ──────────────────────────────────────────────────
+function StatusBadge({ status, carryOver }: { status: MassnahmeStatus; carryOver: number }) {
+  const config: Record<MassnahmeStatus, { bg: string; color: string; dot: string; label: string }> = {
+    OPEN: { bg: '#FFF8E1', color: '#E65100', dot: '#F59E0B', label: 'Offen' },
+    IN_PROGRESS: { bg: '#E3F2FD', color: '#1565C0', dot: '#2196F3', label: 'In Arbeit' },
+    DONE: { bg: '#E8F5E9', color: '#2E7D32', dot: '#4CAF50', label: 'Umgesetzt' },
+  };
+  const c = config[status] || config.OPEN;
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: c.bg, color: c.color }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.dot, display: 'inline-block' }} />
+      {c.label}
+      {carryOver > 0 && (
+        <span className="ml-1 text-xs opacity-70" title={`Seit ${carryOver} Monat${carryOver > 1 ? 'en' : ''} offen`}>
+          +{carryOver}M
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─── Urgency Badge ───────────────────────────────────────────────────────────
+function UrgencyBadge({ urgency }: { urgency: 'KRITISCH' | 'HOCH' | 'MITTEL' }) {
+  const conf = {
+    KRITISCH: { bg: '#FFEBEE', color: '#C62828', icon: '🔴' },
+    HOCH: { bg: '#FFF3E0', color: '#E65100', icon: '🟠' },
+    MITTEL: { bg: '#FFF8E1', color: '#F57F17', icon: '🟡' },
+  };
+  const c = conf[urgency];
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: c.bg, color: c.color }}>
+      <span style={{ fontSize: 8 }}>{c.icon}</span>
+      {urgency}
+    </span>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═════════════════════════════════════════════════════════════════════════════
 
 export default function Page4Massnahmen({ data, customer, period, industrySegment }: Props) {
   const actions: any[] = useMemo(() => (data as any)?.actions || [], [data]);
   const rawBenchmarks: any[] = (data as any)?.benchmarks || [];
 
-  // Use industry-specific targets from config.ts when available
+  // ─── Industry Targets ──────────────────────────────────────────────────────
   const industryTargets = useMemo(() => {
     if (!industrySegment) return null;
     const einsatzlogik = (data as any)?.einsatzlogik_segment || undefined;
@@ -245,9 +207,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
   }, [industrySegment, data]);
 
   const benchmarks = useMemo(() => {
-    // If API returns actual benchmark data with current values, use those
     if (rawBenchmarks.length > 0 && rawBenchmarks.some((b: any) => Number(b.current ?? 0) > 0)) {
-      // Overlay industry targets if available
       if (industryTargets) {
         return rawBenchmarks.map((b: any) => {
           const lbl = (b.kpi_label || '').toLowerCase();
@@ -267,10 +227,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
       }
       return rawBenchmarks;
     }
-
-    // Build benchmarks from industry targets or fallback
     const targets = industryTargets;
-    // productivity_hours in config are absolute (1300-1700h/year) — convert to utilization rate assuming ~2000h/year capacity
     const prodLow = targets?.productivity_hours_low ? targets.productivity_hours_low / 2000 : 0.70;
     const prodMid = targets?.productivity_hours_target ? targets.productivity_hours_target / 2000 : 0.80;
     const prodHigh = targets?.productivity_hours_high ? targets.productivity_hours_high / 2000 : 0.90;
@@ -280,7 +237,6 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
       { kpi_label: 'Personalkostenquote', current: 0, target_min: targets.target_payroll_cost_pct?.[0] || 0.40, target_mid: targets.target_payroll_cost_pct?.[1] || 0.45, target_max: targets.target_payroll_cost_pct?.[2] || 0.55 },
     ] : (rawBenchmarks.length > 0 ? rawBenchmarks : FALLBACK_BENCHMARKS);
 
-    // Calculate proxy current values from available margin data
     const wirkungMargin = Number((data as any)?.wirkung?.margin_pct ?? 0);
     const actionsArr: any[] = (data as any)?.actions || [];
     let avgMargin = wirkungMargin;
@@ -299,81 +255,106 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
       return proxyValue > 0 ? { ...b, current: proxyValue, isProxy: true } : b;
     });
   }, [rawBenchmarks, data, industryTargets]);
-  const trackerData: any[] = (data as any)?.tracker || [];
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENGINE STATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const [engineState, setEngineState] = useState<EngineState>(() => runEngine(customer, period, actions));
+
+  // Re-run engine wenn sich Kunde oder Periode ändert
+  useEffect(() => {
+    setEngineState(runEngine(customer, period, actions));
+  }, [customer, period, actions]);
+
+  const { items, recommendations, kpis } = engineState;
+
+  // Aktive & Umgesetzte Items
+  const activeItems = useMemo(() =>
+    sortByPriority(items.filter(i => i.status !== 'DONE' && i.current_period === period)),
+    [items, period]);
+  const doneItems = useMemo(() => items.filter(i => i.status === 'DONE'), [items]);
+  const allCurrentItems = useMemo(() =>
+    sortByPriority(items.filter(i => i.current_period === period)),
+    [items, period]);
+
+  // Auto-Complete Hints
+  const autoCompleteKeys = useMemo(() => getAutoCompleteHints(items), [items]);
+
+  // ─── Persistenz-Wrapper ────────────────────────────────────────────────────
+  const updateEngine = useCallback((updater: (items: MassnahmeItem[]) => MassnahmeItem[]) => {
+    setEngineState(prev => {
+      const newItems = updater(prev.items);
+      saveItems(customer, newItems);
+      const newKPIs = computeKPIs(newItems, period);
+      return { ...prev, items: newItems, kpis: newKPIs };
+    });
+  }, [customer, period]);
+
+  // ─── Actions ───────────────────────────────────────────────────────────────
+  const handleAcceptRecommendation = useCallback(async (rec: Recommendation) => {
+    updateEngine(items => acceptRecommendation(items, rec, customer, period));
+    // Auch an API melden
+    try {
+      await api.saveTracker({ customer_id: customer, period, action_key: rec.action_key, is_realization: true, target_ebit_eur: rec.potenzial });
+    } catch (e) { console.error(e); }
+  }, [customer, period, updateEngine]);
+
+  const handleTogglePool = useCallback(async (action: any) => {
+    const key = action.action_key || action.contract_id || '';
+    const exists = items.some(i => i.action_key === key);
+    if (exists) {
+      updateEngine(items => removeEngineItem(items, key));
+    } else {
+      updateEngine(items => addFromPool(items, action, customer, period));
+      try {
+        await api.saveTracker({ customer_id: customer, period, action_key: key, is_realization: true, target_ebit_eur: Number(action.impact_eur ?? action.ebit_potential_eur ?? 0) });
+      } catch (e) { console.error(e); }
+    }
+  }, [items, customer, period, updateEngine]);
+
+  const handleUpdateStatus = useCallback((key: string, updates: Partial<Pick<MassnahmeItem, 'status' | 'realization' | 'note'>>) => {
+    updateEngine(items => updateItemStatus(items, key, updates));
+  }, [updateEngine]);
+
+  const handleRemove = useCallback((key: string) => {
+    updateEngine(items => removeEngineItem(items, key));
+  }, [updateEngine]);
+
+  // ─── UI State ──────────────────────────────────────────────────────────────
   const [ebitTab, setEbitTab] = useState<EbitTab>('top');
   const [poolTab, setPoolTab] = useState<PoolTab>('alle');
   const [trackerTab, setTrackerTab] = useState<TrackerTab>('aktiv');
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-
-  const [poolSelected, setPoolSelected] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    trackerData.forEach((t: any) => { init[t.action_key || t.contract_id || ''] = true; });
-    return init;
-  });
-
-  const [trackerItems, setTrackerItems] = useState<TrackerItem[]>(() =>
-    trackerData.map((t: any) => ({
-      key: t.action_key || t.contract_id || '',
-      label: t.action_label || t.contract_name || '',
-      description: t.description || t.diagnose || t.category || '',
-      potenzial: Number(t.target_ebit_eur || t.ebit_potential_eur || 0),
-      month: t.month_label || t.month_id || period,
-      status: 'Offen' as TrackerStatus,
-      realization: 0,
-      note: '',
-      archived: false,
-    }))
-  );
-
-  // Liquiditätshebel-Status (archived items = completed)
-  const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
+  const [dismissedRecs, setDismissedRecs] = useState<Set<string>>(new Set());
 
   const getImpact = (a: any) => Number(a.impact_eur ?? a.ebit_potential_eur ?? a.ebit_potential ?? 0);
-
-  const sortedActions = useMemo(() =>
-    [...actions].sort((a, b) => getImpact(b) - getImpact(a)), [actions]);
-
+  const sortedActions = useMemo(() => [...actions].sort((a, b) => getImpact(b) - getImpact(a)), [actions]);
   const TOP_N = Math.min(5, sortedActions.length);
   const topActions = sortedActions.slice(0, TOP_N);
   const sonstigeActions = sortedActions.slice(TOP_N);
   const totalEbitPotential = sortedActions.reduce((s, a) => s + getImpact(a), 0);
   const ebitActions = ebitTab === 'top' ? topActions : sonstigeActions;
 
-  // Benchmark-Maßnahmen (unter Zielwert → im Pool verfügbar)
+  // Pool-Logik (bestehend)
+  const selectedKeys = useMemo(() => new Set(items.map(i => i.action_key)), [items]);
+
   const benchmarkPoolActions = useMemo(() =>
     benchmarks.map((b: any, i: number) => ({
-      action_key: `bench_${i}`,
-      action_label: b.kpi_label || `Benchmark ${i + 1}`,
-      contract_name: b.kpi_label,
-      category: 'Benchmark-Maßnahme',
-      impact_eur: 0,
-      ebit_potential_eur: 0,
-      isBenchmark: true,
-      belowTarget: Number(b.current ?? 0) > 0 && Number(b.current) < Number(b.target_min ?? b.target_mid ?? 0),
+      action_key: `bench_${i}`, action_label: b.kpi_label || `Benchmark ${i + 1}`,
+      contract_name: b.kpi_label, category: 'Benchmark-Maßnahme', impact_eur: 0, ebit_potential_eur: 0,
+      isBenchmark: true, belowTarget: Number(b.current ?? 0) > 0 && Number(b.current) < Number(b.target_min ?? b.target_mid ?? 0),
     })), [benchmarks]);
 
-  const poolContractBase = useMemo(() =>
-    poolTab === 'vertraege' ? sortedActions.slice(0, TOP_N) : sortedActions,
-    [sortedActions, poolTab, TOP_N]);
-
   const poolActions = useMemo(() => {
-    let actions: any[] = [];
-    if (poolTab === 'benchmarks') {
-      actions = benchmarkPoolActions;
-    } else if (poolTab === 'vertraege') {
-      actions = poolContractBase;
-    } else {
-      // 'alle' — combine and sort by EBIT impact descending
-      actions = [...poolContractBase, ...benchmarkPoolActions].sort((a, b) => {
-        const aImpact = getImpact(a) || 0;
-        const bImpact = getImpact(b) || 0;
-        return bImpact - aImpact; // Descending
-      });
-    }
-    return actions;
-  }, [poolContractBase, benchmarkPoolActions, poolTab]);
+    let acts: any[] = [];
+    if (poolTab === 'benchmarks') acts = benchmarkPoolActions;
+    else if (poolTab === 'vertraege') acts = sortedActions.slice(0, TOP_N);
+    else acts = [...sortedActions, ...benchmarkPoolActions].sort((a, b) => getImpact(b) - getImpact(a));
+    return acts;
+  }, [sortedActions, benchmarkPoolActions, poolTab, TOP_N]);
 
+  // Liquiditätshebel
+  const [liqLeversArchived, setLiqLeversArchived] = useState<Record<string, boolean>>({});
   const liqLevers = useMemo(() => {
     const base = totalEbitPotential > 0 ? totalEbitPotential : 10000;
     return [
@@ -383,8 +364,14 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
       { title: 'Zahlungsströme synchronisieren', impact: Math.round(base * 0.077), biggest: false, items: ['Zahltermine 1./15. durchsetzen', 'Lieferantenzahlungen bündeln', 'Reserve 3 Monate aufbauen'] },
     ];
   }, [totalEbitPotential]);
-
   const totalLiqImpact = liqLevers.reduce((s, l) => s + l.impact, 0);
+
+  // Visible recommendations (excluding dismissed ones)
+  const visibleRecs = useMemo(() =>
+    recommendations.filter(r => !dismissedRecs.has(r.action_key) && !selectedKeys.has(r.action_key)),
+    [recommendations, dismissedRecs, selectedKeys]);
+
+  const displayItems = trackerTab === 'aktiv' ? activeItems : doneItems;
 
   const getEbitBadge = (action: any, rank: number) => {
     const m = Number(action.margin_pct ?? 0);
@@ -393,70 +380,102 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
     return { text: 'Optimieren', color: '#E65100', bg: '#FFF8E1' };
   };
 
-  const addToTracker = (action: any) => {
-    const key = action.action_key || action.contract_id || '';
-    if (trackerItems.some(t => t.key === key)) return;
-    setTrackerItems(prev => [...prev, {
-      key, label: action.action_label || action.contract_name || '',
-      description: action.category || '',
-      potenzial: getImpact(action),
-      month: period, status: 'Offen', realization: 0, note: '', archived: false,
-    }]);
-  };
-
-  const togglePool = async (action: any) => {
-    const key = action.action_key || action.contract_id || '';
-    const wasSelected = !!poolSelected[key];
-    setPoolSelected(prev => ({ ...prev, [key]: !wasSelected }));
-    if (!wasSelected) {
-      addToTracker(action);
-      setSavingKey(key);
-      try {
-        await api.saveTracker({ customer_id: customer, period, action_key: key, is_realization: true, target_ebit_eur: getImpact(action) });
-      } catch (e) { console.error(e); }
-      finally { setSavingKey(null); }
-    } else {
-      setTrackerItems(prev => prev.filter(t => t.key !== key));
-    }
-  };
-
-  // Auto-Archivierung wenn Status auf "Umgesetzt" gesetzt wird
-  const updateItem = (key: string, updates: Partial<TrackerItem>) =>
-    setTrackerItems(prev => prev.map(t => {
-      if (t.key !== key) return t;
-      const updated = { ...t, ...updates };
-      if (updates.status === 'Umgesetzt') {
-        updated.archived = true;
-        if (updated.realization < 100) updated.realization = 100;
-      }
-      return updated;
-    }));
-
-  const removeItem = (key: string) => {
-    setPoolSelected(prev => ({ ...prev, [key]: false }));
-    setTrackerItems(prev => prev.filter(t => t.key !== key));
-  };
-
-  const activeItems = trackerItems.filter(t => !t.archived);
-  const umgesetztItems = trackerItems.filter(t => t.archived);
-  const totalPotenzial = trackerItems.reduce((s, t) => s + t.potenzial, 0);
-  const totalRealized = trackerItems.reduce((s, t) => s + (t.potenzial * t.realization / 100), 0);
-  const captureRate = totalPotenzial > 0 ? (totalRealized / totalPotenzial) * 100 : 0;
-  const displayItems = trackerTab === 'aktiv' ? activeItems : umgesetztItems;
-
   const tabBtn = (active: boolean) => active
     ? { background: '#C8A96E', color: '#fff' }
     : { background: 'transparent', color: 'var(--text-secondary)', border: '1.5px solid var(--border-color)' };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Maßnahmen</h2>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Optimierungspotenziale und Umsetzungstracking</p>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Steuerungs-Cockpit — Optimierungspotenziale erkennen, priorisieren und umsetzen</p>
         <div className="copper-line" />
       </div>
 
-      {/* 1. BENCHMARKVERGLEICH — immer sichtbar */}
+      {/* ─── 0. EMPFOHLENE MAẞNAHMEN (NEU) ─────────────────────────────────── */}
+      {visibleRecs.length > 0 && (
+        <div className="card" style={{ borderLeft: '4px solid #C8A96E' }}>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <span style={{ ...DOT, background: '#C8A96E', width: 10, height: 10 }} />
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>EMPFOHLENE MAẞNAHMEN</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#FFF3E0', color: '#E65100' }}>
+                {visibleRecs.length} Vorschläge
+              </span>
+            </div>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Basierend auf Ihren aktuellen KPIs
+            </span>
+          </div>
+          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Das System hat die folgenden Maßnahmen als besonders wirkungsvoll identifiziert
+          </p>
+          <div style={COPPER_LINE} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {visibleRecs.map((rec) => (
+              <div key={rec.action_key} className="p-4 rounded-xl" style={{ border: '1.5px solid rgba(200,169,110,0.4)', background: 'linear-gradient(135deg, rgba(200,169,110,0.04) 0%, rgba(255,255,255,1) 100%)' }}>
+                <div className="flex items-start justify-between mb-2">
+                  <UrgencyBadge urgency={rec.urgency} />
+                  {rec.potenzial > 0 && (
+                    <span className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(rec.potenzial)}</span>
+                  )}
+                </div>
+                <div className="font-bold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>{rec.label}</div>
+                <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{rec.reason}</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAcceptRecommendation(rec)}
+                    className="flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                    style={{ background: '#C8A96E', color: '#fff', border: 'none', cursor: 'pointer' }}
+                  >
+                    Übernehmen
+                  </button>
+                  <button
+                    onClick={() => setDismissedRecs(prev => { const n = new Set(Array.from(prev)); n.add(rec.action_key); return n; })}
+                    className="px-3 py-2 rounded-lg text-xs font-bold transition-all"
+                    style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                  >
+                    Später
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── 1. STEUERUNGS-KPIs (ERWEITERT) ──────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center gap-2 mb-3">
+          <span style={DOT} />
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>STEUERUNGS-COCKPIT</span>
+        </div>
+        <div style={COPPER_LINE} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+          {[
+            { label: 'AKTIV', value: String(kpis.active_count), color: 'var(--text-primary)', sub: `${kpis.carry_over_count} Carry-Over` },
+            { label: 'UMGESETZT', value: String(kpis.done_count), color: '#2E8B57', sub: '' },
+            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#E65100', sub: 'Offenes Potenzial' },
+            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100', sub: 'Realisierter EBIT' },
+            { label: 'POTENZIAL TOTAL', value: fmtEur(kpis.total_potenzial), color: 'var(--text-primary)', sub: 'Alle Maßnahmen' },
+            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#E65100', sub: 'Realisierung %' },
+            { label: 'NEU DIESEN MONAT', value: String(kpis.new_this_month), color: '#1565C0', sub: `von ${allCurrentItems.length} gesamt` },
+          ].map((kpi, i) => (
+            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #F7F5F2)', border: '1px solid var(--border-color)' }}>
+              <div className="text-xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
+              <div className="text-xs mt-0.5 uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</div>
+              {kpi.sub && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>{kpi.sub}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── 2. BENCHMARKVERGLEICH ────────────────────────────────────────── */}
       <div className="card">
         <div className="flex items-center gap-2 mb-1">
           <span style={DOT} />
@@ -471,19 +490,13 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         <div style={COPPER_LINE} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {benchmarks.map((b: any, i: number) => (
-            <BenchmarkGauge key={i}
-              isProxy={!!b.isProxy}
-              label={b.kpi_label || `KPI ${i + 1}`}
-              current={Number(b.current ?? 0)}
-              targetMin={Number(b.target_min ?? 0)}
-              targetMid={Number(b.target_mid ?? 0)}
-              targetMax={Number(b.target_max ?? 0)}
-            />
+            <BenchmarkGauge key={i} isProxy={!!b.isProxy} label={b.kpi_label || `KPI ${i + 1}`}
+              current={Number(b.current ?? 0)} targetMin={Number(b.target_min ?? 0)} targetMid={Number(b.target_mid ?? 0)} targetMax={Number(b.target_max ?? 0)} />
           ))}
         </div>
       </div>
 
-      {/* 2. EBIT-HEBEL */}
+      {/* ─── 3. EBIT-HEBEL ────────────────────────────────────────────────── */}
       {sortedActions.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-1">
@@ -518,16 +531,13 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                     <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#C8A96E', color: '#fff' }}>{rank}</div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${rank}`}</div>
-                      <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                        Marge: {fmtPct(action.margin_pct)} · Wirkung: 1–3 Monate
-                      </div>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Marge: {fmtPct(action.margin_pct)} · Wirkung: 1–3 Monate</div>
                     </div>
                     <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
                       <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: badge.bg, color: badge.color }}>{badge.text}</span>
                     </div>
                   </div>
-                  {/* Konkrete Maßnahme */}
                   <div className="mt-2 ml-11 text-xs px-3 py-2 rounded-lg" style={{ background: 'rgba(200,169,110,0.08)', color: 'var(--text-secondary)', borderLeft: '3px solid #C8A96E' }}>
                     → {getMassnahmeText(action, rank)}
                   </div>
@@ -538,7 +548,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
       )}
 
-      {/* 3. LIQUIDITÄTSHEBEL */}
+      {/* ─── 4. LIQUIDITÄTSHEBEL ──────────────────────────────────────────── */}
       <div className="card">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -554,13 +564,10 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
         <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>Operative Hebel zur kurzfristigen Liquiditätsverbesserung</p>
         <div style={COPPER_LINE} />
-
-        {/* Active Levers */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           {liqLevers.map((lever, i) => {
             const leverKey = `liq_${i}`;
-            const isArchived = !!liqLeversArchived[leverKey];
-            if (isArchived) return null;
+            if (!!liqLeversArchived[leverKey]) return null;
             return (
               <div key={i} className="p-4 rounded-xl relative" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
                 {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
@@ -568,9 +575,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                   <div className="font-bold text-sm pr-3 flex-1" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="font-bold text-sm" style={{ color: '#2E8B57' }}>+{fmtEur(lever.impact)}</div>
-                    <button onClick={() => setLiqLeversArchived(prev => ({ ...prev, [leverKey]: true }))} className="text-xs px-2 py-1 rounded text-gray-500 hover:text-gray-700 transition-colors">
-                      ✓
-                    </button>
+                    <button onClick={() => setLiqLeversArchived(prev => ({ ...prev, [leverKey]: true }))} className="text-xs px-2 py-1 rounded text-gray-500 hover:text-gray-700 transition-colors">✓</button>
                   </div>
                 </div>
                 <ul className="space-y-1">
@@ -584,47 +589,30 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             );
           })}
         </div>
-
-        {/* Archive Section — immer sichtbar */}
-        <details className="rounded-xl border border-gray-300 bg-gray-50 p-3" style={{ marginTop: '1rem' }}
-          open={Object.values(liqLeversArchived).some(v => v)}
-        >
-          <summary className="text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-            📦 Archiv ({Object.values(liqLeversArchived).filter(v => v).length} abgeschlossen)
-          </summary>
-            <div className="mt-3 space-y-2">
-              {!Object.values(liqLeversArchived).some(v => v) && (
-                <div className="text-xs text-center py-2" style={{ color: 'var(--text-secondary)' }}>
-                  Klicke ✓ um erledigte Hebel zu archivieren
-                </div>
-              )}
-              {liqLevers.map((lever, i) => {
-                const leverKey = `liq_${i}`;
-                const isArchived = !!liqLeversArchived[leverKey];
-                if (!isArchived) return null;
-                return (
-                  <div key={i} className="p-3 rounded-lg bg-white border border-gray-200 opacity-60">
-                    <div className="flex justify-between items-start">
-                      <div className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: '#2E7D32' }}>✓</span>
-                        <button onClick={() => setLiqLeversArchived(prev => {
-                          const newState = { ...prev };
-                          delete newState[leverKey];
-                          return newState;
-                        })} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-                          ↩️
-                        </button>
-                      </div>
+        <details className="rounded-xl border border-gray-300 bg-gray-50 p-3" style={{ marginTop: '1rem' }} open={Object.values(liqLeversArchived).some(v => v)}>
+          <summary className="text-xs font-bold cursor-pointer" style={{ color: 'var(--text-secondary)' }}>Archiv ({Object.values(liqLeversArchived).filter(v => v).length} abgeschlossen)</summary>
+          <div className="mt-3 space-y-2">
+            {!Object.values(liqLeversArchived).some(v => v) && <div className="text-xs text-center py-2" style={{ color: 'var(--text-secondary)' }}>Klicke ✓ um erledigte Hebel zu archivieren</div>}
+            {liqLevers.map((lever, i) => {
+              const leverKey = `liq_${i}`;
+              if (!liqLeversArchived[leverKey]) return null;
+              return (
+                <div key={i} className="p-3 rounded-lg bg-white border border-gray-200 opacity-60">
+                  <div className="flex justify-between items-start">
+                    <div className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs" style={{ color: '#2E7D32' }}>✓</span>
+                      <button onClick={() => setLiqLeversArchived(prev => { const n = { ...prev }; delete n[leverKey]; return n; })} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">↩️</button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </details>
+                </div>
+              );
+            })}
+          </div>
+        </details>
       </div>
 
-      {/* 4. MAẞNAHMENPOOL — Verträge + Benchmarks */}
+      {/* ─── 5. MAẞNAHMENPOOL (bestehend, mit Engine-Integration) ─────── */}
       <div className="card">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -644,38 +632,14 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           ))}
         </div>
         <div className="space-y-2">
-          {poolActions.length === 0 ? (
-            // Fallback: Show all actions if pool is empty (never show empty state)
-            sortedActions.map((action: any, idx: number) => {
-              const key = action.action_key || action.contract_id || `a${idx}`;
-              const selected = !!poolSelected[key];
-              const impact = getImpact(action);
-              const isTop = idx < TOP_N;
-              return (
-                <div key={key} onClick={() => !savingKey && togglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
-                  <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
-                    {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
-                  </div>
-                  <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: '#FFF3E0', color: '#E65100' }}>VTR</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{action.action_label || action.contract_name || `Maßnahme ${idx + 1}`}</div>
-                    {action.category && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{action.category}</div>}
-                  </div>
-                  <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
-                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
-                    <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
-                  </div>
-                </div>
-              );
-            })
-          ) : poolActions.map((action: any, idx: number) => {
+          {poolActions.map((action: any, idx: number) => {
             const key = action.action_key || action.contract_id || `a${idx}`;
-            const selected = !!poolSelected[key];
+            const selected = selectedKeys.has(key);
             const impact = getImpact(action);
             const isTop = !action.isBenchmark && sortedActions.indexOf(action) < TOP_N;
             const isBench = !!action.isBenchmark;
             return (
-              <div key={key} onClick={() => !savingKey && togglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
+              <div key={key} onClick={() => handleTogglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
                 <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
                   {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
                 </div>
@@ -702,100 +666,134 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
         </div>
       </div>
 
-      {/* 5. REALISIERUNGSTRACKER */}
+      {/* ─── 6. REALISIERUNGSTRACKER (erweitert mit Engine) ───────────── */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
           <span style={DOT} />
           <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>REALISIERUNGSTRACKER</span>
+          {kpis.carry_over_count > 0 && (
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#E3F2FD', color: '#1565C0' }}>
+              {kpis.carry_over_count} Carry-Over
+            </span>
+          )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-          {[
-            { label: 'AKTIV', value: String(activeItems.length), color: 'var(--text-primary)' },
-            { label: 'UMGESETZT', value: String(umgesetztItems.length), color: '#2E8B57' },
-            { label: 'POTENZIAL P.M.', value: fmtEur(totalPotenzial), color: 'var(--text-primary)' },
-            { label: 'REALISIERT', value: fmtEur(totalRealized), color: totalRealized > 0 ? '#2E8B57' : '#E65100' },
-            { label: 'CAPTURE RATE', value: `${captureRate.toFixed(0)}%`, color: captureRate >= 50 ? '#2E8B57' : '#E65100' },
-          ].map((kpi, i) => (
-            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #F7F5F2)', border: '1px solid var(--border-color)' }}>
-              <div className="text-xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
-              <div className="text-xs mt-0.5 uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</div>
-            </div>
-          ))}
-        </div>
+
         <div className="flex gap-2 mb-4">
           {([
             ['aktiv', `Aktiv ${activeItems.length}`],
-            ['umgesetzt', `Umgesetzt ${umgesetztItems.length}`],
+            ['umgesetzt', `Umgesetzt ${doneItems.length}`],
           ] as [TrackerTab, string][]).map(([key, lbl]) => (
             <button key={key} onClick={() => setTrackerTab(key)} className="px-3 py-1.5 rounded-full text-xs font-bold transition-all" style={tabBtn(trackerTab === key)}>{lbl}</button>
           ))}
         </div>
+
         {displayItems.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-secondary)', borderBottom: '2px solid var(--border-color)' }}>
-                  <th className="text-left pb-2 font-semibold pr-3 whitespace-nowrap">MONAT</th>
-                  <th className="text-left pb-2 font-semibold">VERTRAG / MAẞNAHME</th>
+                  <th className="text-left pb-2 font-semibold pr-3 whitespace-nowrap">PRIO</th>
+                  <th className="text-left pb-2 font-semibold">MAẞNAHME</th>
                   <th className="text-left pb-2 font-semibold px-3 whitespace-nowrap">STATUS</th>
                   <th className="text-right pb-2 font-semibold px-3 whitespace-nowrap">POTENZIAL</th>
-                  <th className="text-left pb-2 font-semibold px-3 whitespace-nowrap">REALISIERUNG</th>
+                  <th className="text-left pb-2 font-semibold px-3 whitespace-nowrap">FORTSCHRITT</th>
                   <th className="text-right pb-2 font-semibold px-3 whitespace-nowrap">EBIT REALISIERT</th>
                   <th className="text-left pb-2 font-semibold px-3">NOTIZ</th>
                   <th className="pb-2 w-8" />
                 </tr>
               </thead>
               <tbody>
-                {displayItems.map((item) => {
+                {displayItems.map((item, idx) => {
                   const realized = item.potenzial * item.realization / 100;
+                  const isAutoCompleteCandidate = autoCompleteKeys.includes(item.action_key);
                   return (
-                    <tr key={item.key} style={{ borderTop: '1px solid var(--border-color)' }}>
-                      <td className="py-3 pr-3 font-bold text-sm whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{item.month}</td>
+                    <tr key={item.action_key} style={{ borderTop: '1px solid var(--border-color)', background: isAutoCompleteCandidate ? 'rgba(16,185,129,0.04)' : undefined }}>
+                      <td className="py-3 pr-3">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: idx < 3 ? '#C8A96E' : 'var(--border-color)', color: idx < 3 ? '#fff' : 'var(--text-secondary)' }}>
+                            {idx + 1}
+                          </div>
+                          {item.carry_over_count > 0 && (
+                            <span className="text-xs font-bold" style={{ color: '#1565C0' }} title={`Carry-Over seit ${item.carry_over_count} Monat(en)`}>
+                              +{item.carry_over_count}M
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3">
-                        <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{item.label}</div>
+                        <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                          {item.label}
+                          {item.is_recommendation && (
+                            <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded" style={{ background: '#FFF3E0', color: '#E65100', verticalAlign: 'middle' }}>AI</span>
+                          )}
+                        </div>
                         {item.description && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.description}</div>}
+                        {item.margin_pct != null && (
+                          <div className="text-xs mt-0.5" style={{ color: item.margin_pct < 0.05 ? '#E53935' : 'var(--text-secondary)' }}>
+                            Marge: {fmtPct(item.margin_pct)}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-3">
                         {trackerTab === 'aktiv' ? (
-                          <select value={item.status} onChange={e => updateItem(item.key, { status: e.target.value as TrackerStatus })} className="text-xs rounded-lg px-2 py-1.5 border" style={{ background: '#fff', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}>
-                            <option>Offen</option>
-                            <option>In Bearbeitung</option>
-                            <option>Umgesetzt</option>
+                          <select
+                            value={item.status}
+                            onChange={e => handleUpdateStatus(item.action_key, { status: e.target.value as MassnahmeStatus })}
+                            className="text-xs rounded-lg px-2 py-1.5 border"
+                            style={{ background: '#fff', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}
+                          >
+                            <option value="OPEN">Offen</option>
+                            <option value="IN_PROGRESS">In Arbeit</option>
+                            <option value="DONE">Umgesetzt</option>
                           </select>
                         ) : (
-                          <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ background: '#E8F5E9', color: '#2E7D32' }}>✓ Umgesetzt</span>
+                          <StatusBadge status={item.status} carryOver={item.carry_over_count} />
                         )}
                       </td>
-                      <td className="py-3 px-3 text-right font-semibold text-sm whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{fmtEur(item.potenzial)}</td>
-                      <td className="py-3 px-3" style={{ minWidth: 140 }}>
+                      <td className="py-3 px-3 text-right">
+                        <div className="font-bold text-sm whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{fmtEur(item.potenzial)}</div>
+                      </td>
+                      <td className="py-3 px-3" style={{ minWidth: 160 }}>
                         <div className="flex items-center gap-2">
-                          <input type="range" min={0} max={100} step={5} value={item.realization}
-                            onChange={e => trackerTab === 'aktiv' && updateItem(item.key, { realization: Number(e.target.value) })}
-                            disabled={trackerTab === 'umgesetzt'}
-                            className="flex-1" style={{ accentColor: '#C8A96E' }} />
-                          <span className="text-xs font-semibold w-8 text-right" style={{ color: 'var(--text-secondary)' }}>{item.realization}%</span>
+                          <div className="flex-1 relative h-3 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+                            <div className="absolute h-3 rounded-full transition-all" style={{ width: `${item.realization}%`, background: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E8A76A' : '#E0E0E0' }} />
+                          </div>
+                          <span className="text-sm font-bold w-10 text-right" style={{ color: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E65100' : 'var(--text-secondary)' }}>
+                            {item.realization}%
+                          </span>
                         </div>
+                        {trackerTab === 'aktiv' && (
+                          <input type="range" min={0} max={100} step={5} value={item.realization}
+                            onChange={e => handleUpdateStatus(item.action_key, { realization: Number(e.target.value) })}
+                            className="w-full mt-1" style={{ accentColor: '#C8A96E', height: 4 }} />
+                        )}
+                        {isAutoCompleteCandidate && trackerTab === 'aktiv' && (
+                          <div className="text-xs mt-1 px-2 py-1 rounded" style={{ background: 'rgba(16,185,129,0.08)', color: '#2E7D32' }}>
+                            → Abschluss empfohlen
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-right font-semibold text-sm whitespace-nowrap" style={{ color: realized > 0 ? '#2E8B57' : 'var(--text-secondary)' }}>
                         {realized > 0 ? fmtEur(realized) : '–'}
                       </td>
                       <td className="py-3 px-3">
-                        <input type="text" value={item.note} onChange={e => updateItem(item.key, { note: e.target.value })} placeholder="–" className="text-xs border rounded px-2 py-1" style={{ width: 80, borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: '#fff' }} />
+                        <input type="text" value={item.note} onChange={e => handleUpdateStatus(item.action_key, { note: e.target.value })} placeholder="–"
+                          className="text-xs border rounded px-2 py-1" style={{ width: 80, borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: '#fff' }} />
                       </td>
                       <td className="py-3 pl-1">
-                        <button onClick={() => removeItem(item.key)} title="Entfernen" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: trackerTab === 'aktiv' ? '#E53935' : '#bbb', fontSize: 16, fontWeight: 700 }}>×</button>
+                        <button onClick={() => handleRemove(item.action_key)} title="Entfernen" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: '#E53935', fontSize: 16, fontWeight: 700 }}>×</button>
                       </td>
                     </tr>
                   );
                 })}
                 {trackerTab === 'aktiv' && activeItems.length > 0 && (
                   <tr style={{ borderTop: '2px solid var(--border-color)', background: 'rgba(200,169,110,0.04)' }}>
-                    <td className="py-3 pr-3" />
+                    <td className="py-3" />
                     <td className="py-3 font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Gesamt EBIT-Wirkung</td>
                     <td className="py-3 px-3" />
                     <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtEur(activeItems.reduce((s, t) => s + t.potenzial, 0))}</td>
-                    <td className="py-3 px-3 text-center text-sm font-semibold" style={{ color: '#C8A96E' }}>Ø {captureRate.toFixed(0)}%</td>
-                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: totalRealized > 0 ? '#2E8B57' : '#E65100' }}>{fmtEur(totalRealized)}</td>
+                    <td className="py-3 px-3 text-center text-sm font-semibold" style={{ color: '#C8A96E' }}>Ø {kpis.capture_rate.toFixed(0)}%</td>
+                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100' }}>{fmtEur(kpis.realized_ebit)}</td>
                     <td className="py-3 px-3" /><td className="py-3" />
                   </tr>
                 )}
@@ -806,8 +804,8 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           <div className="text-center py-8 rounded-xl" style={{ background: 'var(--background, #F7F5F2)', border: '1px dashed var(--border-color)' }}>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {trackerTab === 'aktiv'
-                ? 'Noch keine aktiven Maßnahmen. Maßnahmen aus dem Pool auswählen.'
-                : 'Noch keine umgesetzten Maßnahmen. Status auf "Umgesetzt" setzen um sie hier zu sehen.'}
+                ? 'Noch keine aktiven Maßnahmen — Empfehlungen übernehmen oder aus dem Pool auswählen.'
+                : 'Noch keine umgesetzten Maßnahmen. Status auf "Umgesetzt" setzen.'}
             </p>
           </div>
         )}
