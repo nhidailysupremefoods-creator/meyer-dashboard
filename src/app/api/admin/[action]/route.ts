@@ -135,9 +135,16 @@ async function handleAdminRequest(
     const result = await callAppsScriptApi(params_obj);
     // Only set success:true if Apps Script didn't explicitly return success:false
     // This prevents masking errors where Apps Script returns {error:'...',success:false}
-    if (result.success === false) {
+    // Detect errors: explicit success:false OR error field present without data
+    if (result.success === false || (result.error && !result.customers && !result.data)) {
       console.error(`[Admin ${action}] Apps Script returned error:`, result.error);
-      return NextResponse.json(result, { status: 200 }); // Keep 200 so frontend reads error msg
+      // Detect session expiry errors from Apps Script
+      const errMsg = String(result.error || '').toLowerCase();
+      const isAuthError = errMsg.includes('admin-zugriff') || errMsg.includes('token') || errMsg.includes('session');
+      return NextResponse.json(
+        { ...result, success: false },
+        { status: isAuthError ? 401 : 200 }
+      );
     }
     return NextResponse.json({ ...result, success: true });
   } catch (err: any) {

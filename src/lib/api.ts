@@ -74,6 +74,13 @@ async function handleResponse(res: Response): Promise<any> {
       const errData = await res.json();
       if (errData.error) errorMsg = errData.error;
     } catch { /* ignore parse errors */ }
+    // Auto-redirect to login on 401 (session expired)
+    if (res.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(AUTH_KEY);
+      window.location.href = '/login';
+      throw new APIError('Sitzung abgelaufen – bitte erneut einloggen', 401);
+    }
     throw new APIError(errorMsg, res.status);
   }
 

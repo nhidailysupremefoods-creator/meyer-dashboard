@@ -60,9 +60,18 @@ export function useAdmin(): UseAdminReturn {
       const response = await api.fetchAdminInit();
 
       if (!response.success) {
-        throw new APIError(
-          response.error || 'Admin-Daten konnten nicht geladen werden'
-        );
+        const errMsg = response.error || 'Admin-Daten konnten nicht geladen werden';
+        // Detect session expiry → clear auth and redirect to login
+        const isSessionExpired = errMsg.toLowerCase().includes('admin-zugriff')
+          || errMsg.toLowerCase().includes('token')
+          || errMsg.toLowerCase().includes('session');
+        if (isSessionExpired && typeof window !== 'undefined') {
+          localStorage.removeItem('md_session_token');
+          localStorage.removeItem('md_auth_data');
+          window.location.href = '/login';
+          return;
+        }
+        throw new APIError(errMsg);
       }
 
       // Handle both flat {customers:[]} and nested {data:{customers:[]}} response structures
