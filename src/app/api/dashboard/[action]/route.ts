@@ -88,7 +88,7 @@ export async function GET(
     const customer = searchParams.get('customer') || '';
     const period = searchParams.get('period') || '';
     const params_obj: Record<string, string> = { action: action };
-        if (token && (action === 'customers' || action === 'save_tracker' || action.startsWith('admin'))) { params_obj.token = token; }
+        if (token) { params_obj.token = token; }
     if (customer) { params_obj.customer = customer; }
     if (period) { params_obj.period = period; }
 

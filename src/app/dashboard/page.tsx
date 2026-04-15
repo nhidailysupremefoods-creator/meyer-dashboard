@@ -207,7 +207,7 @@ export default function DashboardPage() {
         )}
       </div>
       {error && (
-        <div className="p-4 rounded-xl border text-sm flex items-start gap-3" style={{ background: 'rgb(254,242,242)', color: 'var(--danger(', borderColor: 'rgb(254,205,211)' }}>
+        <div className="p-4 rounded-xl border text-sm flex items-start gap-3" style={{ background: 'rgb(254,242,242)', color: 'var(--danger)', borderColor: 'rgb(254,205,211)' }}>
           <span className="text-lg">⚠️</span>
           <div><strong>Fehler:</strong> {error}</div>
           <button onClick={() => setError(null)} className="ml-auto text-xs" style={{ color: 'var(--danger)' }}>✕</button>
@@ -215,7 +215,7 @@ export default function DashboardPage() {
       )}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {([1, 2, 3, 4] as PageNum[]).map((num) => (
-          <button key={num} onClick={() => setCurrentPage(num)} className="px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap" style={currentPage === num ? { backgroundColor: 'var(--primary)', color: 'white', boxShadow: '0 2px 8px rgba(26,54,93,0.25)' } : { backgroundColor: 'var(--background-card)', border: '1px solid var(--border-color(', color: 'var(--text-secondary)' }}><span className="opacity-60 mr-1">{num}</span>{PAGE_TITLES[num]}</button>
+          <button key={num} onClick={() => setCurrentPage(num)} className="px-4 py-2 rounded-xl font-medium text-sm transition-all whitespace-nowrap" style={currentPage === num ? { backgroundColor: 'var(--primary)', color: 'white', boxShadow: '0 2px 8px rgba(26,54,93,0.25)' } : { backgroundColor: 'var(--background-card)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}><span className="opacity-60 mr-1">{num}</span>{PAGE_TITLES[num]}</button>
         ))}
       </div>
       {loading ? (
