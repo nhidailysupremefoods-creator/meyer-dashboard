@@ -38,8 +38,12 @@ function InternalOSLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Sidebar */}
         <aside className="ios-sidebar">
           <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            <img src="/logo-sidebar.png" alt="Meyer Decision" style={{ height: 26, width: 'auto', display: 'block' }} />
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Internal OS</div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 52" fill="none" style={{ height: 26, width: 'auto', display: 'block' }}>
+              <text x="16" y="34" fontFamily="Manrope, sans-serif" fontWeight="800" fontSize="20" letterSpacing="3" fill="#FFFFFF">MEYER</text>
+              <rect x="130" y="10" width="2" height="32" rx="1" fill="#B08A6A"/>
+              <text x="146" y="34" fontFamily="Manrope, sans-serif" fontWeight="800" fontSize="20" letterSpacing="3" fill="#FFFFFF">DECISION</text>
+            </svg>
+            <div style={{ fontSize: '11px', color: '#F7F5F2', marginTop: '2px' }}>Internal OS</div>
           </div>
 
           <nav style={{ flex: 1, padding: '16px 12px' }}>
