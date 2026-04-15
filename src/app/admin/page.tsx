@@ -135,16 +135,16 @@ export default function AdminPage() {
         borderBottom: '1px solid rgba(176, 138, 106,0.2)',
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem' }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto', padding: '0 1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.svg" alt="Meyer Decision" style={{ height: 36, width: 'auto' }} />
               <span style={{
-                fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.12em',
-                textTransform: 'uppercase' as const, color: 'var(--copper-light)',
+                fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.2em',
+                textTransform: 'uppercase' as const, color: 'rgba(255,255,255,0.6)',
               }}>
-                Admin-Bereich
+                Steuerungs-Dashboard
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -171,7 +171,7 @@ export default function AdminPage() {
         borderBottom: '1px solid var(--border-color)',
         padding: '1.25rem 1.5rem',
       }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
           <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
             Admin-Bereich
           </h1>
@@ -184,7 +184,7 @@ export default function AdminPage() {
 
       {/* Error */}
       {error && (
-        <div style={{ maxWidth: 1200, margin: '1rem auto', padding: '0 1.5rem', width: '100%' }}>
+        <div style={{ maxWidth: 1600, margin: '1rem auto', padding: '0 1.5rem', width: '100%' }}>
           <div style={{
             background: 'rgba(196,56,48,0.06)', border: '1px solid rgba(196,56,48,0.2)',
             borderRadius: 8, padding: '0.75rem 1rem',
@@ -200,7 +200,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div style={{ background: '#FFFFFF', borderBottom: '1px solid var(--border-color)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem' }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto', padding: '0 1.5rem' }}>
           <nav style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
             {TABS.map((tab) => (
               <button
@@ -237,7 +237,7 @@ export default function AdminPage() {
       </div>
 
       {/* Content — actions passed as props, NOT via separate useAdmin() instances */}
-      <div style={{ flex: 1, maxWidth: activeTab === 'leitfaden' ? 1600 : 1200, margin: '0 auto', width: '100%', padding: '1.5rem', transition: 'max-width 0.2s ease' }}>
+      <div style={{ flex: 1, maxWidth: 1600, margin: '0 auto', width: '100%', padding: '1.5rem', transition: 'max-width 0.2s ease' }}>
         {activeTab === 'customers' && (
           <CustomerTab
             customers={customers}
