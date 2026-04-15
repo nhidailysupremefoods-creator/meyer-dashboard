@@ -117,15 +117,36 @@ export default function DashboardPage() {
     []
   );
 
+  // Prefetch ALL 4 pages in parallel when customer/period changes
   useEffect(() => {
-    if (selectedCustomer && selectedPeriod) {
-      setPageData({} as any);
-      loadPageData(currentPage, selectedCustomer, selectedPeriod);
-    }
+    if (!selectedCustomer || !selectedPeriod) return;
+    setPageData({} as any);
+    setLoading(true);
+    setError(null);
+
+    // Load current page first, then rest in parallel
+    const pages: PageNum[] = [1, 2, 3, 4];
+    // Prioritize current page
+    const sorted = [currentPage, ...pages.filter(p => p !== currentPage)] as PageNum[];
+
+    sorted.forEach(async (page) => {
+      try {
+        const response = await api.fetchPageData(page, selectedCustomer, selectedPeriod);
+        if (response.success) {
+          setPageData((prev) => ({ ...prev, [page]: response }));
+        }
+      } catch {
+        // Silently fail for background pages
+      } finally {
+        // Only clear loading for current page
+        if (page === currentPage) setLoading(false);
+      }
+    });
   }, [selectedCustomer, selectedPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When switching tabs, load only if not already cached
   useEffect(() => {
-    if (selectedCustomer && selectedPeriod) {
+    if (selectedCustomer && selectedPeriod && !pageData[currentPage]) {
       loadPageData(currentPage, selectedCustomer, selectedPeriod);
     }
   }, [currentPage]); // eslint-disable-line react-hooks/exhaustive-deps

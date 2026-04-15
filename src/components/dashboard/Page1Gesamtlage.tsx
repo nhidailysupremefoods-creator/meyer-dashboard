@@ -455,8 +455,7 @@ export default function Page1Gesamtlage({ data }: Props) {
               </linearGradient>
             </defs>
 
-            {/* Background grid - subtle */}
-            <rect x="60" y="25" width="680" height="180" fill="none" stroke="var(--border-color)" strokeWidth="0.5" opacity="0.3" rx="6" />
+            {/* Background grid - subtle (no border, just area) */}
 
             {/* Horizontal grid lines with labels */}
             {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
@@ -477,19 +476,8 @@ export default function Page1Gesamtlage({ data }: Props) {
               const y = BASELINE - f * CHART_H;
               const val = maxEbit * f;
               return (
-                <text key={`yR${i}`} x="745" y={y + 4} textAnchor="start" fontSize="10" fontWeight="500" fill="var(--text-secondary)" opacity="0.8">
+                <text key={`yR${i}`} x="745" y={y + 4} textAnchor="start" fontSize="10" fontWeight="500" fill="#B08A6A" opacity="0.8">
                   {fmtEurK(val)}
-                </text>
-              );
-            })}
-
-            {/* Secondary axis labels (Margin %) */}
-            {[0, 0.5, 1].map((f, i) => {
-              const val = (f * 100).toFixed(0);
-              const y = BASELINE - f * CHART_H;
-              return (
-                <text key={`margin${i}`} x="755" y={y + 4} textAnchor="start" fontSize="9" fontWeight="500" fill="#E8A838" opacity="0.7">
-                  {val}%
                 </text>
               );
             })}
@@ -604,7 +592,7 @@ export default function Page1Gesamtlage({ data }: Props) {
                 y: BASELINE - (maxEbit > 0 ? (Math.abs(Number(row.profit ?? row.ebit ?? 0)) / maxEbit) * CHART_H : 0),
                 val: Number(row.profit ?? row.ebit ?? 0),
                 rev: Math.abs(Number(row.revenue ?? 0)),
-                cost: Math.abs(Number(row.cost ?? 0)),
+                cost: Math.abs(Number(row.cost ?? row.cost_total ?? 0)) || (Math.abs(Number(row.revenue ?? 0)) - Number(row.profit ?? row.ebit ?? 0)),
                 margin: row.margin_pct ? Number(row.margin_pct) : 0,
                 label: row.month_label_short || row.month_label || '',
               }));

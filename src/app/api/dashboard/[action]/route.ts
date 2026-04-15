@@ -15,9 +15,9 @@ const DE_MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt',
 interface CacheEntry { data: any; ts: number; }
 const cache = new Map<string, CacheEntry>();
 const CACHE_TTL: Record<string, number> = {
-  customers: 5 * 60 * 1000,   // 5 min
-  periods: 3 * 60 * 1000,     // 3 min
-  page: 2 * 60 * 1000,        // 2 min for page data
+  customers: 10 * 60 * 1000,  // 10 min
+  periods: 10 * 60 * 1000,    // 10 min
+  page: 5 * 60 * 1000,        // 5 min for page data
 };
 
 function getCached(key: string, ttl: number): any | null {
