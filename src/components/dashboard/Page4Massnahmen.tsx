@@ -95,6 +95,10 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
     }
   }
 
+  // Zielbereichs-Flags für Maßnahmen-Hinweise
+  const belowTarget = hasValue && (lowerIsBetter ? scCur > scMax : scCur < scMin);
+  const inTarget = hasValue && !belowTarget && (lowerIsBetter ? scCur <= scMax : scCur >= scMin);
+
   // Erklärtext für den Kontext
   let explanation = '';
   if (lbl.includes('produktiv')) explanation = hasValue ? `${score}% der Kapazität werden produktiv genutzt` : 'Anteil produktiv genutzter Arbeitsstunden';
