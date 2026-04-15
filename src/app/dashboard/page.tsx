@@ -173,9 +173,9 @@ export default function DashboardPage() {
     if (!currentPageData) return null;
     switch (currentPage) {
       case 1:
-        return <Page1Gesamtlage data={currentPageData} />;
+        return <Page1Gesamtlage data={currentPageData} industrySegment={industrySegment} />;
       case 2:
-        return <Page2Vertragsanalyse data={currentPageData} />;
+        return <Page2Vertragsanalyse data={currentPageData} industrySegment={industrySegment} />;
       case 3:
         return <Page3Liquiditaet data={currentPageData} />;
       case 4:

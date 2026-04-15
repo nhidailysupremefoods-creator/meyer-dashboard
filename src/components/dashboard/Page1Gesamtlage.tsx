@@ -1,8 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { getMarginTargetsForCustomer } from '@/lib/config';
 
 interface Props {
   data: any;
+  industrySegment?: string;
 }
 
 // —— Formatters —————————————————————————————————————————————————————————
@@ -95,7 +97,7 @@ function Sparkline({ data, width = 160, height = 32 }: { data: number[]; width?:
 }
 
 // —— Main Component —————————————————————————————————————————————————————
-export default function Page1Gesamtlage({ data }: Props) {
+export default function Page1Gesamtlage({ data, industrySegment }: Props) {
   const d = (data as any)?.data || {};
   const trend: any[] = (data as any)?.trend || [];
 
@@ -118,7 +120,14 @@ export default function Page1Gesamtlage({ data }: Props) {
   const ebitPotential = Number(d.ebit_potential ?? 0);
   const productivity = Number(d.portfolio_productivity ?? d.productivity_rate ?? 0);
   const ebitTarget = Number(d.ebit_target ?? 0);
-  const targetMargin = ebitTarget > 1 ? ebitTarget / 100 : ebitTarget || 0.12;
+
+  // Industry-based target margin from config (mid-point) — fallback to server value or 0.10
+  const einsatzlogik = d.einsatzlogik_segment || '';
+  const configMarginTargets = useMemo(() =>
+    industrySegment ? getMarginTargetsForCustomer(industrySegment, einsatzlogik) : null,
+    [industrySegment, einsatzlogik]);
+  const configTargetMargin = configMarginTargets ? configMarginTargets[1] : null; // mid-point
+  const targetMargin = configTargetMargin || (ebitTarget > 1 ? ebitTarget / 100 : ebitTarget) || 0.10;
   const targetEbitAbs = revenue * targetMargin;
   const ebitGapRaw = Number(d.ebit_gap ?? 0);
   const ebitGap = ebitGapRaw !== 0 ? ebitGapRaw : ebit - targetEbitAbs;

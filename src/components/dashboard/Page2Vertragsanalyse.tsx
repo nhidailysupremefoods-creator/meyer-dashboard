@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { getMarginTargetsForCustomer } from '@/lib/config';
 import styles from './Page2Vertragsanalyse.module.css';
 
 interface Contract {
@@ -22,6 +23,7 @@ interface Contract {
 
 interface Page2Props {
   data: any;
+  industrySegment?: string;
 }
 
 const formatCurrency = (value: number | undefined): string => {
@@ -57,9 +59,18 @@ const getDiagnose = (c: Contract): string => {
 
 type FilterTab = 'kritisch' | 'beobachten' | 'gut';
 
-export default function Page2Vertragsanalyse({ data }: Page2Props) {
+export default function Page2Vertragsanalyse({ data, industrySegment }: Page2Props) {
   const [activeTab, setActiveTab] = useState<FilterTab>('kritisch');
   const { total_contracts = 0, contracts = [] } = data || {};
+
+  // Industry-based margin thresholds
+  const marginThresholds = useMemo(() => {
+    if (!industrySegment) return { warn: 0.07, good: 0.12 };
+    const targets = getMarginTargetsForCustomer(industrySegment);
+    if (!targets) return { warn: 0.07, good: 0.12 };
+    // [low, mid, high] — warn = low, good = mid
+    return { warn: targets[0], good: targets[1] };
+  }, [industrySegment]);
 
   const allContracts: Contract[] = useMemo(() => Array.isArray(contracts) ? contracts : [], [contracts]);
 
@@ -99,7 +110,7 @@ export default function Page2Vertragsanalyse({ data }: Page2Props) {
 
   const negativeCount = useMemo(() => allContracts.filter((c) => c.margin_pct < 0 || c.profit < 0).length, [allContracts]);
 
-  const avgMarginColor = kpis.avgMargin < 0.07 ? '#E53935' : kpis.avgMargin < 0.12 ? '#F9A825' : '#43A047';
+  const avgMarginColor = kpis.avgMargin < marginThresholds.warn ? '#E53935' : kpis.avgMargin < marginThresholds.good ? '#F9A825' : '#43A047';
 
   return (
     <div className={styles.page2Container}>
