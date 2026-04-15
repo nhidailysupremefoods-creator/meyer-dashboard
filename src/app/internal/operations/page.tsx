@@ -244,7 +244,7 @@ export default function OperationsPage() {
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5F2;border-radius:6px 6px 0 0;border:1px solid #E5E2DD;border-bottom:none;">
         <tr>
           <td style="padding:16px 28px;">
-            <img src="https://meyer-dashboard.vercel.app/logo.png" alt="Meyer Decision" width="160" height="37" style="display:block;border:0;max-width:100%;" />
+            <img src="https://meyer-dashboard.vercel.app/logo.png" alt="Meyer Decision" width="160" height="26" style="display:block;border:0;max-width:100%;" />
           </td>
         </tr>
         <tr><td style="height:3px;background:linear-gradient(90deg,#B08A6A,#8A6B4E);"></td></tr>
