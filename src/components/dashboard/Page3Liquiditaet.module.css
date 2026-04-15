@@ -25,7 +25,7 @@
 .heroFillGruen { height:100%; background:#A5D6A7; border-radius:3px; transition:width 0.6s ease; }
 
 /* KPI Cards */
-.kpiSection { padding:0 2rem; margin-bottom:2rem; max-width:1400px; margin-left:auto; margin-right:auto; }
+.kpiSection { padding:0; margin-bottom:2rem; max-width:1400px; margin-left:auto; margin-right:auto; }
 .kpiGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; }
 .kpiCard { background:#fff; border:1px solid #e8e4e0; border-radius:10px; padding:1.5rem; text-align:center; box-shadow:0 2px 8px rgba(25,34,49,0.06); }
 .kpiCardHL { background:#fff; border:1px solid #e8e4e0; border-radius:10px; padding:1.5rem; text-align:center; box-shadow:0 2px 8px rgba(25,34,49,0.06); }
@@ -42,7 +42,7 @@
 .badgeRed { display:inline-block; background:#FFEBEE; color:#C62828; border:1px solid #EF9A9A; font-size:0.78rem; font-weight:600; padding:0.25rem 0.75rem; border-radius:20px; }
 
 /* Score Dimensions */
-.scoreDimSection { max-width:1400px; margin:0 auto 2rem; padding:0 2rem; }
+.scoreDimSection { max-width:1400px; margin:0 auto 2rem; padding:0; }
 .scoreDimHeader { display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; padding-bottom:0.6rem; border-bottom:2px solid #C8A96E; }
 .scoreDimDot { width:8px; height:8px; border-radius:50%; background:#8B6A40; flex-shrink:0; }
 .scoreDimTitle { font-size:0.78rem; font-weight:700; color:#192231; letter-spacing:1.2px; text-transform:uppercase; }
@@ -59,7 +59,7 @@
 .scoreDimHint { font-size:0.75rem; color:#aaa; }
 
 /* Bank Chart */
-.chartSection { max-width:1400px; margin:0 auto 2rem; padding:0 2rem; }
+.chartSection { max-width:1400px; margin:0 auto 2rem; padding:0; }
 .chartHeader { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem; padding-bottom:0.6rem; border-bottom:2px solid #C8A96E; }
 .chartTitle { font-size:0.78rem; font-weight:700; color:#192231; letter-spacing:1.2px; text-transform:uppercase; }
 .chartSub { font-size:0.82rem; color:#999; }
@@ -83,7 +83,7 @@
   .pageTitle { font-size:1.3rem; }
   .heroSection { margin-left:1rem; margin-right:1rem; padding:1.5rem 1.25rem 1.25rem; }
   .heroCountRot,.heroCountGelb,.heroCountGruen { font-size:2.5rem; }
-  .kpiSection,.chartSection,.scoreDimSection { padding-left:1rem; padding-right:1rem; }
+  .kpiSection,.chartSection,.scoreDimSection { padding-left:0; padding-right:0; }
   .kpiGrid { grid-template-columns:1fr; gap:0.75rem; }
   .kpiGreen,.kpiRed,.scoreVal { font-size:1.5rem; }
   .scoreDimRight { flex-wrap:wrap; gap:0.4rem; }

@@ -122,7 +122,7 @@
 
 /* ââ KPI Cards ââ */
 .kpiSection {
-  padding: 0 2rem;
+  padding: 0;
   margin-bottom: 2rem;
   max-width: 1400px;
   margin-left: auto;
@@ -178,7 +178,7 @@
 
 /* ââ Portfolio-Gesundheit ââ */
 .healthSection {
-  padding: 0 2rem;
+  padding: 0;
   margin-bottom: 1.5rem;
   max-width: 1400px;
   margin-left: auto;
@@ -244,7 +244,7 @@
 
 /* ââ Urgency Warning ââ */
 .warningSection {
-  padding: 0 2rem;
+  padding: 0;
   margin-bottom: 1.5rem;
   max-width: 1400px;
   margin-left: auto;
@@ -272,7 +272,7 @@
 
 /* ââ Filter Tabs ââ */
 .filterSection {
-  padding: 0 2rem;
+  padding: 0;
   margin-bottom: 1.5rem;
   max-width: 1400px;
   margin-left: auto;
@@ -339,7 +339,7 @@
 
 /* ââ Table Section ââ */
 .tableSection {
-  padding: 0 2rem 2rem;
+  padding: 0 0 2rem;
   max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
@@ -571,8 +571,8 @@
   .warningSection,
   .filterSection,
   .tableSection {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 0;
+    padding-right: 0;
   }
   .kpiGrid {
     grid-template-columns: 1fr;
