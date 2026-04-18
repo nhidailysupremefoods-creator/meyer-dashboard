@@ -51,6 +51,42 @@ export default function MandatePage() {
     } catch {}
   }, [mandates]);
 
+  // Neue Mandate automatisch in Operations-Liste aufnehmen
+  useEffect(() => {
+    try {
+      const opsRaw = localStorage.getItem('meyer-internal-os-operations')
+      const ops: Array<Record<string, unknown>> = opsRaw ? JSON.parse(opsRaw) : []
+      const opsIds = new Set(ops.map((o) => (o as {customer_id: string}).customer_id))
+      let changed = false
+      mandates.forEach(m => {
+        if (!opsIds.has(m.customer_id)) {
+          ops.push({
+            customer_id: m.customer_id,
+            company_name: m.company_name,
+            ansprechpartner: m.ansprechpartner || '',
+            emails: m.emails || [],
+            daten_erhalten: false,
+            daten_valide: false,
+            call_durchgefuehrt: false,
+            ampel_status: 'rot',
+            upload_status: 'ausstehend',
+            file_count: 0,
+            last_upload_date: null,
+            reminder_sent: false,
+            monatliches_honorar: m.monatliches_honorar || 0,
+            mandate_status: m.mandate_status || 'aktiv',
+            angebot_sent: false,
+            vertrag_sent: false,
+            unterlagen_sent: false,
+            rechnung_sent: false,
+          })
+          changed = true
+        }
+      })
+      if (changed) localStorage.setItem('meyer-internal-os-operations', JSON.stringify(ops))
+    } catch {}
+  }, [mandates])
+
   // Auto-sync from Apps Script on mount if backend available
   useEffect(() => {
     const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
