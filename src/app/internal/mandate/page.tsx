@@ -41,7 +41,14 @@ export default function MandatePage() {
 
   // Persist mandates to localStorage on every change
   useEffect(() => {
-    try { localStorage.setItem(MANDATE_STORAGE_KEY, JSON.stringify(mandates)); } catch {}
+    try { localStorage.setItem(MANDATE_STORAGE_KEY, JSON.stringify(mandates))
+      // Auch aus Operations entfernen wenn Mandat gelöscht wird
+      const opsRaw = localStorage.getItem('meyer-internal-os-operations')
+      if (opsRaw) {
+        const opsUpdated = JSON.parse(opsRaw).filter((o: {customer_id: string}) => o.customer_id !== customerId)
+        localStorage.setItem('meyer-internal-os-operations', JSON.stringify(opsUpdated))
+      }
+    } catch {}
   }, [mandates]);
 
   // Auto-sync from Apps Script on mount if backend available
