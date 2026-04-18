@@ -61,7 +61,7 @@ function loadOperations(): OperationsCustomer[] {
       // Migration: ensure all customers have monthly_data
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      return parsed.map(c => {
+      const migrated = parsed.map(c => {
         if (c.monthly_data && Object.keys(c.monthly_data).length > 0) return c;
         // Migrate flat fields into current month's data
         return {
@@ -87,8 +87,14 @@ function loadOperations(): OperationsCustomer[] {
           },
         };
       });
+      try{const mr=localStorage.getItem('meyer-internal-os-mandates');if(mr){const mIds=new Set((JSON.parse(mr)).map((m)=>m.customer_id));return migrated.filter(op=>mIds.has(op.customer_id));}      }catch{}
+      return migrated;
     }
   } catch {}
+try {
+    const mr=localStorage.getItem('meyer-internal-os-mandates');
+    if(mr){const mIds=new Set((JSON.parse(mr)).map((m)=>m.customer_id));return SEED_OPERATIONS.filter(c=>mIds.has(c.customer_id));}
+  }catch{}
   return SEED_OPERATIONS;
 }
 
