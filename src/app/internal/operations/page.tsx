@@ -1,19 +1,38 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { OperationsCustomer, DocumentType, EmailPreview, UploadCheckResult, ValidationResult } from '@/lib/internal-os/types';
+import { OperationsCustomer, MonthlyOperationsData, DocumentType, EmailPreview, UploadCheckResult, ValidationResult } from '@/lib/internal-os/types';
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
 import { formatDate } from '@/lib/internal-os/utils';
 
 // ── Workflow Steps ──────────────────────────────────────
 
-const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer }[] = [
-  { type: 'angebot',    label: 'Angebot',      icon: '📄', sentKey: 'angebot_sent' },
-  { type: 'vertrag',    label: 'DL-Vertrag',   icon: '📝', sentKey: 'vertrag_sent' },
-  { type: 'unterlagen', label: 'Unterlagen',    icon: '📎', sentKey: 'unterlagen_sent' },
-  { type: 'reminder',   label: 'Reminder',      icon: '🔔', sentKey: 'reminder_sent' },
-  { type: 'rechnung',   label: 'Rechnung',      icon: '💶', sentKey: 'rechnung_sent' },
+const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer; monthly?: boolean }[] = [
+  { type: 'angebot',    label: 'Angebot',      icon: '📄', sentKey: 'angebot_sent',    monthly: false },
+  { type: 'vertrag',    label: 'DL-Vertrag',   icon: '📝', sentKey: 'vertrag_sent',    monthly: false },
+  { type: 'unterlagen', label: 'Unterlagen',    icon: '📎', sentKey: 'unterlagen_sent', monthly: false },
+  { type: 'reminder',   label: 'Reminder',      icon: '🔔', sentKey: 'reminder_sent',  monthly: true  },
+  { type: 'rechnung',   label: 'Rechnung',      icon: '💶', sentKey: 'rechnung_sent',  monthly: true  },
 ];
+
+// ── Per-month helpers ───────────────────────────────────
+const EMPTY_MONTH: MonthlyOperationsData = {
+  reminder_sent: false,
+  rechnung_sent: false,
+  daten_erhalten: false,
+  daten_valide: false,
+  call_durchgefuehrt: false,
+};
+
+function getMonthData(customer: OperationsCustomer, month: string): MonthlyOperationsData {
+  return customer.monthly_data?.[month] ?? EMPTY_MONTH;
+}
+
+function computeAmpel(md: MonthlyOperationsData): import('@/lib/internal-os/types').AmpelStatus {
+  if (md.daten_erhalten && md.daten_valide && md.call_durchgefuehrt) return 'GRUEN';
+  if (md.daten_erhalten) return 'GELB';
+  return 'ROT';
+}
 
 // Sender options (the two admin users)
 const SENDERS = [
@@ -28,7 +47,38 @@ function loadOperations(): OperationsCustomer[] {
   if (typeof window === 'undefined') return SEED_OPERATIONS;
   try {
     const stored = localStorage.getItem(OPS_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) {
+      const parsed: OperationsCustomer[] = JSON.parse(stored);
+      // Migration: ensure all customers have monthly_data
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      return parsed.map(c => {
+        if (c.monthly_data && Object.keys(c.monthly_data).length > 0) return c;
+        // Migrate flat fields into current month's data
+        return {
+          ...c,
+          monthly_data: {
+            [currentMonth]: {
+              daten_erhalten: c.daten_erhalten,
+              daten_valide: c.daten_valide,
+              call_durchgefuehrt: c.call_durchgefuehrt,
+              reminder_sent: c.reminder_sent,
+              rechnung_sent: c.rechnung_sent ?? false,
+              upload_status: c.upload_status,
+              file_count: c.file_count,
+              last_upload_date: c.last_upload_date,
+              override_daten_erhalten: c.override_daten_erhalten,
+              override_daten_valide: c.override_daten_valide,
+              auto_check_files: c.auto_check_files,
+              auto_check_missing: c.auto_check_missing,
+              auto_check_issues: c.auto_check_issues,
+              auto_checked_at: c.auto_checked_at,
+              is_overdue: c.is_overdue,
+            },
+          },
+        };
+      });
+    }
   } catch {}
   return SEED_OPERATIONS;
 }
@@ -107,42 +157,48 @@ export default function OperationsPage() {
       const validateJson = await validateRes.json();
       const validateData: Record<string, ValidationResult> = validateJson.data || {};
 
-      // Step 3: Update customers (respect manual overrides)
+      // Step 3: Update customers (respect manual overrides, write to selected month)
+      const checkedAt = new Date().toISOString();
       setCustomers(prev => prev.map(c => {
         const upload = uploadData[c.customer_id];
         const validation = validateData[c.customer_id];
         if (!upload && !validation) return c;
 
-        const updated = { ...c };
+        const monthData = getMonthData(c, selectedMonth);
+        const updatedMonth: MonthlyOperationsData = { ...monthData };
 
         // Auto-set daten_erhalten (only if not manually overridden)
-        if (upload && !c.override_daten_erhalten) {
-          updated.daten_erhalten = upload.daten_erhalten;
-          updated.file_count = upload.file_count;
-          updated.last_upload_date = upload.last_upload_date;
-          updated.upload_status = upload.file_count > 0 ? 'uploaded' : 'pending';
-          updated.auto_check_files = upload.files;
-          updated.is_overdue = upload.is_overdue;
+        if (upload && !monthData.override_daten_erhalten) {
+          updatedMonth.daten_erhalten  = upload.daten_erhalten;
+          updatedMonth.file_count      = upload.file_count;
+          updatedMonth.last_upload_date = upload.last_upload_date;
+          updatedMonth.upload_status   = upload.file_count > 0 ? 'uploaded' : 'pending';
+          updatedMonth.auto_check_files = upload.files;
+          updatedMonth.is_overdue      = upload.is_overdue;
         }
 
         // Auto-set daten_valide (only if not manually overridden)
-        if (validation && !c.override_daten_valide) {
-          updated.daten_valide = validation.daten_valide;
-          updated.auto_check_missing = validation.missing_files;
-          updated.auto_check_issues = validation.issues;
+        if (validation && !monthData.override_daten_valide) {
+          updatedMonth.daten_valide       = validation.daten_valide;
+          updatedMonth.auto_check_missing = validation.missing_files;
+          updatedMonth.auto_check_issues  = validation.issues;
         }
 
-        // Auto-update Ampel based on new data
-        if (updated.daten_erhalten && updated.daten_valide && updated.call_durchgefuehrt) {
-          updated.ampel_status = 'GRUEN';
-        } else if (updated.daten_erhalten) {
-          updated.ampel_status = 'GELB';
-        } else {
-          updated.ampel_status = 'ROT';
-        }
+        updatedMonth.auto_checked_at = checkedAt;
 
-        updated.auto_checked_at = new Date().toISOString();
-        return updated;
+        return {
+          ...c,
+          monthly_data: { ...c.monthly_data, [selectedMonth]: updatedMonth },
+          // Sync flat fields for backward compat
+          daten_erhalten:  updatedMonth.daten_erhalten,
+          daten_valide:    updatedMonth.daten_valide,
+          ampel_status:    computeAmpel(updatedMonth),
+          file_count:      updatedMonth.file_count ?? c.file_count,
+          last_upload_date: updatedMonth.last_upload_date ?? c.last_upload_date,
+          upload_status:   updatedMonth.upload_status ?? c.upload_status,
+          is_overdue:      updatedMonth.is_overdue,
+          auto_checked_at: checkedAt,
+        };
       }));
 
       setLastAutoCheck(new Date().toISOString());
@@ -508,11 +564,24 @@ export default function OperationsPage() {
   }
 
   function updateSentStatus(type: DocumentType, customerId: string) {
-    const sentKey = WORKFLOW_STEPS.find(s => s.type === type)?.sentKey;
-    if (sentKey) {
-      setCustomers(prev => prev.map(c =>
-        c.customer_id === customerId ? { ...c, [sentKey]: true } : c
-      ));
+    const step = WORKFLOW_STEPS.find(s => s.type === type);
+    if (step) {
+      setCustomers(prev => prev.map(c => {
+        if (c.customer_id !== customerId) return c;
+        if (step.monthly) {
+          // Monthly step → write to monthly_data[selectedMonth]
+          const monthData = getMonthData(c, selectedMonth);
+          const field = step.type === 'reminder' ? 'reminder_sent' : 'rechnung_sent';
+          const updatedMonth = { ...monthData, [field]: true };
+          return {
+            ...c,
+            monthly_data: { ...c.monthly_data, [selectedMonth]: updatedMonth },
+            [step.sentKey]: true, // also sync flat field
+          };
+        }
+        // One-time step → just update flat field
+        return { ...c, [step.sentKey]: true };
+      }));
     }
 
     // ── CRM Pipeline auto-sync ──────────────────────────────
@@ -538,23 +607,26 @@ export default function OperationsPage() {
   function toggleStatus(customerId: string, field: 'daten_erhalten' | 'daten_valide' | 'call_durchgefuehrt') {
     setCustomers(prev => prev.map(c => {
       if (c.customer_id !== customerId) return c;
-      const updated = { ...c, [field]: !c[field] };
-
-      // Set manual override flag when user clicks daten_erhalten or daten_valide
-      if (field === 'daten_erhalten') {
-        updated.override_daten_erhalten = true;
-      } else if (field === 'daten_valide') {
-        updated.override_daten_valide = true;
-      }
-
-      if (updated.daten_erhalten && updated.daten_valide && updated.call_durchgefuehrt) {
-        updated.ampel_status = 'GRUEN';
-      } else if (updated.daten_erhalten) {
-        updated.ampel_status = 'GELB';
-      } else {
-        updated.ampel_status = 'ROT';
-      }
-      return updated;
+      const monthData = getMonthData(c, selectedMonth);
+      const updatedMonth: MonthlyOperationsData = {
+        ...monthData,
+        [field]: !monthData[field],
+        // Set manual override flag
+        override_daten_erhalten: field === 'daten_erhalten' ? true : monthData.override_daten_erhalten,
+        override_daten_valide:   field === 'daten_valide'   ? true : monthData.override_daten_valide,
+      };
+      const ampel = computeAmpel(updatedMonth);
+      return {
+        ...c,
+        monthly_data: { ...c.monthly_data, [selectedMonth]: updatedMonth },
+        // Also sync flat fields for backward compat (used elsewhere)
+        daten_erhalten:       updatedMonth.daten_erhalten,
+        daten_valide:         updatedMonth.daten_valide,
+        call_durchgefuehrt:   updatedMonth.call_durchgefuehrt,
+        ampel_status:         ampel,
+        override_daten_erhalten: updatedMonth.override_daten_erhalten,
+        override_daten_valide:   updatedMonth.override_daten_valide,
+      };
     }));
   }
 
@@ -562,16 +634,22 @@ export default function OperationsPage() {
   function resetOverride(customerId: string, field: 'override_daten_erhalten' | 'override_daten_valide') {
     setCustomers(prev => prev.map(c => {
       if (c.customer_id !== customerId) return c;
-      return { ...c, [field]: false };
+      const monthData = getMonthData(c, selectedMonth);
+      const updatedMonth = { ...monthData, [field]: false };
+      return {
+        ...c,
+        monthly_data: { ...c.monthly_data, [selectedMonth]: updatedMonth },
+        [field]: false,
+      };
     }));
     // Re-run auto-check after resetting
     setTimeout(() => runAutoCheck(), 100);
   }
 
-  // ── KPIs ────────────────────────────────────────────────
-  const gruen = customers.filter(c => c.ampel_status === 'GRUEN').length;
-  const gelb = customers.filter(c => c.ampel_status === 'GELB').length;
-  const rot = customers.filter(c => c.ampel_status === 'ROT').length;
+  // ── KPIs (computed from selected month's data) ──────────
+  const gruen = customers.filter(c => computeAmpel(getMonthData(c, selectedMonth)) === 'GRUEN').length;
+  const gelb  = customers.filter(c => computeAmpel(getMonthData(c, selectedMonth)) === 'GELB').length;
+  const rot   = customers.filter(c => computeAmpel(getMonthData(c, selectedMonth)) === 'ROT').length;
   // Check upload deadline relative to selected month
   const today = new Date();
   const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
@@ -580,7 +658,7 @@ export default function OperationsPage() {
     ? today.getDate() > 10
     : today > new Date(selYear, selMonthNum - 1, 10); // past month → always past deadline
   const customersNeedingData = isPastDeadline
-    ? customers.filter(c => !c.daten_erhalten)
+    ? customers.filter(c => !getMonthData(c, selectedMonth).daten_erhalten)
     : [];
 
   const ampelStyles = {
@@ -729,7 +807,7 @@ export default function OperationsPage() {
                 onClick={() => setExpandedId(expanded ? null : customer.customer_id)}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-4 h-4 rounded-full ${ampelStyles[customer.ampel_status]} shadow-sm`} />
+                  <div className={`w-4 h-4 rounded-full ${ampelStyles[computeAmpel(getMonthData(customer, selectedMonth))]} shadow-sm`} />
                   <div>
                     <div className="font-manrope font-bold text-navy">{customer.company_name}</div>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -758,16 +836,19 @@ export default function OperationsPage() {
                 <div className="flex items-center gap-6">
                   {/* Monthly Status Checkboxes */}
                   <div className="flex gap-2">
-                    {[
-                      { field: 'daten_erhalten' as const, label: 'Daten', value: customer.daten_erhalten, overrideField: 'override_daten_erhalten' as const, isOverridden: customer.override_daten_erhalten },
-                      { field: 'daten_valide' as const, label: 'Validiert', value: customer.daten_valide, overrideField: 'override_daten_valide' as const, isOverridden: customer.override_daten_valide },
-                      { field: 'call_durchgefuehrt' as const, label: 'Call', value: customer.call_durchgefuehrt, overrideField: null, isOverridden: false },
-                    ].map(item => {
-                      const isAuto = !item.isOverridden && item.field !== 'call_durchgefuehrt' && customer.auto_checked_at;
+                    {(() => {
+                      const md = getMonthData(customer, selectedMonth);
+                      return [
+                      { field: 'daten_erhalten' as const, label: 'Daten', value: md.daten_erhalten, overrideField: 'override_daten_erhalten' as const, isOverridden: md.override_daten_erhalten },
+                      { field: 'daten_valide' as const, label: 'Validiert', value: md.daten_valide, overrideField: 'override_daten_valide' as const, isOverridden: md.override_daten_valide },
+                      { field: 'call_durchgefuehrt' as const, label: 'Call', value: md.call_durchgefuehrt, overrideField: null, isOverridden: false },
+                    ]})().map(item => {
+                      const md = getMonthData(customer, selectedMonth);
+                      const isAuto = !item.isOverridden && item.field !== 'call_durchgefuehrt' && md.auto_checked_at;
                       const tooltip = item.isOverridden
                         ? 'Manuell gesetzt – Klicke erneut zum Umschalten'
                         : isAuto
-                          ? `Automatisch geprüft (${customer.auto_checked_at ? formatDate(customer.auto_checked_at) : ''})`
+                          ? `Automatisch geprüft (${md.auto_checked_at ? formatDate(md.auto_checked_at) : ''})`
                           : 'Klicke zum Umschalten';
                       return (
                         <div key={item.field} className="relative group">
@@ -778,14 +859,14 @@ export default function OperationsPage() {
                                 ? item.isOverridden
                                   ? 'bg-blue-50 border-blue-200 text-blue-700'
                                   : 'bg-green-50 border-green-200 text-green-700'
-                                : customer.is_overdue && item.field === 'daten_erhalten'
+                                : md.is_overdue && item.field === 'daten_erhalten'
                                   ? 'bg-red-50 border-red-200 text-red-500 animate-pulse'
                                   : 'bg-gray-50 border-gray-200 text-gray-400'
                             }`}
                             title={tooltip}
                           >
                             {item.value ? '✓' : '○'} {item.label}
-                            {isAuto && item.value && <span className="ml-0.5 text-[8px] opacity-60">⚡</span>}
+                            {Boolean(isAuto) && item.value && <span className="ml-0.5 text-[8px] opacity-60">⚡</span>}
                             {item.isOverridden && <span className="ml-0.5 text-[8px] opacity-60">✏️</span>}
                           </button>
                           {/* Reset override button (appears on hover) */}
@@ -804,14 +885,20 @@ export default function OperationsPage() {
                   </div>
 
                   {/* Upload Info */}
-                  <div className="text-right min-w-[80px]">
-                    <div className={`text-xs font-medium ${customer.upload_status === 'uploaded' ? 'text-green-600' : 'text-red-500'}`}>
-                      {customer.file_count} Dateien
-                    </div>
-                    {customer.last_upload_date && (
-                      <div className="text-[10px] text-gray-300">{formatDate(customer.last_upload_date)}</div>
-                    )}
-                  </div>
+                  {(() => {
+                    const md = getMonthData(customer, selectedMonth);
+                    const fc = md.file_count ?? 0;
+                    const us = md.upload_status ?? 'pending';
+                    const lu = md.last_upload_date ?? null;
+                    return (
+                      <div className="text-right min-w-[80px]">
+                        <div className={`text-xs font-medium ${us === 'uploaded' ? 'text-green-600' : 'text-red-500'}`}>
+                          {fc} Dateien
+                        </div>
+                        {lu && <div className="text-[10px] text-gray-300">{formatDate(lu)}</div>}
+                      </div>
+                    );
+                  })()}
 
                   {/* Expand Arrow */}
                   <div className={`text-gray-300 transition-transform text-lg ${expanded ? 'rotate-90' : ''}`}>
@@ -824,59 +911,66 @@ export default function OperationsPage() {
               {expanded && (
                 <div className="px-6 pb-6 pt-2 border-t border-gray-100">
                   {/* Auto-Check Info Bar */}
-                  {customer.auto_checked_at && (
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      {/* Upload status */}
-                      <div className={`text-[11px] px-3 py-1.5 rounded-lg border ${
-                        customer.daten_erhalten
-                          ? 'bg-green-50 border-green-100 text-green-700'
-                          : customer.is_overdue
-                            ? 'bg-red-50 border-red-200 text-red-600'
-                            : 'bg-amber-50 border-amber-100 text-amber-700'
-                      }`}>
-                        {customer.daten_erhalten
-                          ? `⚡ ${customer.file_count} Dateien erkannt (Drive)`
-                          : customer.is_overdue
-                            ? '⚠ Überfällig – Keine Daten bis zum 10. hochgeladen'
-                            : '○ Noch keine Daten für diesen Monat'}
-                        {customer.override_daten_erhalten && <span className="ml-1 opacity-60">(manuell überschrieben)</span>}
-                      </div>
-
-                      {/* Validation status */}
-                      {customer.daten_erhalten && (
+                  {(() => {
+                    const md = getMonthData(customer, selectedMonth);
+                    if (!md.auto_checked_at) return null;
+                    return (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {/* Upload status */}
                         <div className={`text-[11px] px-3 py-1.5 rounded-lg border ${
-                          customer.daten_valide
+                          md.daten_erhalten
                             ? 'bg-green-50 border-green-100 text-green-700'
-                            : 'bg-amber-50 border-amber-100 text-amber-700'
+                            : md.is_overdue
+                              ? 'bg-red-50 border-red-200 text-red-600'
+                              : 'bg-amber-50 border-amber-100 text-amber-700'
                         }`}>
-                          {customer.daten_valide
-                            ? '⚡ Daten validiert (BWA + SuSa vorhanden)'
-                            : `⚠ Validierung: ${customer.auto_check_issues?.join(', ') || 'Fehlende Dateien'}`}
-                          {customer.override_daten_valide && <span className="ml-1 opacity-60">(manuell überschrieben)</span>}
+                          {md.daten_erhalten
+                            ? `⚡ ${md.file_count ?? 0} Dateien erkannt (Drive)`
+                            : md.is_overdue
+                              ? '⚠ Überfällig – Keine Daten bis zum 10. hochgeladen'
+                              : '○ Noch keine Daten für diesen Monat'}
+                          {md.override_daten_erhalten && <span className="ml-1 opacity-60">(manuell überschrieben)</span>}
                         </div>
-                      )}
 
-                      {/* File list (collapsible) */}
-                      {customer.auto_check_files && customer.auto_check_files.length > 0 && (
-                        <details className="w-full mt-1">
-                          <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600">
-                            Dateien anzeigen ({customer.auto_check_files.length})
-                          </summary>
-                          <div className="mt-1 grid grid-cols-2 gap-1">
-                            {customer.auto_check_files.map((f, i) => (
-                              <div key={i} className="text-[10px] text-gray-500 bg-gray-50 rounded px-2 py-1">
-                                📄 {f.name} <span className="text-gray-300">({f.size})</span>
-                              </div>
-                            ))}
+                        {/* Validation status */}
+                        {md.daten_erhalten && (
+                          <div className={`text-[11px] px-3 py-1.5 rounded-lg border ${
+                            md.daten_valide
+                              ? 'bg-green-50 border-green-100 text-green-700'
+                              : 'bg-amber-50 border-amber-100 text-amber-700'
+                          }`}>
+                            {md.daten_valide
+                              ? '⚡ Daten validiert (BWA + SuSa vorhanden)'
+                              : `⚠ Validierung: ${md.auto_check_issues?.join(', ') || 'Fehlende Dateien'}`}
+                            {md.override_daten_valide && <span className="ml-1 opacity-60">(manuell überschrieben)</span>}
                           </div>
-                        </details>
-                      )}
-                    </div>
-                  )}
+                        )}
+
+                        {/* File list (collapsible) */}
+                        {md.auto_check_files && md.auto_check_files.length > 0 && (
+                          <details className="w-full mt-1">
+                            <summary className="text-[10px] text-gray-400 cursor-pointer hover:text-gray-600">
+                              Dateien anzeigen ({md.auto_check_files.length})
+                            </summary>
+                            <div className="mt-1 grid grid-cols-2 gap-1">
+                              {md.auto_check_files.map((f, i) => (
+                                <div key={i} className="text-[10px] text-gray-500 bg-gray-50 rounded px-2 py-1">
+                                  📄 {f.name} <span className="text-gray-300">({f.size})</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="grid grid-cols-5 gap-3">
                     {WORKFLOW_STEPS.map(step => {
-                      const isSent = customer[step.sentKey] as boolean;
+                      const md = getMonthData(customer, selectedMonth);
+                      const isSent = step.monthly
+                        ? (md[step.type === 'reminder' ? 'reminder_sent' : 'rechnung_sent'] as boolean)
+                        : customer[step.sentKey] as boolean;
                       const isPreparing = preparing === `${step.type}-${customer.customer_id}`;
 
                       return (

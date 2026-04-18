@@ -54,11 +54,40 @@ export interface MandateTracking {
   laufzeit_monate?: number | string | null;
 }
 
+// Monthly data tracked per YYYY-MM key
+export interface MonthlyOperationsData {
+  reminder_sent: boolean;
+  rechnung_sent: boolean;
+  daten_erhalten: boolean;
+  daten_valide: boolean;
+  call_durchgefuehrt: boolean;
+  // Auto-Check metadata (per month)
+  override_daten_erhalten?: boolean;
+  override_daten_valide?: boolean;
+  auto_check_files?: { name: string; size: string; date: string }[];
+  auto_check_missing?: string[];
+  auto_check_issues?: string[];
+  auto_checked_at?: string | null;
+  is_overdue?: boolean;
+  upload_status?: string;
+  file_count?: number;
+  last_upload_date?: string | null;
+}
+
 export interface OperationsCustomer {
   customer_id: string;
   company_name: string;
   ansprechpartner: string;
   emails: string[];
+  monatliches_honorar: number;
+  mandate_status: string;
+  // One-time onboarding steps (not per-month)
+  angebot_sent: boolean;
+  vertrag_sent: boolean;
+  unterlagen_sent: boolean;
+  // Per-month data: key = "YYYY-MM"
+  monthly_data: Record<string, MonthlyOperationsData>;
+  // Legacy flat fields (used as fallback / for migration)
   daten_erhalten: boolean;
   daten_valide: boolean;
   call_durchgefuehrt: boolean;
@@ -67,14 +96,8 @@ export interface OperationsCustomer {
   file_count: number;
   last_upload_date: string | null;
   reminder_sent: boolean;
-  monatliches_honorar: number;
-  mandate_status: string;
-  // Workflow-Status pro Step
-  angebot_sent: boolean;
-  vertrag_sent: boolean;
-  unterlagen_sent: boolean;
   rechnung_sent: boolean;
-  // Auto-Check: manual override flags (when true, auto-check won't overwrite user's value)
+  // Auto-Check: manual override flags
   override_daten_erhalten?: boolean;
   override_daten_valide?: boolean;
   // Auto-Check metadata
