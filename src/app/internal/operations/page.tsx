@@ -109,6 +109,8 @@ export default function OperationsPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [senderEmail, setSenderEmail] = useState(SENDERS[0].email);
   const [preparing, setPreparing] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [gmailStatus, setGmailStatus] = useState<Record<string, Record<string, boolean>>>({});
   // Empfänger-E-Mail pro Kunde (Standard: erste E-Mail aus der Liste)
   const [selectedRecipients, setSelectedRecipients] = useState<Record<string, string>>({});
   const [autoCheckRunning, setAutoCheckRunning] = useState(false);
@@ -139,6 +141,32 @@ export default function OperationsPage() {
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  }
+
+  // ── Gmail-Verifikation beim Aufklappen ──
+  async function verifyGmailStatus(customer: OperationsCustomer) {
+    const email = customer.email;
+    if (!email) return;
+    setVerifyingId(customer.customer_id);
+    try {
+      const res = await fetch(`/api/internal/verify-gmail-sent?email=${encodeURIComponent(email)}`);
+      if (!res.ok) throw new Error('API Fehler');
+      const data = await res.json() as Record<string, boolean>;
+      setGmailStatus(prev => ({ ...prev, [customer.customer_id]: data }));
+      setCustomers(prev => prev.map(c => {
+        if (c.customer_id !== customer.customer_id) return c;
+        return {
+          ...c,
+          angebot_sent:    data.angebot    ?? c.angebot_sent,
+          vertrag_sent:    data.vertrag    ?? c.vertrag_sent,
+          unterlagen_sent: data.unterlagen ?? c.unterlagen_sent,
+          reminder_sent:   data.reminder   ?? c.reminder_sent,
+          rechnung_sent:   data.rechnung   ?? c.rechnung_sent,
+        };
+      }));
+    } catch { /* Stille Fehler – zeige lokalen Status */ } finally {
+      setVerifyingId(null);
+    }
   }
 
   // ── AUTO-CHECK: Scan Drive for uploads & validate ──────
@@ -852,7 +880,7 @@ export default function OperationsPage() {
               {/* Customer Header Row */}
               <div
                 className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-offwhite/30 transition-colors"
-                onClick={() => setExpandedId(expanded ? null : customer.customer_id)}
+                onClick={() => { if (expanded) { setExpandedId(null); } else { setExpandedId(customer.customer_id); verifyGmailStatus(customer); } }}
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-4 h-4 rounded-full ${ampelStyles[computeAmpel(getMonthData(customer, selectedMonth))]} shadow-sm`} />
@@ -1013,6 +1041,21 @@ export default function OperationsPage() {
                     );
                   })()}
 
+                  {verifyingId === customer.customer_id && (
+                    <div className="mb-3 flex items-center gap-2 text-xs text-gray-400">
+                      <svg className="animate-spin h-3 w-3 text-copper" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Gmail-Status wird geprüft…
+                    </div>
+                  )}
+                  {gmailStatus[customer.customer_id] && verifyingId !== customer.customer_id && (
+                    <div className="mb-3 flex items-center gap-1.5 text-[10px] text-gray-400">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                      Gmail-Status verifiziert
+                    </div>
+                  )}
                   <div className="grid grid-cols-5 gap-3">
                     {WORKFLOW_STEPS.map(step => {
                       const md = getMonthData(customer, selectedMonth);
@@ -1033,7 +1076,15 @@ export default function OperationsPage() {
                           {isSent ? (
                             // Already sent: compact confirmation + small re-send link
                             <div>
-                              <div className="text-[11px] font-semibold text-green-600 mb-2">✓ Gesendet</div>
+                              {gmailStatus[customer.customer_id]?.[step.type] === true && (
+                                <div className="text-[11px] font-semibold text-green-600 mb-2">✓ Gesendet</div>
+                              )}
+                              {gmailStatus[customer.customer_id]?.[step.type] === false && (
+                                <div className="text-[11px] text-amber-600 font-medium mb-2" title="Entwurf – noch nicht abgesendet">⚠ Entwurf – nicht gesendet</div>
+                              )}
+                              {!gmailStatus[customer.customer_id] && (
+                                <div className="text-[11px] font-semibold text-green-600 mb-2">✓ Gesendet</div>
+                              )}
                               <button
                                 onClick={() => handlePrepare(step.type, customer)}
                                 className="text-[10px] text-gray-400 hover:text-copper underline underline-offset-2"
