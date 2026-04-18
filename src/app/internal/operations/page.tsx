@@ -41,11 +41,20 @@ const SENDERS = [
 ];
 
 const OPS_STORAGE_KEY = 'meyer-internal-os-operations';
+const OPS_STORAGE_VERSION = '2'; // bump to reset stored data
+const OPS_VERSION_KEY = 'meyer-internal-os-operations-version';
 const CRM_SYNC_KEY = 'meyer-crm-sync';
 
 function loadOperations(): OperationsCustomer[] {
   if (typeof window === 'undefined') return SEED_OPERATIONS;
   try {
+    // Reset if version changed (e.g. seed data was updated)
+    const storedVersion = localStorage.getItem(OPS_VERSION_KEY);
+    if (storedVersion !== OPS_STORAGE_VERSION) {
+      localStorage.removeItem(OPS_STORAGE_KEY);
+      localStorage.setItem(OPS_VERSION_KEY, OPS_STORAGE_VERSION);
+      return SEED_OPERATIONS;
+    }
     const stored = localStorage.getItem(OPS_STORAGE_KEY);
     if (stored) {
       const parsed: OperationsCustomer[] = JSON.parse(stored);
@@ -105,6 +114,8 @@ export default function OperationsPage() {
   const [autoCheckRunning, setAutoCheckRunning] = useState(false);
   const [lastAutoCheck, setLastAutoCheck] = useState<string | null>(null);
   const [bodyResetKey, setBodyResetKey] = useState(0);
+  // Pending sent confirmation: Gmail was opened, waiting for user to confirm email was actually sent
+  const [pendingConfirm, setPendingConfirm] = useState<{ type: DocumentType; customerId: string; toEmail: string; label: string } | null>(null);
 
   // ── Monat-Selektor ───────────────────────────────────────
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -504,9 +515,10 @@ export default function OperationsPage() {
       });
       const json = await res.json();
       if (json.success && json.draftUrl) {
-        updateSentStatus(emailPreview.type, emailPreview.customer_id);
         window.open(json.draftUrl, '_blank');
-        showToast(`Entwurf erstellt – bitte in Gmail prüfen und senden`, 'success');
+        const stepLabel = WORKFLOW_STEPS.find(s => s.type === emailPreview.type)?.label ?? emailPreview.type;
+        setPendingConfirm({ type: emailPreview.type, customerId: emailPreview.customer_id, toEmail: emailPreview.to, label: stepLabel });
+        showToast(`Gmail-Entwurf geöffnet – bitte E-Mail senden und unten bestätigen`, 'success');
         setSendingKey(null);
         setPreview(null);
         return;
@@ -557,8 +569,9 @@ export default function OperationsPage() {
       body: attachmentNote + toPlainText(emailPreview.body),
     });
     window.open(`https://mail.google.com/mail/?${params.toString()}`, '_blank');
-    updateSentStatus(emailPreview.type, emailPreview.customer_id);
-    showToast(`Gmail geöffnet – bitte E-Mail an ${emailPreview.to} senden`, 'success');
+    const stepLabel = WORKFLOW_STEPS.find(s => s.type === emailPreview.type)?.label ?? emailPreview.type;
+    setPendingConfirm({ type: emailPreview.type, customerId: emailPreview.customer_id, toEmail: emailPreview.to, label: stepLabel });
+    showToast(`Gmail geöffnet – bitte E-Mail senden und unten bestätigen`, 'success');
     setSendingKey(null);
     setPreview(null);
   }
@@ -675,6 +688,41 @@ export default function OperationsPage() {
           toast.type === 'success' ? 'bg-navy text-white' : 'bg-amber-600 text-white'
         }`}>
           {toast.message}
+        </div>
+      )}
+
+      {/* Pending Send Confirmation Banner */}
+      {pendingConfirm && (
+        <div className="mb-6 bg-amber-50 border border-amber-300 rounded-2xl px-6 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-amber-500 text-xl">📬</span>
+            <div>
+              <div className="font-manrope font-bold text-amber-800 text-sm">
+                {pendingConfirm.label} – wurde die E-Mail an {pendingConfirm.toEmail} abgeschickt?
+              </div>
+              <div className="text-xs text-amber-600 mt-0.5">
+                Bitte bestätigen, sobald die E-Mail tatsächlich gesendet wurde – erst dann wird der Status aktualisiert.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                updateSentStatus(pendingConfirm.type, pendingConfirm.customerId);
+                setPendingConfirm(null);
+                showToast(`${pendingConfirm.label} als gesendet markiert ✓`, 'success');
+              }}
+              className="px-4 py-2 bg-green-600 text-white text-xs font-semibold rounded-xl hover:bg-green-700 transition-colors"
+            >
+              ✓ Ja, gesendet
+            </button>
+            <button
+              onClick={() => setPendingConfirm(null)}
+              className="px-4 py-2 bg-white border border-gray-200 text-gray-500 text-xs font-medium rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
         </div>
       )}
 
