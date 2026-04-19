@@ -5,6 +5,155 @@ import { OperationsCustomer, MonthlyOperationsData, DocumentType, EmailPreview, 
 import { SEED_OPERATIONS } from '@/lib/internal-os/demo-data';
 import { formatDate } from '@/lib/internal-os/utils';
 
+// ── Kontoauszug-Import ──────────────────────────────────
+
+interface BankTransaction {
+  date: string;          // ISO date string
+  amount: number;        // positive = incoming
+  sender: string;        // Auftraggeber / Empfänger
+  reference: string;     // Verwendungszweck
+  rawLine: string;
+}
+
+interface ImportMatch {
+  transaction: BankTransaction;
+  customerId: string | null;
+  customerName: string | null;
+  confidence: 'high' | 'medium' | 'none';
+  selected: boolean;
+}
+
+// Normalize German number: "1.234,56" → 1234.56
+function parseGermanNumber(s: string): number {
+  const cleaned = s.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.');
+  return parseFloat(cleaned);
+}
+
+// Parse a date in German format "dd.mm.yyyy" or ISO "yyyy-mm-dd"
+function parseDate(s: string): string {
+  const trimmed = s.trim();
+  const german = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (german) return `${german[3]}-${german[2].padStart(2,'0')}-${german[1].padStart(2,'0')}`;
+  const iso = trimmed.match(/^\d{4}-\d{2}-\d{2}/);
+  if (iso) return trimmed.slice(0, 10);
+  return trimmed;
+}
+
+// Split CSV line respecting quoted fields
+function splitCSVLine(line: string, sep: string): string[] {
+  const result: string[] = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuote = !inQuote; continue; }
+    if (!inQuote && ch === sep) { result.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+// Auto-detect separator: semicolon wins if more ";" than ","
+function detectSep(headerLine: string): string {
+  return (headerLine.split(';').length > headerLine.split(',').length) ? ';' : ',';
+}
+
+// Find the best column index by trying multiple header name variants
+function findCol(headers: string[], candidates: string[]): number {
+  for (const c of candidates) {
+    const idx = headers.findIndex(h => h.toLowerCase().includes(c.toLowerCase()));
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+// Parse CSV text into BankTransactions (incoming only: amount > 0)
+function parseCSV(text: string): BankTransaction[] {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  // Find the header line (first line with known column keywords)
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const l = lines[i].toLowerCase();
+    if (l.includes('betrag') || l.includes('buchung') || l.includes('auftraggeber')) {
+      headerIdx = i;
+      break;
+    }
+  }
+
+  const sep = detectSep(lines[headerIdx]);
+  const headers = splitCSVLine(lines[headerIdx], sep);
+
+  const colDate    = findCol(headers, ['buchungstag', 'buchungsdatum', 'datum', 'date', 'valuta']);
+  const colAmount  = findCol(headers, ['betrag', 'amount', 'umsatz']);
+  const colSender  = findCol(headers, ['auftraggeber', 'beguenstigter', 'begünstigter', 'empfänger', 'empfaenger', 'name']);
+  const colRef     = findCol(headers, ['verwendungszweck', 'buchungstext', 'reference', 'zweck', 'text']);
+
+  const txns: BankTransaction[] = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cols = splitCSVLine(lines[i], sep);
+    if (cols.length < 3) continue;
+
+    const amountRaw = colAmount !== -1 ? cols[colAmount] : '';
+    const amount = parseGermanNumber(amountRaw);
+    if (isNaN(amount) || amount <= 0) continue; // only incoming
+
+    txns.push({
+      date:      colDate   !== -1 ? parseDate(cols[colDate])   : '',
+      amount,
+      sender:    colSender !== -1 ? cols[colSender]   : '',
+      reference: colRef    !== -1 ? cols[colRef]      : '',
+      rawLine:   lines[i],
+    });
+  }
+  return txns;
+}
+
+// Match transactions against customers: amount + name
+function matchTransactions(txns: BankTransaction[], customers: OperationsCustomer[]): ImportMatch[] {
+  return txns.map(tx => {
+    // Normalize sender + reference for fuzzy name search
+    const haystack = `${tx.sender} ${tx.reference}`.toLowerCase();
+
+    let bestId: string | null = null;
+    let bestName: string | null = null;
+    let bestConf: 'high' | 'medium' | 'none' = 'none';
+
+    for (const c of customers) {
+      if (c.monatliches_honorar <= 0) continue;
+
+      const amountMatch = Math.abs(tx.amount - c.monatliches_honorar) < 1;
+
+      // Try matching any significant word from company name (≥4 chars)
+      const words = c.company_name
+        .replace(/GmbH|KG|AG|GbR|e\.K\.|&|Co\./gi, '')
+        .split(/\s+/)
+        .filter(w => w.length >= 4);
+      const nameMatch = words.some(w => haystack.includes(w.toLowerCase()));
+
+      let conf: 'high' | 'medium' | 'none' = 'none';
+      if (amountMatch && nameMatch) conf = 'high';
+      else if (amountMatch) conf = 'medium';
+      else if (nameMatch) conf = 'medium';
+
+      if (conf === 'high' || (conf === 'medium' && bestConf === 'none')) {
+        bestId = c.customer_id;
+        bestName = c.company_name;
+        bestConf = conf;
+      }
+    }
+
+    return {
+      transaction: tx,
+      customerId:   bestId,
+      customerName: bestName,
+      confidence:   bestConf,
+      selected:     bestConf === 'high',
+    };
+  });
+}
+
 // ── Workflow Steps ──────────────────────────────────────
 
 const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer; monthly?: boolean }[] = [
@@ -125,6 +274,12 @@ export default function OperationsPage() {
   const [bodyResetKey, setBodyResetKey] = useState(0);
   // Pending sent confirmation: Gmail was opened, waiting for user to confirm email was actually sent
   const [pendingConfirm, setPendingConfirm] = useState<{ type: DocumentType; customerId: string; toEmail: string; label: string } | null>(null);
+  // Kontoauszug-Import
+  const [showImport, setShowImport] = useState(false);
+  const [importMatches, setImportMatches] = useState<ImportMatch[]>([]);
+  const [importFileName, setImportFileName] = useState('');
+  const [importError, setImportError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Monat-Selektor ───────────────────────────────────────
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -677,6 +832,53 @@ export default function OperationsPage() {
     }));
   }
 
+  // ── Kontoauszug-Import ──────────────────────────────────
+  function handleImportFile(file: File) {
+    setImportError('');
+    setImportFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        if (!text || text.trim().length === 0) {
+          setImportError('Datei ist leer oder konnte nicht gelesen werden.');
+          return;
+        }
+        const txns = parseCSV(text);
+        if (txns.length === 0) {
+          setImportError('Keine eingehenden Zahlungen gefunden. Bitte prüfe das Dateiformat.');
+          return;
+        }
+        const matches = matchTransactions(txns, customers);
+        setImportMatches(matches);
+        setShowImport(true);
+      } catch {
+        setImportError('Fehler beim Lesen der Datei. Bitte als CSV exportieren.');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function applyImport() {
+    const toMark = importMatches.filter(m => m.selected && m.customerId);
+    setCustomers(prev => prev.map(c => {
+      const match = toMark.find(m => m.customerId === c.customer_id);
+      if (!match) return c;
+      const monthData = getMonthData(c, selectedMonth);
+      const updatedMonth: MonthlyOperationsData = {
+        ...monthData,
+        rechnung_bezahlt: true,
+        rechnung_bezahlt_am: match.transaction.date
+          ? `${match.transaction.date}T00:00:00.000Z`
+          : new Date().toISOString(),
+      };
+      return { ...c, monthly_data: { ...c.monthly_data, [selectedMonth]: updatedMonth } };
+    }));
+    showToast(`${toMark.length} Rechnung${toMark.length !== 1 ? 'en' : ''} als bezahlt markiert ✓`, 'success');
+    setShowImport(false);
+    setImportMatches([]);
+  }
+
   // Reset manual override (let auto-check take over again)
   function resetOverride(customerId: string, field: 'override_daten_erhalten' | 'override_daten_valide') {
     setCustomers(prev => prev.map(c => {
@@ -767,6 +969,113 @@ export default function OperationsPage() {
         </div>
       )}
 
+      {/* Kontoauszug-Import Modal */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <div className="font-manrope font-bold text-navy text-lg">Kontoauszug importieren</div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {importFileName} · {importMatches.length} eingehende Zahlung{importMatches.length !== 1 ? 'en' : ''} erkannt
+                  · Monat: {importMatches.length > 0 ? (new Date(selectedMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })) : '–'}
+                </div>
+              </div>
+              <button onClick={() => { setShowImport(false); setImportMatches([]); }} className="text-gray-300 hover:text-gray-500 text-2xl leading-none">×</button>
+            </div>
+
+            {/* Match List */}
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-2">
+              {importMatches.length === 0 && (
+                <div className="text-center text-sm text-gray-400 py-8">Keine Zahlungen gefunden.</div>
+              )}
+              {importMatches.map((m, i) => (
+                <div
+                  key={i}
+                  onClick={() => setImportMatches(prev => prev.map((x, j) => j === i ? { ...x, selected: !x.selected } : x))}
+                  className={`flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all select-none ${
+                    m.selected
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-white border-gray-100 hover:bg-gray-50'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    m.selected ? 'bg-green-600 border-green-600' : 'border-gray-300'
+                  }`}>
+                    {m.selected && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>}
+                  </div>
+
+                  {/* Transaction info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-navy truncate">{m.transaction.sender || '–'}</span>
+                      {m.transaction.date && <span className="text-xs text-gray-400 shrink-0">{new Date(m.transaction.date).toLocaleDateString('de-DE')}</span>}
+                    </div>
+                    {m.transaction.reference && (
+                      <div className="text-xs text-gray-400 truncate mt-0.5">{m.transaction.reference}</div>
+                    )}
+                  </div>
+
+                  {/* Amount */}
+                  <div className="text-right shrink-0">
+                    <div className="font-bold text-green-700">+€ {m.transaction.amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</div>
+                  </div>
+
+                  {/* Match badge */}
+                  <div className="shrink-0 text-right min-w-[120px]">
+                    {m.confidence === 'high' && (
+                      <div>
+                        <div className="text-[10px] font-bold text-green-600 bg-green-100 rounded-md px-2 py-0.5 inline-block">✓ Sicher</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">{m.customerName}</div>
+                      </div>
+                    )}
+                    {m.confidence === 'medium' && (
+                      <div>
+                        <div className="text-[10px] font-bold text-amber-600 bg-amber-100 rounded-md px-2 py-0.5 inline-block">⚠ Mögl. Match</div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">{m.customerName}</div>
+                      </div>
+                    )}
+                    {m.confidence === 'none' && (
+                      <div className="text-[10px] text-gray-400 bg-gray-100 rounded-md px-2 py-0.5 inline-block">Kein Treffer</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+              <div className="text-xs text-gray-400">
+                {importMatches.filter(m => m.selected).length} ausgewählt ·{' '}
+                <button className="underline underline-offset-2 hover:text-gray-600" onClick={() => setImportMatches(p => p.map(m => ({ ...m, selected: m.confidence !== 'none' })))}>Alle Treffer wählen</button>
+                {' · '}
+                <button className="underline underline-offset-2 hover:text-gray-600" onClick={() => setImportMatches(p => p.map(m => ({ ...m, selected: false })))}>Keine</button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setShowImport(false); setImportMatches([]); }} className="px-4 py-2 text-xs text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Abbrechen</button>
+                <button
+                  onClick={applyImport}
+                  disabled={importMatches.filter(m => m.selected && m.customerId).length === 0}
+                  className="px-4 py-2 text-xs font-semibold bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {importMatches.filter(m => m.selected && m.customerId).length} Rechnung{importMatches.filter(m => m.selected && m.customerId).length !== 1 ? 'en' : ''} als bezahlt markieren
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import-Fehler Toast (außerhalb Modal) */}
+      {importError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center justify-between">
+          <span>⚠ {importError}</span>
+          <button onClick={() => setImportError('')} className="text-red-400 hover:text-red-600 ml-4">×</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
@@ -807,6 +1116,24 @@ export default function OperationsPage() {
                 Auto-Check
               </>
             )}
+          </button>
+          {/* Kontoauszug importieren */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.txt,.xls,.xlsx"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleImportFile(f); e.target.value = ''; }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all"
+            title="Kontoauszug als CSV importieren und Zahlungsstatus automatisch aktualisieren"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Kontoauszug
           </button>
           <label className="text-xs text-gray-500">Absender:</label>
           <select
