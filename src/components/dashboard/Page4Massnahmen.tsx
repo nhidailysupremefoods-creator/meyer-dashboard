@@ -689,8 +689,8 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             const badgeText = isLiq ? 'LIQ' : isBench ? 'BM' : 'VTR';
 
             return (
-              <div key={key} onClick={() => handleTogglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : action.isBiggest ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
-                <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : 'var(--border-color)', background: selected ? '#C8A96E' : '#fff' }}>
+              <div key={key} onClick={() => handleTogglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : action.isBiggest ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.08)' : 'var(--navy, #192231)' }}>
+                <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : 'var(--border-color)', background: selected ? '#C8A96E' : 'transparent' }}>
                   {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
                 </div>
                 <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={badgeStyle}>
