@@ -167,7 +167,7 @@ export default function AdminPage() {
 
       {/* Page Header */}
       <div style={{
-        background: '#FFFFFF',
+        background: 'var(--background-card)',
         borderBottom: '1px solid var(--border-color)',
         padding: '1.25rem 1.5rem',
       }}>
@@ -199,7 +199,7 @@ export default function AdminPage() {
       )}
 
       {/* Tabs */}
-      <div style={{ background: '#FFFFFF', borderBottom: '1px solid var(--border-color)' }}>
+      <div style={{ background: 'var(--background-card)', borderBottom: '1px solid var(--border-color)' }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 1.5rem' }}>
           <nav style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
             {TABS.map((tab) => (
