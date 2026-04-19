@@ -2,38 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Meyer Decision Corporate Design System - LIGHT THEME */
-/* CI: Navy #192231 | Copper #B08A6A | Offwhite #F7F5F2 */
+/* Meyer Decision Corporate Design System â DARK NAVY THEME */
+/* Navy Cards on Deep Background | Copper Accents | Premium Dark Look */
+/* Navy #1B2A4A | Copper #B87333 | Background #0D1A2D | Cards #162236 */
 
 :root {
-  /* Brand Colors (CI-konform) */
-  --navy:           #192231;
-  --navy-dark:      #111827;
-  --navy-card:      #1E2A3E;
-  --copper:         #B08A6A;
-  --copper-light:   #C9A686;
-  --copper-dark:    #8A6B4E;
-  --offwhite:       #F7F5F2;
+  /* Brand Colors */
+  --navy:           #1B2A4A;
+  --navy-dark:      #142038;
+  --navy-card:      #1C2D48;
+  --copper:         #C8874A;
+  --copper-light:   #D4956A;
+  --copper-dark:    #8A5A28;
+  --offwhite:       #E8ECF1;
 
   /* Semantic aliases */
-  --primary:        #192231;
-  --primary-light:  #243044;
-  --primary-dark:   #111827;
-  --accent:         #B08A6A;
-  --accent-light:   #C9A686;
-  --accent-dark:    #8A6B4E;
+  --primary:        #1B2A4A;
+  --primary-light:  #2C3E5A;
+  --primary-dark:   #142038;
+  --accent:         #C8874A;
+  --accent-light:   #D4956A;
+  --accent-dark:    #8A5A28;
 
-  /* Status Colors */
-  --success:        #2E8B57;
-  --warning:        #D4956A;
-  --danger:         #C43830;
+  /* Status Colors (brighter for dark bg) */
+  --success:        #34D399;
+  --warning:        #FBBF24;
+  --danger:         #F87171;
 
-  /* Theme - LIGHT */
-  --background:     #F7F5F2;
-  --background-card:#FFFFFF;
-  --text-primary:   #192231;
-  --text-secondary: #6B7A90;
-  --border-color:   #E5E2DD;
+  /* Theme â DARK NAVY */
+  --background:     #0B1526;
+  --background-card:#162236;
+  --background-elevated: #1C2D48;
+  --text-primary:   #E8ECF1;
+  --text-secondary: #7B8FA8;
+  --border-color:   #1E3350;
 }
 
 /* Reset */
@@ -47,22 +49,22 @@
 
 html {
   scroll-behavior: smooth;
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--background);
   color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Typography - Manrope for headings, Inter for body */
+/* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Manrope', 'Inter', sans-serif;
   color: var(--text-primary);
-  font-weight: 700;
 }
 
 a {
@@ -75,16 +77,15 @@ a:hover {
   color: var(--copper-light);
 }
 
-/* Form Elements */
+/* Form Elements â Dark */
 input, textarea, select {
-  background-color: #FFFFFF;
+  background-color: var(--background-elevated);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   padding: 0.625rem 1rem;
   transition: all 0.2s;
   width: 100%;
-  font-family: 'Inter', sans-serif;
 }
 
 input::placeholder, textarea::placeholder {
@@ -94,21 +95,20 @@ input::placeholder, textarea::placeholder {
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--copper);
-  box-shadow: 0 0 0 2px rgba(176, 138, 106, 0.15);
+  box-shadow: 0 0 0 2px rgba(200, 135, 74, 0.2);
 }
 
 select {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 button {
   transition-property: background-color, border-color, opacity;
   transition-duration: 0.2s;
   cursor: pointer;
-  font-family: 'Inter', sans-serif;
 }
 
-/* Scrollbar (subtle) */
+/* Scrollbar (subtle on dark) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -117,21 +117,21 @@ button {
   background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(25, 34, 49, 0.15);
+  background: rgba(200, 200, 220, 0.12);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(25, 34, 49, 0.25);
+  background: rgba(200, 200, 220, 0.22);
 }
 
 @layer components {
-  /* Card - white with subtle shadow */
+  /* Card â Dark navy with glow shadow */
   .card {
     background-color: var(--background-card);
-    border-radius: 10px;
+    border-radius: 12px;
     border: 1px solid var(--border-color);
     padding: 1.25rem;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(30, 51, 80, 0.3);
   }
 
   /* Buttons */
@@ -157,18 +157,17 @@ button {
   }
 
   .btn-secondary {
-    background-color: #FFFFFF;
+    background-color: var(--background-elevated);
     color: var(--text-primary);
     font-weight: 500;
     padding: 0.625rem 1.25rem;
     border-radius: 0.5rem;
     border: 1px solid var(--border-color);
     transition: background-color 0.2s;
-    font-family: 'Inter', sans-serif;
   }
 
   .btn-secondary:hover {
-    background-color: #F8F6F3;
+    background-color: var(--background-card);
   }
 
   .btn-danger {
@@ -182,14 +181,14 @@ button {
   }
 
   .btn-danger:hover {
-    background-color: #A82F28;
+    background-color: #EF4444;
   }
 
-  /* Status badges */
+  /* Status badges â brighter for dark bg */
   .badge-green {
-    background: rgba(46, 139, 87, 0.1);
+    background: rgba(52, 211, 153, 0.12);
     color: var(--success);
-    border: 1px solid rgba(46, 139, 87, 0.25);
+    border: 1px solid rgba(52, 211, 153, 0.25);
     border-radius: 0.375rem;
     padding: 0.125rem 0.5rem;
     font-size: 0.75rem;
@@ -197,9 +196,9 @@ button {
   }
 
   .badge-yellow {
-    background: rgba(212, 149, 106, 0.1);
+    background: rgba(251, 191, 36, 0.12);
     color: var(--warning);
-    border: 1px solid rgba(212, 149, 106, 0.25);
+    border: 1px solid rgba(251, 191, 36, 0.25);
     border-radius: 0.375rem;
     padding: 0.125rem 0.5rem;
     font-size: 0.75rem;
@@ -207,9 +206,9 @@ button {
   }
 
   .badge-red {
-    background: rgba(196, 56, 48, 0.1);
+    background: rgba(248, 113, 113, 0.12);
     color: var(--danger);
-    border: 1px solid rgba(196, 56, 48, 0.25);
+    border: 1px solid rgba(248, 113, 113, 0.25);
     border-radius: 0.375rem;
     padding: 0.125rem 0.5rem;
     font-size: 0.75rem;
@@ -233,7 +232,7 @@ button {
   }
 }
 
-/* Print / PDF Export */
+/* Print / PDF Export â always light for paper */
 @media print {
   body {
     background-color: #fff !important;
