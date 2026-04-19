@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Lead, Branche, PipelineStatus } from '@/lib/internal-os/types';
 import { SEED_LEADS } from '@/lib/internal-os/demo-data';
-import { useCurrentUser } from '@/lib/internal-os/user-context';
 import {
+  formatCurrency,
   computeICPScore,
   BRANCHEN_LABELS,
   PIPELINE_STAGES,
@@ -12,79 +12,9 @@ import {
 } from '@/lib/internal-os/utils';
 
 const PAGE_SIZE = 50;
-const STORAGE_KEY = 'meyer-internal-os-leads';
-const CRM_SYNC_KEY = 'meyer-crm-sync';
-
-// Pipeline stage order – used to never go backwards
-const STAGE_ORDER: PipelineStatus[] = ['neu','kontaktiert','qualifiziert','angebot','verhandlung','gewonnen'];
-function isLaterOrEqual(a: string, b: string) {
-  return STAGE_ORDER.indexOf(a as PipelineStatus) >= STAGE_ORDER.indexOf(b as PipelineStatus);
-}
-
-function loadLeads(): Lead[] {
-  if (typeof window === 'undefined') return SEED_LEADS;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const base: Lead[] = stored ? JSON.parse(stored) : SEED_LEADS;
-
-    // Apply any pending CRM sync events from Operations
-    const syncRaw = localStorage.getItem(CRM_SYNC_KEY);
-    if (!syncRaw) return base;
-    const syncEvents: Array<{ company_name: string; pipeline_stage: string; sent_at: string }> = JSON.parse(syncRaw);
-    if (!syncEvents.length) return base;
-
-    return base.map(lead => {
-      const event = syncEvents.find(e =>
-        e.company_name.toLowerCase() === lead.company_name.toLowerCase()
-      );
-      if (!event) return lead;
-      // Only advance, never go backwards
-      if (isLaterOrEqual(lead.pipeline_status, event.pipeline_stage)) return lead;
-      return { ...lead, pipeline_status: event.pipeline_stage as PipelineStatus, updated_at: event.sent_at };
-    });
-  } catch {}
-  return SEED_LEADS;
-}
 
 export default function CRMPage() {
-  const { currentUser } = useCurrentUser();
-  const [leads, setLeads] = useState<Lead[]>(loadLeads);
-  const [toast, setToast] = useState<string | null>(null);
-
-  // Re-apply CRM sync events whenever page gets focus (cross-tab sync)
-  useEffect(() => {
-    function onFocus() {
-      setLeads(prev => {
-        try {
-          const syncRaw = localStorage.getItem(CRM_SYNC_KEY);
-          if (!syncRaw) return prev;
-          const syncEvents: Array<{ company_name: string; pipeline_stage: string; sent_at: string }> = JSON.parse(syncRaw);
-          return prev.map(lead => {
-            const event = syncEvents.find(e => e.company_name.toLowerCase() === lead.company_name.toLowerCase());
-            if (!event || isLaterOrEqual(lead.pipeline_status, event.pipeline_stage)) return lead;
-            return { ...lead, pipeline_status: event.pipeline_stage as PipelineStatus, updated_at: event.sent_at };
-          });
-        } catch { return prev; }
-      });
-    }
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, []);
-
-  // Persist leads to localStorage on every change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-    } catch {}
-  }, [leads]);
-
-  // Toast auto-dismiss
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
+  const [leads, setLeads] = useState<Lead[]>(SEED_LEADS);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -109,10 +39,7 @@ export default function CRMPage() {
   useMemo(() => { autoArchive(); }, [autoArchive]);
 
   // ── Filter, Search & Sort ───────────────────────────────
-  const activeLeads = useMemo(() => leads.filter(l => {
-    if (showArchived) return l.pipeline_status === 'verloren';
-    return !l.is_archived;
-  }), [leads, showArchived]);
+  const activeLeads = useMemo(() => leads.filter(l => showArchived || !l.is_archived), [leads, showArchived]);
 
   const filtered = useMemo(() => {
     let result = [...activeLeads];
@@ -120,13 +47,13 @@ export default function CRMPage() {
     // Status filter
     if (filterStatus) result = result.filter(l => l.pipeline_status === filterStatus);
 
-    // Search (fuzzy across company_name, ansprechpartner, alle emails, telefon)
+    // Search (fuzzy across company_name, ansprechpartner, email, telefon)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(l =>
         l.company_name.toLowerCase().includes(q) ||
         l.ansprechpartner.toLowerCase().includes(q) ||
-        (l.emails || []).some(e => e.toLowerCase().includes(q)) ||
+        l.email.toLowerCase().includes(q) ||
         l.telefon.includes(q) ||
         l.adresse.toLowerCase().includes(q)
       );
@@ -162,22 +89,6 @@ export default function CRMPage() {
     ['kontaktiert', 'qualifiziert', 'angebot', 'verhandlung'].includes(l.pipeline_status)
   ).length;
 
-  // ── Conversion-Rate KPI ──────────────────────────────────
-  const wonLeadsAll = leads.filter(l => l.pipeline_status === 'gewonnen');
-  const lostLeadsAll = leads.filter(l => l.pipeline_status === 'verloren');
-  const processedLeads = wonLeadsAll.length + lostLeadsAll.length;
-  const conversionRate = processedLeads > 0
-    ? Math.round((wonLeadsAll.length / processedLeads) * 100)
-    : null;
-  // Average days in pipeline for won leads (created_at → updated_at)
-  const avgPipelineDays = wonLeadsAll.length > 0
-    ? Math.round(wonLeadsAll.reduce((sum, l) => {
-        const start = l.created_at ? new Date(l.created_at).getTime() : 0;
-        const end = l.updated_at ? new Date(l.updated_at).getTime() : Date.now();
-        return sum + (end - start) / 86400000;
-      }, 0) / wonLeadsAll.length)
-    : null;
-
   // ── Handlers ────────────────────────────────────────────
   function handleSave(data: Partial<Lead>) {
     const now = new Date().toISOString();
@@ -207,7 +118,7 @@ export default function CRMPage() {
         controller_anzahl: null,
         ansprechpartner: '',
         telefon: '',
-        emails: [],
+        email: '',
         adresse: '',
         pipeline_status: 'neu',
         next_action: '',
@@ -216,7 +127,7 @@ export default function CRMPage() {
         lead_source: '',
         created_at: now,
         updated_at: now,
-        created_by: currentUser,
+        created_by: 'gregory@meyerdecision.com',
         is_archived: false,
         archived_at: null,
         duplicate_flag: false,
@@ -232,23 +143,14 @@ export default function CRMPage() {
       }
       setLeads(prev => [...prev, newLead]);
     }
-    const wasArchived = data.pipeline_status === 'verloren';
     setShowForm(false);
     setEditingLead(null);
-    if (wasArchived) {
-      setToast('Lead als "verloren" markiert');
-      setShowArchived(true);
-      setFilterStatus('');
-    } else {
-      setToast(editingLead ? 'Lead gespeichert' : 'Neuer Lead erstellt');
-    }
   }
 
   function handleDelete(leadId: string) {
     setLeads(prev => prev.filter(l => l.lead_id !== leadId));
     setShowForm(false);
     setEditingLead(null);
-    setToast('Lead gelöscht');
   }
 
   function handleRestore(leadId: string) {
@@ -269,19 +171,10 @@ export default function CRMPage() {
     return 'bg-red-100 text-red-800';
   }
 
-  const archivedCount = leads.filter(l => l.pipeline_status === 'verloren').length;
+  const archivedCount = leads.filter(l => l.is_archived).length;
 
   return (
     <div>
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-6 right-6 z-[60] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${
-          toast.includes('verloren') ? 'bg-amber-600' : toast.includes('gelöscht') ? 'bg-red-600' : 'bg-green-600'
-        }`}>
-          {toast}
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
@@ -290,66 +183,29 @@ export default function CRMPage() {
             Alle Leads und Interessenten &middot; Single Source of Truth
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              const cols = ['Unternehmen','Ansprechpartner','Branche','Umsatz','MA','EBIT%','ICP','Pipeline','E-Mail','Telefon','Nächste Aktion','Datum'];
-              const rows = leads.map(l => [
-                l.company_name, l.ansprechpartner, BRANCHEN_LABELS[l.branche]||'',
-                l.umsatz||'', l.mitarbeiteranzahl||'', l.ebit_marge ? `${(l.ebit_marge*100).toFixed(0)}%` : '',
-                l.icp_score, l.pipeline_status, l.emails?.[0]||'', l.telefon||'',
-                l.next_action||'', l.next_action_date||''
-              ]);
-              const csv = [cols, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-              const a = document.createElement('a');
-              a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
-              a.download = `CRM_Export_${new Date().toISOString().slice(0,10)}.csv`;
-              a.click();
-            }}
-            className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            CSV
-          </button>
-          <button
-            onClick={() => { setEditingLead(null); setShowForm(true); }}
-            className="px-5 py-2.5 bg-navy text-white rounded-xl text-sm font-medium hover:bg-navy/90 transition-colors"
-          >
-            + Neuer Lead
-          </button>
-        </div>
+        <button
+          onClick={() => { setEditingLead(null); setShowForm(true); }}
+          className="px-5 py-2.5 bg-navy text-white rounded-xl text-sm font-medium hover:bg-navy/90 transition-colors"
+        >
+          + Neuer Lead
+        </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-navy">{totalLeads}</div>
-          <div className="text-sm text-gray-400 mt-1">Leads gesamt</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-navy">{avgICP}</div>
-          <div className="text-sm text-gray-400 mt-1">⌀ ICP Score</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-copper">{hotLeads}</div>
-          <div className="text-sm text-gray-400 mt-1">Hot Leads (≥70)</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-navy">{inPipeline}</div>
-          <div className="text-sm text-gray-400 mt-1">In Pipeline</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-green-600">
-            {conversionRate !== null ? `${conversionRate}%` : '–'}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        {[
+          { value: totalLeads, label: 'Leads gesamt', accent: false },
+          { value: avgICP, label: '\u2300 ICP Score', accent: false },
+          { value: hotLeads, label: 'Hot Leads (\u226570)', accent: true },
+          { value: inPipeline, label: 'In Pipeline', accent: false },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className={`font-manrope text-3xl font-bold ${kpi.accent ? 'text-copper' : 'text-navy'}`}>
+              {kpi.value}
+            </div>
+            <div className="text-sm text-gray-400 mt-1">{kpi.label}</div>
           </div>
-          <div className="text-sm text-gray-400 mt-1">Conversion-Rate</div>
-          {avgPipelineDays !== null && (
-            <div className="text-xs text-gray-300 mt-0.5">⌀ {avgPipelineDays}d Pipeline</div>
-          )}
-          {conversionRate !== null && (
-            <div className="text-xs text-gray-300 mt-0.5">{wonLeadsAll.length}/{processedLeads} gewonnen</div>
-          )}
-        </div>
+        ))}
       </div>
 
       {/* Search + Filter + Sort */}
@@ -362,7 +218,7 @@ export default function CRMPage() {
               placeholder="Suche nach Firma, Ansprechpartner, E-Mail, Telefon..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-navy outline-none focus:ring-2 focus:ring-copper/20 focus:border-copper"
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-copper/20 focus:border-copper"
             />
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -371,46 +227,46 @@ export default function CRMPage() {
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as typeof sortBy)}
-            className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-600 outline-none w-36 shrink-0"
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-xs text-gray-600 outline-none"
           >
             <option value="icp_score">Sort: ICP Score</option>
             <option value="umsatz">Sort: Umsatz</option>
             <option value="company_name">Sort: Name</option>
           </select>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
+              showArchived ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Archiv ({archivedCount})
+          </button>
         </div>
 
         {/* Pipeline Filter Tabs */}
         <div className="flex gap-1.5 flex-wrap">
           <button
-            onClick={() => { setFilterStatus(''); setShowArchived(false); }}
+            onClick={() => setFilterStatus('')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              !filterStatus && !showArchived ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              !filterStatus ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            Alle ({nonArchived.length})
+            Alle ({activeLeads.length})
           </button>
-          {PIPELINE_STAGES.filter(s => s.value !== 'verloren').map(stage => {
-            const count = nonArchived.filter(l => l.pipeline_status === stage.value).length;
+          {PIPELINE_STAGES.map(stage => {
+            const count = activeLeads.filter(l => l.pipeline_status === stage.value).length;
             return (
               <button
                 key={stage.value}
-                onClick={() => { setFilterStatus(stage.value); setShowArchived(false); }}
+                onClick={() => setFilterStatus(stage.value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  filterStatus === stage.value && !showArchived ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  filterStatus === stage.value ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 {stage.label} ({count})
               </button>
             );
           })}
-          <button
-            onClick={() => { setShowArchived(true); setFilterStatus(''); }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              showArchived ? 'bg-red-700 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            Verloren ({archivedCount})
-          </button>
         </div>
       </div>
 
@@ -420,7 +276,7 @@ export default function CRMPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                {['Unternehmen', 'Branche', 'Umsatz', 'MA', 'EBIT%', 'ICP', 'Pipeline', 'E-Mail', 'Telefon', 'Nächste Aktion', ''].map(h => (
+                {['Unternehmen', 'Branche', 'Umsatz', 'MA', 'Ctrl', 'EBIT%', 'ICP', 'Pipeline', 'E-Mail', 'Telefon', 'Nächste Aktion', ''].map(h => (
                   <th key={h} className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 whitespace-nowrap">
                     {h}
                   </th>
@@ -443,18 +299,17 @@ export default function CRMPage() {
                       <div className="text-[10px] text-amber-600 font-medium mt-0.5">Mögliches Duplikat</div>
                     )}
                     {lead.is_archived && (
-                      <div className="text-[10px] text-red-500 font-medium mt-0.5">Verloren</div>
+                      <div className="text-[10px] text-red-500 font-medium mt-0.5">Archiviert</div>
                     )}
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 min-w-[130px]">
-                    <span className="inline-block bg-gray-50 text-gray-600 rounded-md px-2 py-0.5 text-[11px] leading-tight">
-                      {BRANCHEN_LABELS[lead.branche] || '–'}
-                    </span>
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[120px] truncate">
+                    {BRANCHEN_LABELS[lead.branche] || '–'}
                   </td>
                   <td className="py-3 px-3 font-medium whitespace-nowrap">
                     {lead.umsatz ? `${(lead.umsatz / 1_000_000).toFixed(1)}M` : '–'}
                   </td>
                   <td className="py-3 px-3">{lead.mitarbeiteranzahl ?? '–'}</td>
+                  <td className="py-3 px-3">{lead.controller_anzahl ?? '–'}</td>
                   <td className="py-3 px-3">{lead.ebit_marge ? `${(lead.ebit_marge * 100).toFixed(0)}%` : '–'}</td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-1.5">
@@ -471,33 +326,16 @@ export default function CRMPage() {
                       {PIPELINE_STAGES.find(s => s.value === lead.pipeline_status)?.label}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px]">
-                    <div className="truncate">{(lead.emails?.[0]) || '–'}</div>
-                    {(lead.emails?.length ?? 0) > 1 && (
-                      <div className="text-[10px] text-copper">+{lead.emails.length - 1} weitere</div>
-                    )}
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px] truncate">
+                    {lead.email || '–'}
                   </td>
                   <td className="py-3 px-3 text-xs text-gray-500 whitespace-nowrap">
                     {lead.telefon || '–'}
                   </td>
-                  <td className="py-3 px-3 text-xs text-gray-500 min-w-[200px] max-w-[280px]">
-                    <div className="leading-snug">{lead.next_action || '–'}</div>
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[140px] truncate">
+                    {lead.next_action || '–'}
                     {lead.next_action_date && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[10px] text-gray-300">{lead.next_action_date}</span>
-                        <a
-                          href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`[CRM] ${lead.company_name}: ${lead.next_action}`)}&dates=${lead.next_action_date.replace(/-/g,'')}/${lead.next_action_date.replace(/-/g,'')}&details=${encodeURIComponent(`Ansprechpartner: ${lead.ansprechpartner}\nPipeline: ${lead.pipeline_status}\nICP Score: ${lead.icp_score}`)}&src=${encodeURIComponent(currentUser)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
-                          title="In Google Kalender eintragen"
-                          className="text-copper hover:text-copper/70 transition-colors flex-shrink-0"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                          </svg>
-                        </a>
-                      </div>
+                      <div className="text-[10px] text-gray-300 mt-0.5">{lead.next_action_date}</div>
                     )}
                   </td>
                   <td className="py-3 px-3">
@@ -592,7 +430,6 @@ function LeadFormModal({
   onSave: (data: Partial<Lead>) => void;
   onDelete?: () => void;
 }) {
-  const { currentUser } = useCurrentUser();
   const [form, setForm] = useState({
     company_name: lead?.company_name || '',
     branche: lead?.branche || '' as Branche | '',
@@ -602,7 +439,7 @@ function LeadFormModal({
     controller_anzahl: lead?.controller_anzahl ?? '',
     ansprechpartner: lead?.ansprechpartner || '',
     telefon: lead?.telefon || '',
-    emails: lead?.emails?.length ? lead.emails : [''],
+    email: lead?.email || '',
     adresse: lead?.adresse || '',
     pipeline_status: lead?.pipeline_status || 'neu' as PipelineStatus,
     next_action: lead?.next_action || '',
@@ -635,7 +472,7 @@ function LeadFormModal({
       controller_anzahl: form.controller_anzahl !== '' ? Number(form.controller_anzahl) : null,
       ansprechpartner: form.ansprechpartner,
       telefon: form.telefon,
-      emails: form.emails.filter(e => e.trim() !== ''),
+      email: form.email,
       adresse: form.adresse,
       pipeline_status: form.pipeline_status as PipelineStatus,
       next_action: form.next_action,
@@ -743,36 +580,8 @@ function LeadFormModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">E-Mail Adressen</label>
-              <div className="space-y-2">
-                {form.emails.map((email, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <input
-                      className={inputCls}
-                      type="email"
-                      placeholder={idx === 0 ? 'Haupt-E-Mail' : `Weitere E-Mail ${idx + 1}`}
-                      value={email}
-                      onChange={e => {
-                        const updated = [...form.emails];
-                        updated[idx] = e.target.value;
-                        setForm(f => ({ ...f, emails: updated }));
-                      }}
-                    />
-                    {form.emails.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, emails: f.emails.filter((_, i) => i !== idx) }))}
-                        className="text-gray-300 hover:text-red-400 text-lg leading-none flex-shrink-0"
-                      >×</button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, emails: [...f.emails, ''] }))}
-                  className="text-xs text-copper hover:text-copper/80 font-medium"
-                >+ E-Mail hinzufügen</button>
-              </div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">E-Mail</label>
+              <input className={inputCls} type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Adresse</label>
@@ -794,23 +603,7 @@ function LeadFormModal({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Datum</label>
-              <div className="flex gap-2 items-center">
-                <input className={inputCls} type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} />
-                {form.next_action_date && (
-                  <a
-                    href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`[CRM] ${form.company_name}: ${form.next_action}`)}&dates=${form.next_action_date.replace(/-/g,'')}/${form.next_action_date.replace(/-/g,'')}&details=${encodeURIComponent(`Ansprechpartner: ${form.ansprechpartner}\nPipeline: ${form.pipeline_status}`)}&src=${encodeURIComponent(currentUser)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="In Google Kalender eintragen"
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg border border-copper/30 text-copper text-xs font-medium hover:bg-copper/5 transition-colors whitespace-nowrap flex-shrink-0"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    In Kalender
-                  </a>
-                )}
-              </div>
+              <input className={inputCls} type="date" value={form.next_action_date} onChange={e => setForm(f => ({ ...f, next_action_date: e.target.value }))} />
             </div>
           </div>
 

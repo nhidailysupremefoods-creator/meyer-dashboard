@@ -1,11 +1,11 @@
 // ============================================================
-// MEYER DECISION â INTERNAL OS â TypeScript Types
+// MEYER DECISION – INTERNAL OS – TypeScript Types
 // ============================================================
 
 export type Branche = 'industrienahe_service' | 'technische_wartung' | 'b2b_contracting';
 export type PipelineStatus = 'neu' | 'kontaktiert' | 'qualifiziert' | 'angebot' | 'verhandlung' | 'gewonnen' | 'verloren';
 export type AmpelStatus = 'GRUEN' | 'GELB' | 'ROT';
-export type DocumentType = 'angebot' | 'vertrag' | 'unterlagen' | 'termin' | 'reminder' | 'rechnung';
+export type DocumentType = 'angebot' | 'vertrag' | 'unterlagen' | 'reminder' | 'rechnung';
 
 export interface Lead {
   lead_id: string;
@@ -17,7 +17,7 @@ export interface Lead {
   controller_anzahl: number | null;
   ansprechpartner: string;
   telefon: string;
-  emails: string[];
+  email: string;
   adresse: string;
   pipeline_status: PipelineStatus;
   next_action: string;
@@ -40,7 +40,7 @@ export interface MandateTracking {
   customer_id: string;
   company_name: string;
   ansprechpartner: string;
-  emails: string[];
+  email: string;
   vertragsbeginn: string | null;
   vertragsende: string | null;
   vertragsart: string;
@@ -51,46 +51,13 @@ export interface MandateTracking {
   notes: string;
   last_auto_sync: string;
   manually_edited: boolean;
-  laufzeit_monate?: number | string | null;
-}
-
-// Monthly data tracked per YYYY-MM key
-export interface MonthlyOperationsData {
-  reminder_sent: boolean;
-  rechnung_sent: boolean;
-  rechnung_bezahlt?: boolean;       // wurde die Rechnung bezahlt?
-  rechnung_bezahlt_am?: string | null; // ISO timestamp der Zahlung
-  daten_erhalten: boolean;
-  daten_valide: boolean;
-  call_durchgefuehrt: boolean;
-  // Auto-Check metadata (per month)
-  override_daten_erhalten?: boolean;
-  override_daten_valide?: boolean;
-  auto_check_files?: { name: string; size: string; date: string }[];
-  auto_check_missing?: string[];
-  auto_check_issues?: string[];
-  auto_checked_at?: string | null;
-  is_overdue?: boolean;
-  upload_status?: string;
-  file_count?: number;
-  last_upload_date?: string | null;
 }
 
 export interface OperationsCustomer {
   customer_id: string;
   company_name: string;
   ansprechpartner: string;
-  emails: string[];
-  monatliches_honorar: number;
-  mandate_status: string;
-  // One-time onboarding steps (not per-month)
-  angebot_sent: boolean;
-  vertrag_sent: boolean;
-  unterlagen_sent: boolean;
-  termin_sent: boolean;
-  // Per-month data: key = "YYYY-MM"
-  monthly_data: Record<string, MonthlyOperationsData>;
-  // Legacy flat fields (used as fallback / for migration)
+  email: string;
   daten_erhalten: boolean;
   daten_valide: boolean;
   call_durchgefuehrt: boolean;
@@ -99,34 +66,13 @@ export interface OperationsCustomer {
   file_count: number;
   last_upload_date: string | null;
   reminder_sent: boolean;
+  monatliches_honorar: number;
+  mandate_status: string;
+  // Workflow-Status pro Step
+  angebot_sent: boolean;
+  vertrag_sent: boolean;
+  unterlagen_sent: boolean;
   rechnung_sent: boolean;
-  // Auto-Check: manual override flags
-  override_daten_erhalten?: boolean;
-  override_daten_valide?: boolean;
-  // Auto-Check metadata
-  auto_check_files?: { name: string; size: string; date: string }[];
-  auto_check_missing?: string[];
-  auto_check_issues?: string[];
-  auto_checked_at?: string | null;
-  is_overdue?: boolean;
-}
-
-export interface UploadCheckResult {
-  daten_erhalten: boolean;
-  file_count: number;
-  last_upload_date: string | null;
-  files: { name: string; size: string; date: string; mimeType?: string }[];
-  folder_found: boolean;
-  is_overdue: boolean;
-  current_month: string;
-  error?: string;
-}
-
-export interface ValidationResult {
-  daten_valide: boolean;
-  missing_files: string[];
-  issues: string[];
-  checked_files?: number;
 }
 
 export interface EmailPreview {
