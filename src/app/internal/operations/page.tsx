@@ -154,6 +154,79 @@ function matchTransactions(txns: BankTransaction[], customers: OperationsCustome
   });
 }
 
+// ── E-Rechnung: Seller Config (Meyer Decision GbR) ─────
+// !! Steuernummer + IBAN bitte hier eintragen !!
+const SELLER_CONFIG = {
+  name:       'Meyer Decision GbR',
+  street:     'Talburgstraße 71',
+  postcode:   '42579',
+  city:       'Heiligenhaus',
+  country:    'DE',
+  email:      'gregory@meyerdecision.com',
+  taxId:      '[STEUERNUMMER EINTRAGEN]',   // z.B. "123/456/78901"
+  iban:       '[IBAN EINTRAGEN]',            // z.B. "DE12 3456 7890 1234 5678 90"
+  bic:        '[BIC EINTRAGEN]',             // z.B. "SSKMDEMMXXX"
+  bank:       '[BANK EINTRAGEN]',            // z.B. "Sparkasse Heiligenhaus"
+};
+
+// VAT rate – 19% standard for GbR above Kleinunternehmer threshold
+const DEFAULT_VAT_RATE = 19;
+
+// Invoice number: MD-YYYY-NNN stored in localStorage
+const INVOICE_COUNTER_KEY = 'meyer-invoice-counter';
+
+function getNextInvoiceNumber(): string {
+  if (typeof window === 'undefined') return 'MD-0000-001';
+  const year = new Date().getFullYear();
+  const stored = localStorage.getItem(INVOICE_COUNTER_KEY);
+  let counter = 1;
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed.year === year) counter = (parsed.counter || 0) + 1;
+    } catch { /* noop */ }
+  }
+  return `MD-${year}-${String(counter).padStart(3, '0')}`;
+}
+
+function saveInvoiceNumber(invoiceNumber: string) {
+  if (typeof window === 'undefined') return;
+  const parts = invoiceNumber.split('-');
+  const year = parseInt(parts[1]);
+  const counter = parseInt(parts[2]);
+  if (!isNaN(year) && !isNaN(counter)) {
+    localStorage.setItem(INVOICE_COUNTER_KEY, JSON.stringify({ year, counter }));
+  }
+}
+
+// German month name for invoice description
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+}
+
+// Add 30 days to an ISO date
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+interface InvoiceFormData {
+  invoiceNumber: string;
+  issueDate: string;
+  dueDate: string;
+  serviceMonth: string;
+  buyerName: string;
+  buyerStreet: string;
+  buyerPostcode: string;
+  buyerCity: string;
+  serviceDescription: string;
+  netAmount: number;
+  vatRate: number;
+  customerId: string;
+}
+
 // ── Workflow Steps ──────────────────────────────────────
 
 const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer; monthly?: boolean }[] = [
@@ -274,6 +347,10 @@ export default function OperationsPage() {
   const [bodyResetKey, setBodyResetKey] = useState(0);
   // Pending sent confirmation: Gmail was opened, waiting for user to confirm email was actually sent
   const [pendingConfirm, setPendingConfirm] = useState<{ type: DocumentType; customerId: string; toEmail: string; label: string } | null>(null);
+  // E-Rechnung Generator
+  const [invoiceForm, setInvoiceForm] = useState<InvoiceFormData | null>(null);
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
+
   // Kontoauszug-Import
   const [showImport, setShowImport] = useState(false);
   const [importMatches, setImportMatches] = useState<ImportMatch[]>([]);
@@ -785,6 +862,225 @@ export default function OperationsPage() {
           localStorage.setItem(CRM_SYNC_KEY, JSON.stringify(updated));
         }
       } catch {}
+    }
+  }
+
+  // ── E-Rechnung Generator ───────────────────────────────
+  function openInvoiceGenerator(customer: OperationsCustomer) {
+    const today = new Date().toISOString().slice(0, 10);
+    const invoiceNumber = getNextInvoiceNumber();
+    const dienstleistung = (customer as OperationsCustomer & { gebuchte_dienstleistung?: string }).gebuchte_dienstleistung || 'Advisory Controlling';
+    setInvoiceForm({
+      invoiceNumber,
+      issueDate: today,
+      dueDate: addDays(today, 30),
+      serviceMonth: selectedMonth,
+      buyerName: customer.company_name,
+      buyerStreet: '',
+      buyerPostcode: '',
+      buyerCity: '',
+      serviceDescription: `${dienstleistung} – ${monthLabel(selectedMonth)}`,
+      netAmount: customer.monatliches_honorar,
+      vatRate: DEFAULT_VAT_RATE,
+      customerId: customer.customer_id,
+    });
+  }
+
+  async function downloadXml(form: InvoiceFormData) {
+    setInvoiceDownloading(true);
+    try {
+      const vatTotal = Math.round(form.netAmount * (form.vatRate / 100) * 100) / 100;
+      const grossTotal = Math.round((form.netAmount + vatTotal) * 100) / 100;
+      const payload = {
+        invoiceNumber: form.invoiceNumber,
+        issueDate: form.issueDate,
+        dueDate: form.dueDate,
+        serviceMonth: form.serviceMonth,
+        sellerName: SELLER_CONFIG.name,
+        sellerStreet: SELLER_CONFIG.street,
+        sellerPostcode: SELLER_CONFIG.postcode,
+        sellerCity: SELLER_CONFIG.city,
+        sellerCountry: SELLER_CONFIG.country,
+        sellerEmail: SELLER_CONFIG.email,
+        sellerTaxId: SELLER_CONFIG.taxId,
+        sellerIban: SELLER_CONFIG.iban,
+        sellerBic: SELLER_CONFIG.bic,
+        sellerBank: SELLER_CONFIG.bank,
+        buyerName: form.buyerName,
+        buyerStreet: form.buyerStreet,
+        buyerPostcode: form.buyerPostcode,
+        buyerCity: form.buyerCity,
+        buyerCountry: 'DE',
+        items: [{
+          id: '1',
+          description: form.serviceDescription,
+          quantity: 1,
+          unitCode: 'MON',
+          unitPrice: form.netAmount,
+          vatRate: form.vatRate,
+        }],
+        netTotal: form.netAmount,
+        vatTotal,
+        grossTotal,
+      };
+      const res = await fetch('/api/internal/invoice-xml', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('XML-Generierung fehlgeschlagen');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${form.invoiceNumber}_ZUGFeRD.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      saveInvoiceNumber(form.invoiceNumber);
+      showToast('ZUGFeRD-XML heruntergeladen ✓', 'success');
+    } catch (e) {
+      showToast(`XML-Fehler: ${String(e)}`, 'error');
+    } finally {
+      setInvoiceDownloading(false);
+    }
+  }
+
+  function printInvoice(form: InvoiceFormData) {
+    const vatTotal = Math.round(form.netAmount * (form.vatRate / 100) * 100) / 100;
+    const grossTotal = Math.round((form.netAmount + vatTotal) * 100) / 100;
+    const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const [sy, sm] = form.serviceMonth.split('-').map(Number);
+    const lastDay = new Date(sy, sm, 0).getDate();
+
+    const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Rechnung ${form.invoiceNumber}</title>
+  <style>
+    @page { size: A4; margin: 20mm 20mm 25mm 20mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #192231; line-height: 1.5; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10mm; border-bottom: 2px solid #B08A6A; padding-bottom: 6mm; }
+    .logo { font-size: 18pt; font-weight: 800; letter-spacing: 1px; color: #192231; }
+    .logo span { color: #B08A6A; }
+    .seller-info { font-size: 8pt; color: #666; text-align: right; line-height: 1.6; }
+    .sender-line { font-size: 7pt; color: #999; margin-bottom: 4mm; }
+    .buyer-block { margin-bottom: 8mm; }
+    .invoice-meta { display: flex; justify-content: flex-end; margin-bottom: 8mm; }
+    .meta-table { border-collapse: collapse; }
+    .meta-table td { padding: 2px 8px; font-size: 9pt; }
+    .meta-table td:first-child { color: #888; }
+    .meta-table td:last-child { font-weight: 600; text-align: right; }
+    h1 { font-size: 14pt; font-weight: 700; margin-bottom: 6mm; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+    table.items th { background: #192231; color: #F7F5F2; padding: 4px 8px; font-size: 9pt; text-align: left; }
+    table.items th.r { text-align: right; }
+    table.items td { padding: 5px 8px; font-size: 9pt; border-bottom: 1px solid #eee; }
+    table.items td.r { text-align: right; }
+    .totals { margin-left: auto; width: 200px; margin-bottom: 8mm; }
+    .totals table { width: 100%; border-collapse: collapse; }
+    .totals td { padding: 3px 0; font-size: 9pt; }
+    .totals td:last-child { text-align: right; font-weight: 600; }
+    .totals .grand { font-size: 11pt; font-weight: 800; border-top: 2px solid #192231; padding-top: 4px; margin-top: 2px; }
+    .payment { background: #F7F5F2; border-left: 3px solid #B08A6A; padding: 4mm; margin-bottom: 6mm; font-size: 9pt; }
+    .payment strong { display: block; margin-bottom: 2mm; font-size: 10pt; }
+    .footer { position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid #eee; padding: 3mm 20mm; font-size: 7.5pt; color: #999; display: flex; justify-content: space-between; }
+    .legal { font-size: 7.5pt; color: #aaa; text-align: center; margin-top: 4mm; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">MEYER <span>|</span> DECISION</div>
+      <div style="font-size:8pt;color:#B08A6A;margin-top:2px;">Unternehmensberatung</div>
+    </div>
+    <div class="seller-info">
+      ${SELLER_CONFIG.name}<br>
+      ${SELLER_CONFIG.street}<br>
+      ${SELLER_CONFIG.postcode} ${SELLER_CONFIG.city}<br>
+      ${SELLER_CONFIG.email}
+    </div>
+  </div>
+
+  <div class="sender-line">${SELLER_CONFIG.name} · ${SELLER_CONFIG.street} · ${SELLER_CONFIG.postcode} ${SELLER_CONFIG.city}</div>
+
+  <div class="buyer-block">
+    <strong>${form.buyerName}</strong><br>
+    ${form.buyerStreet ? form.buyerStreet + '<br>' : ''}
+    ${(form.buyerPostcode || form.buyerCity) ? form.buyerPostcode + ' ' + form.buyerCity : ''}
+  </div>
+
+  <div class="invoice-meta">
+    <table class="meta-table">
+      <tr><td>Rechnungsnummer</td><td>${form.invoiceNumber}</td></tr>
+      <tr><td>Rechnungsdatum</td><td>${new Date(form.issueDate).toLocaleDateString('de-DE')}</td></tr>
+      <tr><td>Leistungszeitraum</td><td>01.${String(sm).padStart(2,'0')}.${sy} – ${lastDay}.${String(sm).padStart(2,'0')}.${sy}</td></tr>
+      <tr><td>Fälligkeitsdatum</td><td>${new Date(form.dueDate).toLocaleDateString('de-DE')}</td></tr>
+      <tr><td>Steuernummer</td><td>${SELLER_CONFIG.taxId}</td></tr>
+    </table>
+  </div>
+
+  <h1>Rechnung</h1>
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th>Pos.</th>
+        <th>Beschreibung</th>
+        <th class="r">Menge</th>
+        <th class="r">Einzelpreis (netto)</th>
+        <th class="r">MwSt.</th>
+        <th class="r">Betrag (netto)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td>${form.serviceDescription}</td>
+        <td class="r">1</td>
+        <td class="r">${fmt(form.netAmount)} €</td>
+        <td class="r">${form.vatRate} %</td>
+        <td class="r">${fmt(form.netAmount)} €</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <table>
+      <tr><td>Nettobetrag</td><td>${fmt(form.netAmount)} €</td></tr>
+      <tr><td>MwSt. ${form.vatRate} %</td><td>${fmt(vatTotal)} €</td></tr>
+      <tr class="grand"><td><strong>Gesamtbetrag</strong></td><td><strong>${fmt(grossTotal)} €</strong></td></tr>
+    </table>
+  </div>
+
+  <div class="payment">
+    <strong>Zahlungsinformationen</strong>
+    Bitte überweisen Sie den Betrag von <strong>${fmt(grossTotal)} €</strong> bis zum <strong>${new Date(form.dueDate).toLocaleDateString('de-DE')}</strong> auf folgendes Konto:<br><br>
+    Kontoinhaber: ${SELLER_CONFIG.name}<br>
+    IBAN: ${SELLER_CONFIG.iban}<br>
+    BIC: ${SELLER_CONFIG.bic}<br>
+    Bank: ${SELLER_CONFIG.bank}<br>
+    Verwendungszweck: <strong>${form.invoiceNumber}</strong>
+  </div>
+
+  <p class="legal">Diese Rechnung wurde elektronisch erstellt und ist ohne Unterschrift gültig.</p>
+
+  <div class="footer">
+    <span>${SELLER_CONFIG.name} · ${SELLER_CONFIG.street} · ${SELLER_CONFIG.postcode} ${SELLER_CONFIG.city}</span>
+    <span>gregory@meyerdecision.com · nhi@meyerdecision.com</span>
+    <span>Steuernummer: ${SELLER_CONFIG.taxId}</span>
+  </div>
+
+  <script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      saveInvoiceNumber(form.invoiceNumber);
     }
   }
 
@@ -1484,23 +1780,43 @@ export default function OperationsPage() {
                               >
                                 Erneut
                               </button>
+                              {isRechnung && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); openInvoiceGenerator(customer); }}
+                                  className="mt-1.5 w-full px-1.5 py-1.5 rounded-lg text-[10px] font-semibold bg-navy/90 text-white hover:bg-navy transition-colors"
+                                  title="E-Rechnung (ZUGFeRD) erstellen und herunterladen"
+                                >
+                                  📄 E-Rechnung
+                                </button>
+                              )}
                             </div>
                           ) : (
-                            <button
-                              onClick={() => handlePrepare(step.type, customer)}
-                              disabled={isPreparing}
-                              className={`w-full px-2 py-2 rounded-lg text-xs font-medium transition-all ${
-                                isPreparing
-                                  ? 'bg-copper/10 text-copper cursor-wait'
-                                  : 'bg-copper text-white hover:bg-copper/90 shadow-sm'
-                              }`}
-                            >
-                              {isPreparing ? (
-                                <span className="flex items-center justify-center gap-1">
-                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                                </span>
-                              ) : 'Vorbereiten'}
-                            </button>
+                            <div className="space-y-1.5">
+                              <button
+                                onClick={() => handlePrepare(step.type, customer)}
+                                disabled={isPreparing}
+                                className={`w-full px-2 py-2 rounded-lg text-xs font-medium transition-all ${
+                                  isPreparing
+                                    ? 'bg-copper/10 text-copper cursor-wait'
+                                    : 'bg-copper text-white hover:bg-copper/90 shadow-sm'
+                                }`}
+                              >
+                                {isPreparing ? (
+                                  <span className="flex items-center justify-center gap-1">
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                  </span>
+                                ) : 'Vorbereiten'}
+                              </button>
+                              {isRechnung && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); openInvoiceGenerator(customer); }}
+                                  className="w-full px-1.5 py-1.5 rounded-lg text-[10px] font-semibold bg-navy/80 text-white hover:bg-navy transition-colors"
+                                  title="E-Rechnung (ZUGFeRD) erstellen"
+                                >
+                                  📄 E-Rechnung
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       );
@@ -1518,6 +1834,223 @@ export default function OperationsPage() {
           );
         })}
       </div>
+
+      {/* E-Rechnung Generator Modal */}
+      {invoiceForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setInvoiceForm(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 flex items-center justify-between rounded-t-2xl z-10">
+              <div>
+                <div className="font-manrope font-bold text-navy text-lg">E-Rechnung erstellen</div>
+                <div className="text-xs text-gray-400 mt-0.5">ZUGFeRD 2.1 · EN 16931 · {invoiceForm.buyerName}</div>
+              </div>
+              <button onClick={() => setInvoiceForm(null)} className="text-gray-300 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Invoice Meta */}
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Rechnungsdetails</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Rechnungsnummer</label>
+                    <input
+                      type="text"
+                      value={invoiceForm.invoiceNumber}
+                      onChange={e => setInvoiceForm(f => f ? { ...f, invoiceNumber: e.target.value } : f)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Leistungsmonat</label>
+                    <input
+                      type="text"
+                      value={monthLabel(invoiceForm.serviceMonth)}
+                      readOnly
+                      className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Rechnungsdatum</label>
+                    <input
+                      type="date"
+                      value={invoiceForm.issueDate}
+                      onChange={e => setInvoiceForm(f => f ? { ...f, issueDate: e.target.value, dueDate: addDays(e.target.value, 30) } : f)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Fälligkeitsdatum</label>
+                    <input
+                      type="date"
+                      value={invoiceForm.dueDate}
+                      onChange={e => setInvoiceForm(f => f ? { ...f, dueDate: e.target.value } : f)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Buyer Address */}
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Rechnungsempfänger</div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Firma</label>
+                    <input
+                      type="text"
+                      value={invoiceForm.buyerName}
+                      readOnly
+                      className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500 cursor-not-allowed"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Straße &amp; Hausnummer</label>
+                    <input
+                      type="text"
+                      value={invoiceForm.buyerStreet}
+                      onChange={e => setInvoiceForm(f => f ? { ...f, buyerStreet: e.target.value } : f)}
+                      placeholder="z.B. Musterstraße 42"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">PLZ</label>
+                      <input
+                        type="text"
+                        value={invoiceForm.buyerPostcode}
+                        onChange={e => setInvoiceForm(f => f ? { ...f, buyerPostcode: e.target.value } : f)}
+                        placeholder="42000"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Ort</label>
+                      <input
+                        type="text"
+                        value={invoiceForm.buyerCity}
+                        onChange={e => setInvoiceForm(f => f ? { ...f, buyerCity: e.target.value } : f)}
+                        placeholder="Stadt"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service + Amount */}
+              <div>
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Leistung &amp; Betrag</div>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Leistungsbeschreibung</label>
+                    <input
+                      type="text"
+                      value={invoiceForm.serviceDescription}
+                      onChange={e => setInvoiceForm(f => f ? { ...f, serviceDescription: e.target.value } : f)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Nettobetrag (€)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={invoiceForm.netAmount}
+                        onChange={e => setInvoiceForm(f => f ? { ...f, netAmount: parseFloat(e.target.value) || 0 } : f)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">MwSt. (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={invoiceForm.vatRate}
+                        onChange={e => setInvoiceForm(f => f ? { ...f, vatRate: parseInt(e.target.value) || 0 } : f)}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-copper focus:ring-1 focus:ring-copper/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Totals Preview */}
+              {(() => {
+                const vat = Math.round(invoiceForm.netAmount * (invoiceForm.vatRate / 100) * 100) / 100;
+                const gross = Math.round((invoiceForm.netAmount + vat) * 100) / 100;
+                const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                return (
+                  <div className="bg-offwhite rounded-xl p-4 border border-gray-100">
+                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Netto</span>
+                      <span>{fmt(invoiceForm.netAmount)} €</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-gray-600 mb-2">
+                      <span>MwSt. {invoiceForm.vatRate} %</span>
+                      <span>{fmt(vat)} €</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-navy border-t border-gray-200 pt-2">
+                      <span>Gesamtbetrag (brutto)</span>
+                      <span>{fmt(gross)} €</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* SELLER_CONFIG warning if placeholders */}
+              {(SELLER_CONFIG.taxId === 'XXX/XXX/XXXXX' || SELLER_CONFIG.iban === 'DE00 0000 0000 0000 0000 00') && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">
+                  ⚠ Steuernummer und/oder IBAN sind noch Platzhalter. Bitte in <code className="bg-amber-100 px-1 rounded">SELLER_CONFIG</code> eintragen bevor echte Rechnungen erstellt werden.
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-100 gap-3">
+                <button
+                  onClick={() => setInvoiceForm(null)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => downloadXml(invoiceForm)}
+                    disabled={invoiceDownloading}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
+                      invoiceDownloading
+                        ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-wait'
+                        : 'border-navy/20 bg-navy/5 text-navy hover:bg-navy/10'
+                    }`}
+                    title="ZUGFeRD 2.1 XML herunterladen (für DATEV / E-Rechnung)"
+                  >
+                    {invoiceDownloading ? (
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    )}
+                    XML (ZUGFeRD)
+                  </button>
+                  <button
+                    onClick={() => { printInvoice(invoiceForm); setInvoiceForm(null); }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-copper text-white hover:bg-copper/90 shadow-sm transition-all"
+                    title="Rechnung als A4-PDF drucken / speichern"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                    Als PDF drucken
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Email Preview Modal */}
       {preview && editDraft && (
