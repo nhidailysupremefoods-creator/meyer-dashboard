@@ -4,38 +4,38 @@
 
 /* Meyer Decision Corporate Design System â DARK NAVY THEME */
 /* Navy Cards on Deep Background | Copper Accents | Premium Dark Look */
-/* Navy #1B2A4A | Copper #B87333 | Background #0D1A2D | Cards #162236 */
+/* Navy #192231 | Copper #B87333 | Background #0D1A2D | Cards rgba(255,255,255,0.035) */
 
 :root {
-  /* Brand Colors */
-  --navy:           #1B2A4A;
-  --navy-dark:      #142038;
-  --navy-card:      #1C2D48;
-  --copper:         #C8874A;
-  --copper-light:   #D4956A;
-  --copper-dark:    #8A5A28;
-  --offwhite:       #E8ECF1;
+  /* === Meyer Decision CI === */
+  --navy:           #192231;
+  --navy-dark:      #192231;
+  --navy-card:      #192231;
+  --copper:         #B08A6A;
+  --copper-light:   #C9A484;
+  --copper-dark:    #8A6B4A;
+  --offwhite:       #FEFDFB;
 
   /* Semantic aliases */
-  --primary:        #1B2A4A;
-  --primary-light:  #2C3E5A;
-  --primary-dark:   #142038;
-  --accent:         #C8874A;
-  --accent-light:   #D4956A;
-  --accent-dark:    #8A5A28;
+  --primary:        #192231;
+  --primary-light:  #1e2a3d;
+  --primary-dark:   #192231;
+  --accent:         #B08A6A;
+  --accent-light:   #C9A484;
+  --accent-dark:    #8A6B4A;
 
-  /* Status Colors (brighter for dark bg) */
-  --success:        #34D399;
-  --warning:        #FBBF24;
-  --danger:         #F87171;
+  /* Status Colors (muted, only for critical KPIs) */
+  --success:        #5BA87C;
+  --warning:        #C9A44A;
+  --danger:         #C06060;
 
-  /* Theme â DARK NAVY */
-  --background:     #0B1526;
-  --background-card:#162236;
-  --background-elevated: #1C2D48;
-  --text-primary:   #E8ECF1;
-  --text-secondary: #7B8FA8;
-  --border-color:   #1E3350;
+  /* Theme — ONE Navy, subtle card lift */
+  --background:     #192231;
+  --background-card: rgba(255, 255, 255, 0.035);
+  --background-elevated: rgba(255, 255, 255, 0.06);
+  --text-primary:   #FEFDFB;
+  --text-secondary: rgba(254, 253, 251, 0.55);
+  --border-color:   rgba(254, 253, 251, 0.08);
 }
 
 /* Reset */
