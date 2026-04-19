@@ -311,6 +311,7 @@ export const SEED_OPERATIONS: OperationsCustomer[] = [
     angebot_sent: false,
     vertrag_sent: false,
     unterlagen_sent: false,
+    termin_sent: false,
     monthly_data: {
       '2026-04': { daten_erhalten: true, daten_valide: true, call_durchgefuehrt: true, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 12, last_upload_date: '2026-04-08T14:30:00Z' },
       '2026-03': { daten_erhalten: true, daten_valide: true, call_durchgefuehrt: true, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 10, last_upload_date: '2026-03-07T10:00:00Z' },
@@ -331,6 +332,7 @@ export const SEED_OPERATIONS: OperationsCustomer[] = [
     angebot_sent: false,
     vertrag_sent: false,
     unterlagen_sent: false,
+    termin_sent: false,
     monthly_data: {
       '2026-04': { daten_erhalten: true, daten_valide: true, call_durchgefuehrt: false, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 8, last_upload_date: '2026-04-06T09:15:00Z' },
       '2026-03': { daten_erhalten: true, daten_valide: true, call_durchgefuehrt: true, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 7, last_upload_date: '2026-03-05T08:00:00Z' },
@@ -350,6 +352,7 @@ export const SEED_OPERATIONS: OperationsCustomer[] = [
     angebot_sent: false,
     vertrag_sent: false,
     unterlagen_sent: false,
+    termin_sent: false,
     monthly_data: {
       '2026-04': { daten_erhalten: true, daten_valide: false, call_durchgefuehrt: false, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 5, last_upload_date: '2026-04-09T11:00:00Z' },
       '2026-03': { daten_erhalten: true, daten_valide: true, call_durchgefuehrt: true, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 6, last_upload_date: '2026-03-08T14:00:00Z' },
@@ -369,6 +372,7 @@ export const SEED_OPERATIONS: OperationsCustomer[] = [
     angebot_sent: false,
     vertrag_sent: false,
     unterlagen_sent: false,
+    termin_sent: false,
     monthly_data: {
       '2026-04': { daten_erhalten: false, daten_valide: false, call_durchgefuehrt: false, reminder_sent: false, rechnung_sent: false, upload_status: 'pending', file_count: 0, last_upload_date: null, is_overdue: false },
       '2026-03': { daten_erhalten: true, daten_valide: true, call_durchgefuehrt: false, reminder_sent: false, rechnung_sent: false, upload_status: 'uploaded', file_count: 4, last_upload_date: '2026-03-12T16:00:00Z' },
@@ -387,6 +391,7 @@ export const SEED_OPERATIONS: OperationsCustomer[] = [
     angebot_sent: false,
     vertrag_sent: false,
     unterlagen_sent: false,
+    termin_sent: false,
     monthly_data: {},
     daten_erhalten: false, daten_valide: false, call_durchgefuehrt: false, ampel_status: 'ROT',
     upload_status: 'pending', file_count: 0, last_upload_date: null,

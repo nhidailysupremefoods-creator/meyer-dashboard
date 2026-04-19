@@ -10,9 +10,10 @@ import { formatDate } from '@/lib/internal-os/utils';
 const WORKFLOW_STEPS: { type: DocumentType; label: string; icon: string; sentKey: keyof OperationsCustomer; monthly?: boolean }[] = [
   { type: 'angebot',    label: 'Angebot',      icon: '📄', sentKey: 'angebot_sent',    monthly: false },
   { type: 'vertrag',    label: 'DL-Vertrag',   icon: '📝', sentKey: 'vertrag_sent',    monthly: false },
-  { type: 'unterlagen', label: 'Unterlagen',    icon: '📎', sentKey: 'unterlagen_sent', monthly: false },
-  { type: 'reminder',   label: 'Reminder',      icon: '🔔', sentKey: 'reminder_sent',  monthly: true  },
-  { type: 'rechnung',   label: 'Rechnung',      icon: '💶', sentKey: 'rechnung_sent',  monthly: true  },
+  { type: 'unterlagen', label: 'Unterlagen',   icon: '📎', sentKey: 'unterlagen_sent', monthly: false },
+  { type: 'termin',     label: 'Mgmt-Termin',  icon: '📅', sentKey: 'termin_sent',     monthly: false },
+  { type: 'reminder',   label: 'Reminder',     icon: '🔔', sentKey: 'reminder_sent',   monthly: true  },
+  { type: 'rechnung',   label: 'Rechnung',     icon: '💶', sentKey: 'rechnung_sent',   monthly: true  },
 ];
 
 // ── Per-month helpers ───────────────────────────────────
@@ -41,7 +42,7 @@ const SENDERS = [
 ];
 
 const OPS_STORAGE_KEY = 'meyer-internal-os-operations';
-const OPS_STORAGE_VERSION = '2'; // bump to reset stored data
+const OPS_STORAGE_VERSION = '3'; // bump to reset stored data
 const OPS_VERSION_KEY = 'meyer-internal-os-operations-version';
 const CRM_SYNC_KEY = 'meyer-crm-sync';
 
@@ -314,6 +315,7 @@ export default function OperationsPage() {
       angebot: `Angebot f\u00fcr die Zusammenarbeit \u2013 ${customer.company_name}`,
       vertrag: `Vertragsunterlagen \u2013 ${customer.company_name}`,
       unterlagen: `Willkommen bei Meyer Decision \u2013 Ihr Dashboard-Zugang`,
+      termin: `Ihr erstes Managementgespr\u00e4ch mit Meyer Decision \u2013 Termin ausw\u00e4hlen`,
       reminder: `Kurze Erinnerung \u2013 Daten f\u00fcr den aktuellen Steuerungsmonat`,
       rechnung: `Rechnung Meyer Decision \u2013 ${customer.company_name}`,
     };
@@ -416,6 +418,23 @@ export default function OperationsPage() {
           ${signaturePersonal}
         </div>`;
 
+      case 'termin':
+        return wrap(`
+          <p>Sehr geehrte/r ${customer.ansprechpartner},</p>
+          <p>wir freuen uns, Ihnen mitteilen zu k&ouml;nnen, dass Ihre Daten erfolgreich angebunden wurden und Ihr Steuerungssystem eingerichtet ist.</p>
+          <p>Als n&auml;chsten Schritt m&ouml;chten wir gemeinsam mit Ihnen das erste Managementgespr&auml;ch durchf&uuml;hren &ndash; um das Dashboard vorzustellen, die Ergebnisse einzuordnen und konkrete Ma&szlig;nahmen zu besprechen.</p>
+          ${heading('Termin vereinbaren')}
+          <p>Bitte w&auml;hlen Sie &uuml;ber den folgenden Link einen Termin aus, der f&uuml;r Sie passt:</p>
+          <p style="margin:12px 0;">
+            <a href="https://calendly.com/nhi-meyerdecision/30min" style="display:inline-block;background:#192231;color:#F7F5F2;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:13px;font-weight:600;letter-spacing:0.5px;">
+              &rarr; Termin vereinbaren &ndash; Meyer Decision
+            </a>
+          </p>
+          <p style="font-size:12px;color:#9A9490;">Alternativ: <a href="https://calendly.com/nhi-meyerdecision/30min" style="color:#B08A6A;">https://calendly.com/nhi-meyerdecision/30min</a></p>
+          <p>Das Gespr&auml;ch dauert ca. 60 Minuten und findet per Videokonferenz statt. Den Einladungslink erhalten Sie automatisch nach der Buchung.</p>
+          <p>Wir freuen uns auf das Gespr&auml;ch.</p>
+          ${signoff(true)}`);
+
       case 'reminder':
         return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
           <p>${greeting},</p>
@@ -463,6 +482,8 @@ export default function OperationsPage() {
         return [
           { name: 'Daten_Anleitung.pdf', size: '76 KB' },
         ];
+      case 'termin':
+        return [];
       case 'reminder':
         return [];
       case 'rechnung':
@@ -726,7 +747,7 @@ export default function OperationsPage() {
         <div>
           <h1 className="font-manrope text-2xl font-bold text-navy">Operativer Status</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Workflow: Angebot &rarr; Vertrag &rarr; Unterlagen &rarr; Datenupload &rarr; Rechnung
+            Workflow: Angebot &rarr; Vertrag &rarr; Unterlagen &rarr; Mgmt-Termin &rarr; Reminder &rarr; Rechnung
           </p>
         </div>
         <div className="flex items-center gap-3">

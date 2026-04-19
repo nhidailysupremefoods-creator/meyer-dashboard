@@ -5,7 +5,7 @@
 export type Branche = 'industrienahe_service' | 'technische_wartung' | 'b2b_contracting';
 export type PipelineStatus = 'neu' | 'kontaktiert' | 'qualifiziert' | 'angebot' | 'verhandlung' | 'gewonnen' | 'verloren';
 export type AmpelStatus = 'GRUEN' | 'GELB' | 'ROT';
-export type DocumentType = 'angebot' | 'vertrag' | 'unterlagen' | 'reminder' | 'rechnung';
+export type DocumentType = 'angebot' | 'vertrag' | 'unterlagen' | 'termin' | 'reminder' | 'rechnung';
 
 export interface Lead {
   lead_id: string;
@@ -85,6 +85,7 @@ export interface OperationsCustomer {
   angebot_sent: boolean;
   vertrag_sent: boolean;
   unterlagen_sent: boolean;
+  termin_sent: boolean;
   // Per-month data: key = "YYYY-MM"
   monthly_data: Record<string, MonthlyOperationsData>;
   // Legacy flat fields (used as fallback / for migration)
