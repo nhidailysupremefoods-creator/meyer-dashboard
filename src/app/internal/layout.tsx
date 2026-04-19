@@ -1,8 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UserProvider, useCurrentUser } from '@/lib/internal-os/user-context';
 
 // Internal OS eigene Styles – isoliert vom Kunden-Dashboard
 const styles = `
@@ -20,16 +20,8 @@ const NAV_ITEMS = [
 ];
 
 export default function InternalOSLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <UserProvider>
-      <InternalOSLayoutInner>{children}</InternalOSLayoutInner>
-    </UserProvider>
-  );
-}
-
-function InternalOSLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { currentUser, setCurrentUser } = useCurrentUser();
+  const [currentUser, setCurrentUser] = useState('gregory@meyerdecision.com');
 
   return (
     <>
@@ -38,9 +30,10 @@ function InternalOSLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Sidebar */}
         <aside className="ios-sidebar">
           <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="Meyer Decision" style={{ height: 28, width: 'auto', display: 'block' }} />
-            <div style={{ fontSize: '11px', color: '#F7F5F2', marginTop: '4px' }}>Internal OS</div>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontSize: '20px', fontWeight: 700, color: '#fff' }}>
+              Meyer Decision
+            </div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Internal OS</div>
           </div>
 
           <nav style={{ flex: 1, padding: '16px 12px' }}>

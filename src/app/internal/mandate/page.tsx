@@ -1,186 +1,34 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
 import { MandateTracking } from '@/lib/internal-os/types';
 import { SEED_MANDATES } from '@/lib/internal-os/demo-data';
 import { formatCurrency, formatDate } from '@/lib/internal-os/utils';
 
-const MANDATE_STORAGE_KEY = 'meyer-internal-os-mandates';
-
-function loadMandates(): MandateTracking[] {
-  if (typeof window === 'undefined') return SEED_MANDATES;
-  try {
-    const stored = localStorage.getItem(MANDATE_STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return SEED_MANDATES;
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  active: 'Aktiv',
-  onboarding: 'Onboarding',
-  paused: 'Pausiert',
-  inactive: 'Inaktiv',
-  churned: 'Inaktiv',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-100 text-green-700',
-  onboarding: 'bg-blue-100 text-blue-700',
-  paused: 'bg-amber-100 text-amber-700',
-  inactive: 'bg-red-100 text-red-700',
-  churned: 'bg-red-100 text-red-700',
-};
-
 export default function MandatePage() {
-  const [mandates, setMandates] = useState<MandateTracking[]>(loadMandates);
+  const [mandates, setMandates] = useState<MandateTracking[]>(SEED_MANDATES);
   const [syncing, setSyncing] = useState(false);
   const [editingMandate, setEditingMandate] = useState<MandateTracking | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
-  // Persist mandates to localStorage on every change
-  useEffect(() => {
-    try { localStorage.setItem(MANDATE_STORAGE_KEY, JSON.stringify(mandates))
-      // Auch aus Operations entfernen wenn Mandat gelöscht wird
-      const opsRaw = localStorage.getItem('meyer-internal-os-operations')
-      if (opsRaw) {
-        const opsUpdated = JSON.parse(opsRaw).filter((o: {customer_id: string}) => o.customer_id !== customerId)
-        localStorage.setItem('meyer-internal-os-operations', JSON.stringify(opsUpdated))
-      }
-    } catch {}
-  }, [mandates]);
-
-  // Neue Mandate automatisch in Operations-Liste aufnehmen
-  useEffect(() => {
-    try {
-      const opsRaw = localStorage.getItem('meyer-internal-os-operations')
-      const ops: Array<Record<string, unknown>> = opsRaw ? JSON.parse(opsRaw) : []
-      const opsIds = new Set(ops.map((o) => (o as {customer_id: string}).customer_id))
-      let changed = false
-      mandates.forEach(m => {
-        if (!opsIds.has(m.customer_id)) {
-          ops.push({
-            customer_id: m.customer_id,
-            company_name: m.company_name,
-            ansprechpartner: m.ansprechpartner || '',
-            emails: m.emails || [],
-            daten_erhalten: false,
-            daten_valide: false,
-            call_durchgefuehrt: false,
-            ampel_status: 'rot',
-            upload_status: 'ausstehend',
-            file_count: 0,
-            last_upload_date: null,
-            reminder_sent: false,
-            monatliches_honorar: m.monatliches_honorar || 0,
-            mandate_status: m.mandate_status || 'aktiv',
-            angebot_sent: false,
-            vertrag_sent: false,
-            unterlagen_sent: false,
-            rechnung_sent: false,
-          })
-          changed = true
-        }
-      })
-      if (changed) localStorage.setItem('meyer-internal-os-operations', JSON.stringify(ops))
-    } catch {}
-  }, [mandates])
-
-  // Auto-sync from Apps Script on mount if backend available
-  useEffect(() => {
-    const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
-    if (API_BASE) handleSync();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Toast auto-dismiss
-  useMemo(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
-
-  // ── Sync: Liest Dienstleistungsverträge aus Google Drive ──
+  // ── Sync (calls backend when API_BASE is set) ───────────
   async function handleSync() {
     setSyncing(true);
-    const API_BASE = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
-
-    if (!API_BASE) {
-      // Kein Backend → nur Timestamp aktualisieren
-      setMandates(prev => prev.map(m => ({ ...m, last_auto_sync: new Date().toISOString() })));
-      setToast('⚠ Backend nicht verbunden – bitte Apps Script deployen');
-      setSyncing(false);
-      return;
-    }
-
     try {
-      const res = await fetch(API_BASE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sync_mandates' }),
-      });
-      const json = await res.json();
-
-      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-        setMandates(prev => {
-          const updated = [...prev];
-          json.data.forEach((driveMandate: Partial<MandateTracking> & { customer_id: string; emails?: string[] }) => {
-            const existingIdx = updated.findIndex(
-              m => m.company_name.toLowerCase() === driveMandate.company_name?.toLowerCase()
-            );
-            if (existingIdx >= 0) {
-              // Bestehendes Mandat updaten – nur Felder die nicht manuell bearbeitet wurden
-              if (!updated[existingIdx].manually_edited) {
-                updated[existingIdx] = {
-                  ...updated[existingIdx],
-                  ...driveMandate,
-                  // E-Mail-Feld: emails Array aus Drive
-                  emails: driveMandate.emails?.length
-                    ? driveMandate.emails
-                    : updated[existingIdx].emails,
-                  last_auto_sync: new Date().toISOString(),
-                };
-              } else {
-                updated[existingIdx] = {
-                  ...updated[existingIdx],
-                  last_auto_sync: new Date().toISOString(),
-                };
-              }
-            } else {
-              // Neues Mandat aus Drive hinzufügen
-              updated.push({
-                customer_id:             driveMandate.customer_id,
-                company_name:            driveMandate.company_name || '',
-                ansprechpartner:         driveMandate.ansprechpartner || '',
-                emails:                  driveMandate.emails || [],
-                vertragsbeginn:          driveMandate.vertragsbeginn || null,
-                vertragsende:            driveMandate.vertragsende || null,
-                vertragsart:             'dienstleistungsvertrag',
-                gebuchte_dienstleistung: driveMandate.gebuchte_dienstleistung || 'Advisory',
-                monatliches_honorar:     driveMandate.monatliches_honorar || null,
-                setup_fee:               driveMandate.setup_fee || null,
-                mandate_status:          driveMandate.mandate_status || 'onboarding',
-                notes:                   '',
-                last_auto_sync:          new Date().toISOString(),
-                manually_edited:         false,
-              });
-            }
-          });
-          return updated;
-        });
-
-        const errCount = json.errors?.length || 0;
-        const msg = `✓ ${json.count} Verträge aus Drive gelesen${errCount ? ` · ${errCount} Fehler` : ''}`;
-        setToast(msg);
-      } else {
-        setToast(json.error ? `Fehler: ${json.error}` : 'Keine Verträge gefunden');
-      }
+      // TODO: Replace with real API call when backend is connected
+      // const updated = await syncMandates();
+      // setMandates(updated);
+      await new Promise(r => setTimeout(r, 1000));
+      setMandates(prev => prev.map(m => ({
+        ...m,
+        last_auto_sync: new Date().toISOString(),
+      })));
     } catch {
-      setToast('Verbindungsfehler – Apps Script nicht erreichbar');
+      // Fallback: just update sync timestamp
+      setMandates(prev => prev.map(m => ({
+        ...m,
+        last_auto_sync: new Date().toISOString(),
+      })));
     }
-
     setSyncing(false);
   }
 
@@ -192,101 +40,22 @@ export default function MandatePage() {
         : m
     ));
     setEditingMandate(null);
-    if (data.mandate_status === 'inactive') {
-      setToast('Mandat als "Inaktiv" markiert – im Archiv sichtbar');
-      setShowArchived(true);
-    } else {
-      setToast('Mandat gespeichert');
-    }
   }
 
-  function handleDelete(customerId: string) {
-    if (!window.confirm('Mandat wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) return;
-    setMandates(prev => prev.filter(m => m.customer_id !== customerId));
-    setToast('Mandat gelöscht');
-  }
-
-  // ── Filtered lists ────────────────────────────────────────
-  const activeMandatesList = useMemo(
-    () => mandates.filter(m => m.mandate_status !== 'inactive' && m.mandate_status !== 'churned'),
-    [mandates]
-  );
-  const archivedMandatesList = useMemo(
-    () => mandates.filter(m => m.mandate_status === 'inactive' || m.mandate_status === 'churned'),
-    [mandates]
-  );
-  const displayedMandates = showArchived ? archivedMandatesList : activeMandatesList;
-
-  // ── KPIs (nur aktive) ─────────────────────────────────────
+  // ── KPIs ────────────────────────────────────────────────
   const activeMandates = mandates.filter(m => m.mandate_status === 'active');
   const totalMRR = activeMandates.reduce((s, m) => s + (m.monatliches_honorar || 0), 0);
   const totalSetup = mandates.reduce((s, m) => s + (m.setup_fee || 0), 0);
 
-  // ARR: Umsatz im laufenden Kalenderjahr (1. Jan – 31. Dez)
-  // Pro Vertrag: Anzahl Monate, die in das aktuelle Jahr fallen
-  const currentYear = new Date().getFullYear();
-  const yearStart = new Date(currentYear, 0, 1);   // 1. Jan
-  const yearEnd   = new Date(currentYear, 11, 31); // 31. Dez
-
-  const calcARRMonths = (m: (typeof activeMandates)[0]) => {
-    const start = m.vertragsbeginn ? new Date(m.vertragsbeginn) : yearStart;
-    const end   = m.vertragsende  ? new Date(m.vertragsende)   : yearEnd;
-
-    const effectiveStart = start < yearStart ? yearStart : start;
-    const effectiveEnd   = end   > yearEnd   ? yearEnd   : end;
-
-    if (effectiveEnd <= effectiveStart) return 0;
-
-    const months =
-      (effectiveEnd.getFullYear()  - effectiveStart.getFullYear())  * 12 +
-      (effectiveEnd.getMonth()     - effectiveStart.getMonth());
-    return Math.max(months, 1);
+  const statusColors: Record<string, string> = {
+    active: 'bg-green-100 text-green-700',
+    onboarding: 'bg-blue-100 text-blue-700',
+    paused: 'bg-amber-100 text-amber-700',
+    churned: 'bg-red-100 text-red-700',
   };
-
-  // Gesamtvolumen: volle Vertragslaufzeit ohne Jahresbeschränkung
-  const calcTotalMonths = (m: (typeof activeMandates)[0]) => {
-    if (m.vertragsbeginn && m.vertragsende) {
-      const start = new Date(m.vertragsbeginn);
-      const end   = new Date(m.vertragsende);
-      const months =
-        (end.getFullYear() - start.getFullYear()) * 12 +
-        (end.getMonth()    - start.getMonth());
-      return Math.max(months, 1);
-    }
-    return 12; // kein Enddatum → 12 Monate Fallback
-  };
-
-  const totalARR = activeMandates.reduce((s, m) =>
-    s + (m.monatliches_honorar || 0) * calcARRMonths(m), 0);
-
-  const totalVolumen = activeMandates.reduce((s, m) =>
-    s + (m.monatliches_honorar || 0) * calcTotalMonths(m), 0);
-
-  // ── Churn-Risk-Indikator ──────────────────────────────────
-  function daysUntilExpiry(vertragsende: string | null | undefined): number | null {
-    if (!vertragsende) return null;
-    const end = new Date(vertragsende);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    return Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  }
-
-  const churnRiskMandates = activeMandates
-    .map(m => ({ m, days: daysUntilExpiry(m.vertragsende) }))
-    .filter(({ days }) => days !== null && days <= 90)
-    .sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
 
   return (
     <div>
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-6 right-6 z-[60] text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${
-          toast.includes('gelöscht') ? 'bg-red-600' : toast.includes('Inaktiv') ? 'bg-amber-600' : 'bg-green-600'
-        }`}>
-          {toast}
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex justify-between items-start mb-8">
         <div>
@@ -295,52 +64,24 @@ export default function MandatePage() {
             1 Kunde = 1 Vertrag &middot; Automatisch aus Drive befüllt &middot; Jederzeit editierbar
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              const cols = ['Unternehmen','Status','Dienstleistung','Monatl. Honorar','Setup-Fee','Vertragsbeginn','Vertragsende','Ansprechpartner'];
-              const rows = mandates.map(m => [
-                m.company_name,
-                STATUS_LABELS[m.mandate_status] || m.mandate_status,
-                m.gebuchte_dienstleistung || '',
-                m.monatliches_honorar || '',
-                m.setup_fee || '',
-                m.vertragsbeginn || '',
-                m.vertragsende || '',
-                m.ansprechpartner || '',
-              ]);
-              const csv = [cols, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-              const a = document.createElement('a');
-              a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
-              a.download = `Mandate_Export_${new Date().toISOString().slice(0,10)}.csv`;
-              a.click();
-            }}
-            className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-            CSV
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-              syncing ? 'bg-copper/60 text-white cursor-wait' : 'bg-copper text-white hover:bg-copper/90'
-            }`}
-          >
-            {syncing ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                Synchronisiere...
-              </span>
-            ) : 'Jetzt synchronisieren'}
-          </button>
-        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            syncing ? 'bg-copper/60 text-white cursor-wait' : 'bg-copper text-white hover:bg-copper/90'
+          }`}
+        >
+          {syncing ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Synchronisiere...
+            </span>
+          ) : 'Jetzt synchronisieren'}
+        </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-copper">{formatCurrency(totalMRR)}</div>
           <div className="text-sm text-gray-400 mt-1">MRR gesamt</div>
@@ -350,12 +91,8 @@ export default function MandatePage() {
           <div className="text-sm text-gray-400 mt-1">Aktive Mandate</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalARR)}</div>
-          <div className="text-sm text-gray-400 mt-1">ARR {currentYear}</div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalVolumen)}</div>
-          <div className="text-sm text-gray-400 mt-1">Gesamtvolumen</div>
+          <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalMRR * 12)}</div>
+          <div className="text-sm text-gray-400 mt-1">ARR (hochgerechnet)</div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="font-manrope text-3xl font-bold text-navy">{formatCurrency(totalSetup)}</div>
@@ -363,133 +100,77 @@ export default function MandatePage() {
         </div>
       </div>
 
-      {/* Churn-Risk-Warnung */}
-      {churnRiskMandates.length > 0 && !showArchived && (
-        <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-amber-500 text-lg">⚠️</span>
-            <span className="font-manrope font-bold text-amber-800 text-sm">
-              {churnRiskMandates.length} Mandat{churnRiskMandates.length > 1 ? 'e' : ''} läuft bald aus
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            {churnRiskMandates.map(({ m, days }) => (
-              <div
-                key={m.customer_id}
-                className={`flex items-center justify-between rounded-xl px-3 py-2 cursor-pointer hover:opacity-80 ${
-                  (days ?? 999) <= 30 ? 'bg-red-100' : 'bg-amber-100'
-                }`}
-                onClick={() => setEditingMandate(m)}
-              >
-                <div>
-                  <span className="text-sm font-medium text-navy">{m.company_name}</span>
-                  <span className="text-xs text-gray-500 ml-2">{m.gebuchte_dienstleistung}</span>
-                </div>
-                <div className={`text-xs font-bold ${(days ?? 999) <= 30 ? 'text-red-700' : 'text-amber-700'}`}>
-                  {days === 0 ? 'Heute!' : days! < 0 ? `${Math.abs(days!)}d überfällig` : `noch ${days}d`}
-                  {' '}· {m.vertragsende ? formatDate(m.vertragsende) : ''}
-                </div>
+      {/* Mandate Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                {['Kunde', 'E-Mail', 'Status', 'Vertragsart', 'Dienstleistung', 'Honorar/Mon.', 'Setup-Fee', 'Beginn', 'Ende', 'Sync', ''].map(h => (
+                  <th key={h} className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-3 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {mandates.map(m => (
+                <tr key={m.customer_id} className="border-b border-gray-50 hover:bg-offwhite/50 transition-colors">
+                  <td className="py-3 px-3">
+                    <div className="font-medium text-navy">{m.company_name}</div>
+                    <div className="text-xs text-gray-400">{m.ansprechpartner}</div>
+                  </td>
+                  <td className="py-3 px-3 text-xs text-gray-500 max-w-[160px] truncate">
+                    {m.email || '–'}
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[m.mandate_status] || 'bg-gray-100 text-gray-700'}`}>
+                      {m.mandate_status}
+                      {m.manually_edited && <span title="Manuell bearbeitet" className="text-[10px]">✏</span>}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-xs text-gray-600">{m.vertragsart || '–'}</td>
+                  <td className="py-3 px-3 text-xs text-gray-600 max-w-[180px] truncate">{m.gebuchte_dienstleistung || '–'}</td>
+                  <td className="py-3 px-3 font-semibold text-navy">
+                    {m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}
+                  </td>
+                  <td className="py-3 px-3 text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
+                  <td className="py-3 px-3 text-xs">{formatDate(m.vertragsbeginn)}</td>
+                  <td className="py-3 px-3 text-xs">{m.vertragsende ? formatDate(m.vertragsende) : 'unbefristet'}</td>
+                  <td className="py-3 px-3 text-[10px] text-gray-300">
+                    {formatDate(m.last_auto_sync)}
+                  </td>
+                  <td className="py-3 px-3">
+                    <button
+                      onClick={() => setEditingMandate(m)}
+                      className="px-3 py-1 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 hover:border-copper/30 transition-colors"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {mandates.length === 0 && (
+          <div className="text-center py-12 text-gray-400">Keine Mandate vorhanden</div>
+        )}
+      </div>
+
+      {/* Notes Section */}
+      {mandates.some(m => m.notes) && (
+        <div className="mt-6 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-manrope font-bold text-navy mb-3">Notizen</h3>
+          <div className="space-y-2">
+            {mandates.filter(m => m.notes).map(m => (
+              <div key={m.customer_id} className="flex gap-3 text-sm">
+                <span className="font-medium text-navy min-w-[180px]">{m.company_name}:</span>
+                <span className="text-gray-600">{m.notes}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-
-      {/* Filter Tabs */}
-      <div className="flex gap-1.5 mb-5">
-        <button
-          onClick={() => setShowArchived(false)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            !showArchived ? 'bg-navy text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-          }`}
-        >
-          Alle ({activeMandatesList.length})
-        </button>
-        <button
-          onClick={() => setShowArchived(true)}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            showArchived ? 'bg-red-700 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          Archiv ({archivedMandatesList.length})
-        </button>
-      </div>
-
-      {/* Mandate Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table className="w-full text-sm table-fixed">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[22%]">Kunde</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[11%]">Status</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[16%]">Dienstleistung</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[13%]">Honorar</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[11%]">Setup</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[10%]">Beginn</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[10%]">Ende</th>
-              <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-2 w-[7%]"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayedMandates.map(m => (
-              <tr
-                key={m.customer_id}
-                className={`border-b border-gray-50 hover:bg-offwhite/50 transition-colors cursor-pointer ${showArchived ? 'opacity-60' : ''}`}
-                onClick={() => setEditingMandate(m)}
-              >
-                <td className="py-3 px-2">
-                  <div className="font-medium text-navy text-xs truncate">{m.company_name}</div>
-                  <div className="text-[11px] text-gray-400 truncate">{m.ansprechpartner}</div>
-                  <div className="text-[11px] text-gray-300 truncate">{m.emails[0] || ''}</div>
-                </td>
-                <td className="py-3 px-2">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLORS[m.mandate_status] || 'bg-gray-100 text-gray-700'}`}>
-                    {STATUS_LABELS[m.mandate_status] || m.mandate_status}
-                  </span>
-                </td>
-                <td className="py-3 px-2 text-xs text-gray-600 truncate">{m.gebuchte_dienstleistung || '–'}</td>
-                <td className="py-3 px-2 text-xs font-semibold text-navy">{m.monatliches_honorar ? formatCurrency(m.monatliches_honorar) : '–'}</td>
-                <td className="py-3 px-2 text-xs text-gray-600">{m.setup_fee ? formatCurrency(m.setup_fee) : '–'}</td>
-                <td className="py-3 px-2 text-[11px] text-gray-500">{formatDate(m.vertragsbeginn)}</td>
-                <td className="py-3 px-2 text-[11px] text-gray-500">
-                  {m.vertragsende ? (
-                    <span className={`inline-flex items-center gap-1 ${
-                      (daysUntilExpiry(m.vertragsende) ?? 999) <= 30 ? 'text-red-600 font-semibold' :
-                      (daysUntilExpiry(m.vertragsende) ?? 999) <= 90 ? 'text-amber-600 font-medium' : ''
-                    }`}>
-                      {formatDate(m.vertragsende)}
-                      {(daysUntilExpiry(m.vertragsende) ?? 999) <= 90 && (
-                        <span className={`px-1 py-0.5 rounded text-[10px] ${
-                          (daysUntilExpiry(m.vertragsende) ?? 999) <= 30
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {daysUntilExpiry(m.vertragsende)! <= 0 ? '!' : `${daysUntilExpiry(m.vertragsende)}d`}
-                        </span>
-                      )}
-                    </span>
-                  ) : 'unbefr.'}
-                </td>
-                <td className="py-3 px-2 text-center">
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDelete(m.customer_id); }}
-                    className="text-gray-300 hover:text-red-500 transition-colors text-lg"
-                    title="Mandat löschen"
-                  >
-                    &times;
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {displayedMandates.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            {showArchived ? 'Keine archivierten Mandate' : 'Keine Mandate vorhanden'}
-          </div>
-        )}
-      </div>
 
       {/* Edit Mandate Modal */}
       {editingMandate && (
@@ -497,7 +178,6 @@ export default function MandatePage() {
           mandate={editingMandate}
           onClose={() => setEditingMandate(null)}
           onSave={handleSaveMandate}
-          onDelete={() => { handleDelete(editingMandate.customer_id); setEditingMandate(null); }}
         />
       )}
     </div>
@@ -510,33 +190,33 @@ function MandateEditModal({
   mandate,
   onClose,
   onSave,
-  onDelete,
 }: {
   mandate: MandateTracking;
   onClose: () => void;
   onSave: (data: Partial<MandateTracking>) => void;
-  onDelete: () => void;
 }) {
   const [form, setForm] = useState({
     company_name: mandate.company_name || '',
     ansprechpartner: mandate.ansprechpartner || '',
-    email: (mandate.emails && mandate.emails[0]) || '',
+    email: mandate.email || '',
+    vertragsart: mandate.vertragsart || '',
     gebuchte_dienstleistung: mandate.gebuchte_dienstleistung || '',
     monatliches_honorar: mandate.monatliches_honorar ?? '',
     setup_fee: mandate.setup_fee ?? '',
     vertragsbeginn: mandate.vertragsbeginn || '',
     vertragsende: mandate.vertragsende || '',
-    mandate_status: mandate.mandate_status === 'churned' ? 'inactive' : mandate.mandate_status || 'active',
+    mandate_status: mandate.mandate_status || 'active',
+    notes: mandate.notes || '',
   });
 
-  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-navy outline-none focus:ring-2 focus:ring-copper/20 focus:border-copper';
+  const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-copper/20 focus:border-copper';
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-100 rounded-t-2xl">
           <h2 className="font-manrope text-lg font-bold text-navy">
-            Mandat bearbeiten: {mandate.company_name}
+            Mandate bearbeiten: {mandate.company_name}
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">Änderungen überschreiben die automatisch extrahierten Daten</p>
         </div>
@@ -548,13 +228,15 @@ function MandateEditModal({
             onSave({
               company_name: form.company_name,
               ansprechpartner: form.ansprechpartner,
-              emails: [form.email],
+              email: form.email,
+              vertragsart: form.vertragsart,
               gebuchte_dienstleistung: form.gebuchte_dienstleistung,
               monatliches_honorar: form.monatliches_honorar ? Number(form.monatliches_honorar) : null,
               setup_fee: form.setup_fee ? Number(form.setup_fee) : null,
               vertragsbeginn: form.vertragsbeginn || null,
               vertragsende: form.vertragsende || null,
               mandate_status: form.mandate_status,
+              notes: form.notes,
             });
           }}
         >
@@ -578,22 +260,28 @@ function MandateEditModal({
           {/* Contract Details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Dienstleistung</label>
-              <select className={inputCls + ' bg-white'} value={form.gebuchte_dienstleistung} onChange={e => setForm(f => ({ ...f, gebuchte_dienstleistung: e.target.value }))}>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Vertragsart</label>
+              <select className={inputCls + ' bg-white'} value={form.vertragsart} onChange={e => setForm(f => ({ ...f, vertragsart: e.target.value }))}>
                 <option value="">–</option>
-                <option value="Advisory">Advisory</option>
-                <option value="Tool Only">Tool Only</option>
+                <option value="dienstleistungsvertrag">Dienstleistungsvertrag</option>
+                <option value="rahmenvertrag">Rahmenvertrag</option>
+                <option value="projektvertrag">Projektvertrag</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
               <select className={inputCls + ' bg-white'} value={form.mandate_status} onChange={e => setForm(f => ({ ...f, mandate_status: e.target.value }))}>
-                <option value="active">Aktiv</option>
+                <option value="active">Active</option>
                 <option value="onboarding">Onboarding</option>
-                <option value="paused">Pausiert</option>
-                <option value="inactive">Inaktiv</option>
+                <option value="paused">Paused</option>
+                <option value="churned">Churned</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Gebuchte Dienstleistung</label>
+            <input className={inputCls} value={form.gebuchte_dienstleistung} onChange={e => setForm(f => ({ ...f, gebuchte_dienstleistung: e.target.value }))} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -618,14 +306,14 @@ function MandateEditModal({
             </div>
           </div>
 
-          <div className="flex justify-between pt-4 border-t border-gray-100">
-            <button type="button" onClick={onDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">
-              Löschen
-            </button>
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
-              <button type="submit" className="px-5 py-2 bg-copper text-white rounded-lg text-sm font-medium hover:bg-copper/90">Speichern</button>
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Notizen</label>
+            <textarea className={inputCls + ' h-20 resize-none'} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
+            <button type="submit" className="px-5 py-2 bg-copper text-white rounded-lg text-sm font-medium hover:bg-copper/90">Speichern</button>
           </div>
         </form>
       </div>
