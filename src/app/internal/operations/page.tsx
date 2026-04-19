@@ -335,150 +335,111 @@ export default function OperationsPage() {
   }
 
   // ── Email Body Templates (from Google Drive Begleitmail .docx files) ──
-  function generateEmailBody(type: DocumentType, customer: OperationsCustomer, senderName: string): string {
-    const isGregory = senderName === 'Gregory Meyer';
+    function generateEmailBody(type: DocumentType, customer: OperationsCustomer, senderName: string): string {
+    const greeting = `Sehr geehrte/r ${customer.ansprechpartner}`;
 
-    // ── CI: Meyer Decision Brand Colors ──────────────────────
-    // Navy #192231 | Copper #B08A6A | Offwhite #F7F5F2
+    const signaturePersonal = `<p>Viele Gr\u00fc\u00dfe</p>
+      <table style="font-size:13px;margin-top:8px;border:0;"><tr>
+        <td style="padding-right:32px;border:0;"><strong>Gregory Meyer</strong><br>gregory@meyerdecision.com</td>
+        <td style="border:0;"><strong>Nhi Meyer</strong><br>nhi@meyerdecision.com</td>
+      </tr></table>
+      <p style="color:#888;font-size:12px;margin-top:8px;">Meyer Decision GbR &middot; Talburgstra\u00dfe 71 &middot; 42579 Heiligenhaus</p>`;
 
-    const ciHeader = `
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5F2;border-radius:6px 6px 0 0;border:1px solid #E5E2DD;border-bottom:none;">
-        <tr>
-          <td style="padding:16px 28px;">
-            <img src="https://meyer-dashboard.vercel.app/logo.png" alt="Meyer Decision" width="180" style="display:block;border:0;max-width:100%;height:auto;" />
-          </td>
-        </tr>
-        <tr><td style="height:3px;background:linear-gradient(90deg,#B08A6A,#8A6B4E);"></td></tr>
-      </table>`;
-
-    const ciFooter = `
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5F2;border:1px solid #E5E2DD;border-top:none;border-radius:0 0 6px 6px;">
-        <tr><td style="height:1px;background:#B08A6A;"></td></tr>
-        <tr>
-          <td style="padding:18px 28px;">
-            <table cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="padding-right:32px;border-right:1px solid #D4CECA;">
-                  <div style="font-family:'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;color:#192231;">Gregory Meyer</div>
-                  <div style="font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#B08A6A;">gregory@meyerdecision.com</div>
-                </td>
-                <td style="padding-left:32px;">
-                  <div style="font-family:'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;color:#192231;">Nhi Meyer</div>
-                  <div style="font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#B08A6A;">nhi@meyerdecision.com</div>
-                </td>
-              </tr>
-            </table>
-            <div style="margin-top:10px;font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#9A9490;">
-              Meyer Decision GbR &nbsp;&middot;&nbsp; Talburgstra&szlig;e 71, 42579 Heiligenhaus
-            </div>
-          </td>
-        </tr>
-      </table>`;
-
-    const wrap = (content: string) => `
-      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#192231;">
-        ${ciHeader}
-        <div style="background:#ffffff;padding:32px 28px 24px;border:1px solid #E5E2DD;border-top:none;line-height:1.7;font-size:14px;">
-          ${content}
-        </div>
-        ${ciFooter}
-      </div>`;
-
-    const signoff = (formal: boolean) => formal
-      ? `<p style="margin-top:24px;margin-bottom:4px;">Mit freundlichen Gr&uuml;&szlig;en</p>
-         <p style="margin:0;font-weight:700;color:#192231;">${isGregory ? 'Gregory Meyer' : 'Nhi Meyer'}</p>
-         <p style="margin:2px 0 0;font-size:12px;color:#B08A6A;">${isGregory ? 'gregory@meyerdecision.com' : 'nhi@meyerdecision.com'}</p>`
-      : `<p style="margin-top:24px;margin-bottom:4px;">Viele Gr&uuml;&szlig;e</p>
-         <p style="margin:0;font-weight:700;color:#192231;">${isGregory ? 'Gregory Meyer' : 'Nhi Meyer'}</p>
-         <p style="margin:2px 0 0;font-size:12px;color:#B08A6A;">${isGregory ? 'gregory@meyerdecision.com' : 'nhi@meyerdecision.com'}</p>`;
-
-    const heading = (text: string) =>
-      `<p style="margin:20px 0 6px;font-size:13px;font-weight:700;letter-spacing:0.5px;color:#192231;text-transform:uppercase;border-left:3px solid #B08A6A;padding-left:10px;">${text}</p>`;
-
-    const bulletList = (items: string[]) =>
-      `<ul style="margin:6px 0 16px;padding-left:0;list-style:none;">${items.map(i =>
-        `<li style="padding:3px 0 3px 18px;position:relative;">
-          <span style="position:absolute;left:0;color:#B08A6A;font-size:12px;top:5px;">&#9656;</span>${i}
-        </li>`).join('')}</ul>`;
+    const signatureFormal = `<p>Mit freundlichen Gr\u00fc\u00dfen</p>
+      <table style="font-size:13px;margin-top:8px;border:0;"><tr>
+        <td style="padding-right:32px;border:0;"><strong>Gregory Meyer</strong><br>gregory@meyerdecision.com</td>
+        <td style="border:0;"><strong>Nhi Meyer</strong><br>nhi@meyerdecision.com</td>
+      </tr></table>
+      <p style="color:#888;font-size:12px;margin-top:8px;">Meyer Decision GbR &middot; Talburgstra\u00dfe 71, 42579 Heiligenhaus</p>`;
 
     switch (type) {
       case 'angebot':
-        return wrap(`
-          <p>Hallo ${customer.ansprechpartner},</p>
-          <p>vielen Dank f&uuml;r das angenehme Gespr&auml;ch. Anbei erhalten Sie Ihr individuelles Angebot f&uuml;r die Zusammenarbeit mit Meyer Decision.</p>
-          ${heading('Worum es konkret geht')}
-          <p>Mit unserem System schaffen wir eine klare, monatliche wirtschaftliche Steuerungsstruktur f&uuml;r Ihre Gesch&auml;ftsf&uuml;hrung. Im Mittelpunkt steht ein webbasiertes Dashboard, das Ihre wirtschaftliche Situation transparent macht und konkrete Handlungsschwerpunkte ableitet.</p>
-          ${heading('Was Sie erwarten k&ouml;nnen')}
-          ${bulletList([
-            'Klare Einordnung Ihrer wirtschaftlichen Gesamtlage',
-            'Transparenz &uuml;ber Ertrags- und Vertragsstrukturen',
-            'Fr&uuml;hzeitige Identifikation von Liquidit&auml;tsrisiken',
-            'Konkrete, priorisierte Ma&szlig;nahmen zur Ergebnisverbesserung',
-          ])}
-          <p>Bitte schauen Sie sich das Angebot in Ruhe an. Wenn Sie Fragen haben oder einzelne Punkte gemeinsam durchgehen m&ouml;chten, melden Sie sich jederzeit gerne.</p>
-          <p>Wenn alles f&uuml;r Sie passt, k&ouml;nnen wir direkt im Anschluss mit der Einrichtung starten.</p>
-          <p>Ich freue mich auf Ihr Feedback.</p>
-          ${signoff(false)}`);
+        return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
+          <p>${greeting},</p>
+          <p>vielen Dank f\u00fcr das angenehme Gespr\u00e4ch. Anbei erhalten Sie unser individuelles Angebot f\u00fcr eine Zusammenarbeit mit Meyer Decision.</p>
+          <p><strong>Worum es konkret geht</strong></p>
+          <p>Mit unserem System etablieren wir eine strukturierte, monatliche Steuerungsgrundlage f\u00fcr Ihre Gesch\u00e4ftsf\u00fchrung. Im Mittelpunkt steht ein webbasiertes Dashboard, das Ihre wirtschaftliche Lage transparent darstellt und konkrete Handlungspriori\u00e4ten aufzeigt.</p>
+          <p><strong>Was Sie erwarten k\u00f6nnen</strong></p>
+          <ul style="margin:8px 0;padding-left:20px;">
+            <li>Klare Einordnung Ihrer wirtschaftlichen Gesamtlage</li>
+            <li>Transparenz \u00fcber Ertrags- und Vertragsstrukturen</li>
+            <li>Fr\u00fchzeitige Identifikation von Liquidit\u00e4tsrisiken</li>
+            <li>Konkrete, priorisierte Ma\u00dfnahmen zur Ergebnisverbesserung</li>
+          </ul>
+          <p>Wir laden Sie ein, das Angebot in Ruhe zu pr\u00fcfen. F\u00fcr R\u00fcckfragen oder eine gemeinsame Durchsicht einzelner Punkte stehen wir Ihnen jederzeit gerne zur Verf\u00fcgung.</p>
+          <p>Sobald Sie gr\u00fcnes Licht geben, starten wir umgehend mit der Einrichtung Ihres Systems.</p>
+          <p>Wir freuen uns auf Ihre R\u00fcckmeldung.</p>
+          ${signaturePersonal}
+        </div>`;
 
       case 'vertrag':
-        return wrap(`
-          <p>Hallo ${customer.ansprechpartner},</p>
-          <p>vielen Dank f&uuml;r das angenehme Gespr&auml;ch und Ihr Interesse an Meyer Decision. Anbei erhalten Sie die Vertragsunterlagen f&uuml;r die Zusammenarbeit.</p>
-          <p>Diese enthalten neben dem Dienstleistungsvertrag auch alle relevanten Anlagen (Leistungsbeschreibung, Datenschutzvereinbarung etc.), sodass Sie einen vollst&auml;ndigen &Uuml;berblick &uuml;ber den Aufbau und die Struktur unseres Systems erhalten.</p>
-          ${heading('N&auml;chster Schritt')}
-          <p>Bitte pr&uuml;fen Sie die Unterlagen in Ruhe. Bei R&uuml;ckfragen oder Anmerkungen gehen wir diese gerne gemeinsam durch.</p>
-          <p>Wenn alles f&uuml;r Sie passt, senden Sie uns den Vertrag bitte unterschrieben zur&uuml;ck. Nach Eingang starten wir direkt mit der Einrichtung Ihres Systems.</p>
+        return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
+          <p>${greeting},</p>
+          <p>vielen Dank f\u00fcr das konstruktive Gespr\u00e4ch und Ihr Vertrauen in Meyer Decision. Anbei erhalten Sie die vollst\u00e4ndigen Vertragsunterlagen f\u00fcr unsere Zusammenarbeit.</p>
+          <p>Neben dem Dienstleistungsvertrag sind alle relevanten Anlagen beigef\u00fcgt \u2013 Leistungsbeschreibung, Datenschutzvereinbarung u.\u00a0a. \u2013 und bieten Ihnen einen umfassenden \u00dcberblick \u00fcber Leistungsumfang und Vertragsstruktur.</p>
+          <p><strong>N\u00e4chster Schritt</strong></p>
+          <p>Wir bitten Sie, die Unterlagen sorgf\u00e4ltig zu pr\u00fcfen. F\u00fcr R\u00fcckfragen oder Anmerkungen stehen wir Ihnen jederzeit gerne zur Verf\u00fcgung.</p>
+          <p>Sobald alles zu Ihrer Zufriedenheit ist, bitten wir Sie, den Vertrag unterschrieben an uns zur\u00fcckzusenden. Nach Vertragseingang beginnen wir umgehend mit der Einrichtung Ihres Systems und informieren Sie \u00fcber die n\u00e4chsten Schritte (Dashboard-Zugang, Datenanleitung u.\u00a0a.).</p>
           <p>Wir freuen uns auf die Zusammenarbeit.</p>
-          ${signoff(false)}`);
+          ${signaturePersonal}
+        </div>`;
 
       case 'unterlagen':
-        return wrap(`
-          <p>Hallo ${customer.ansprechpartner},</p>
-          <p>vielen Dank f&uuml;r Ihr Vertrauen und den Start unserer Zusammenarbeit. Ihr Meyer Decision Steuerungssystem ist nun eingerichtet und einsatzbereit.</p>
-          ${heading('Ihr Dashboard-Zugang')}
-          <p>Unter folgendem Link erreichen Sie Ihr pers&ouml;nliches Steuerungsdashboard:</p>
-          <p style="margin:12px 0;">
-            <a href="https://dashboard.meyerdecision.com" style="display:inline-block;background:#192231;color:#F7F5F2;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:13px;font-weight:600;letter-spacing:0.5px;">
-              Dashboard &ouml;ffnen &rarr;
-            </a>
-          </p>
-          <p style="font-size:12px;color:#9A9490;">Alternativ: <a href="https://dashboard.meyerdecision.com" style="color:#B08A6A;">https://dashboard.meyerdecision.com</a></p>
-          ${heading('Monatlicher Steuerungsrhythmus')}
-          ${bulletList([
-            'Bereitstellung Ihrer Unternehmensdaten',
-            'Analyse und Aufbereitung durch Meyer Decision',
-            'Aktualisierung Ihres Dashboards',
-            'Erstellung Ihres Management-Reports',
-            'Gemeinsamer Management-Call zur Einordnung und Priorisierung',
-          ])}
-          ${heading('Datenbereitstellung')}
-          <p>Die Anleitung zur Datenbereitstellung finden Sie im Anhang. Bitte stellen Sie die Daten k&uuml;nftig monatlich zum vereinbarten Zeitpunkt bereit &ndash; das ist die Grundlage f&uuml;r eine saubere und belastbare Analyse.</p>
-          <p>Bei Fragen melden Sie sich jederzeit gerne direkt bei uns.</p>
+        return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
+          <p>${greeting},</p>
+          <p>herzlichen Gl\u00fcckwunsch \u2013 Ihr Meyer Decision Steuerungssystem ist eingerichtet und steht Ihnen ab sofort vollumf\u00e4nglich zur Verf\u00fcgung.</p>
+          <p><strong>Ihr Dashboard-Zugang</strong></p>
+          <p>\u00dcber das Dashboard haben Sie jederzeit Zugriff auf die wirtschaftlichen Kennzahlen Ihres Unternehmens sowie auf s\u00e4mtliche monatlichen Auswertungen:</p>
+          <p><a href="https://meyer-dashboard.vercel.app" style="color:#B08A6A;">https://meyer-dashboard.vercel.app</a></p>
+          <p>Bitte melden Sie sich mit der E-Mail-Adresse an, die f\u00fcr Ihr Unternehmen bei uns registriert ist.</p>
+          <p><strong>Hinweis zum ersten Zugriff</strong></p>
+          <p>Beim ersten Aufruf kann eine Google-Sicherheitsmeldung erscheinen. Dies ist technisch bedingt und vollkommen unbedenklich. Bitte gehen Sie wie folgt vor:</p>
+          <ul style="margin:8px 0;padding-left:20px;">
+            <li>\u201eErweitert\u201c ausw\u00e4hlen</li>
+            <li>\u201eWeiter zu Meyer Decision (unsicher)\u201c klicken</li>
+            <li>Zugriff best\u00e4tigen</li>
+          </ul>
+          <p><strong>So l\u00e4uft unsere Zusammenarbeit</strong></p>
+          <p>Wir arbeiten in einem klaren monatlichen Steuerungsrhythmus:</p>
+          <ul style="margin:8px 0;padding-left:20px;">
+            <li>Bereitstellung Ihrer Unternehmensdaten</li>
+            <li>Analyse und Aufbereitung durch Meyer Decision</li>
+            <li>Aktualisierung Ihres Dashboards</li>
+            <li>Erstellung Ihres Management-Reports</li>
+            <li>Gemeinsamer Management-Call zur Einordnung und Priorisierung</li>
+          </ul>
+          <p><strong>Datenbereitstellung \u2013 Anleitung</strong></p>
+          <p>Damit Ihr Team wei\u00df, welche Daten ben\u00f6tigt werden, finden Sie hier die Anleitung zur Datenbereitstellung als Anhang.</p>
+          <p>Bitte stellen Sie die Daten k\u00fcnftig monatlich zum vereinbarten Zeitpunkt bereit \u2013 dies ist die Grundlage f\u00fcr eine pr\u00e4zise und aussagekr\u00e4ftige Analyse.</p>
+          <p>Bei Fragen oder technischen R\u00fcckfragen stehen wir Ihnen jederzeit gerne zur Verf\u00fcgung.</p>
           <p>Wir freuen uns auf die Zusammenarbeit.</p>
-          ${signoff(false)}`);
+          ${signaturePersonal}
+        </div>`;
 
       case 'reminder':
-        return wrap(`
-          <p>Sehr geehrte/r ${customer.ansprechpartner},</p>
-          <p>f&uuml;r die Aktualisierung Ihres Dashboards und die Erstellung des monatlichen Management-Reports ben&ouml;tigen wir die aktuellen Unternehmensdaten f&uuml;r den laufenden Monat.</p>
-          <p>Falls noch nicht erfolgt, w&uuml;rden wir Sie bitten, die entsprechenden Dateien im vorgesehenen Upload-Ordner bereitzustellen.</p>
-          ${heading('Nach Dateneingang aktualisieren wir')}
-          ${bulletList([
-            'Ihr Dashboard mit den aktuellen Kennzahlen',
-            'Den monatlichen Management-Report',
-            'Die Ma&szlig;nahmen&uuml;bersicht im Advisory-System',
-          ])}
-          <p>Vielen Dank f&uuml;r Ihre Mitwirkung &ndash; gemeinsam behalten wir Ihre Kennzahlen stets im Blick.</p>
-          <p>Sollte es Fragen zur Datenstruktur oder zum Upload geben, unterst&uuml;tzen wir selbstverst&auml;ndlich gerne.</p>
-          ${signoff(true)}`);
+        return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
+          <p>${greeting},</p>
+          <p>f\u00fcr die termingerechte Aktualisierung Ihres Dashboards und die Erstellung des monatlichen Management-Reports ben\u00f6tigen wir Ihre aktuellen Unternehmensdaten.</p>
+          <p>Wir bitten Sie, die entsprechenden Dateien im vorgesehenen Upload-Ordner bereitzustellen, sofern dies noch nicht geschehen ist.</p>
+          <p><strong>Nach Dateneingang aktualisieren wir</strong></p>
+          <ul style="margin:8px 0;padding-left:20px;">
+            <li>Ihr Dashboard mit den aktuellen Kennzahlen</li>
+            <li>Den monatlichen Management-Report</li>
+            <li>Die Ma\u00dfnahmen\u00fcbersicht im Advisory-System</li>
+          </ul>
+          <p>F\u00fcr Fragen zur Datenstruktur oder zum Upload-Prozess stehen wir Ihnen selbstverst\u00e4ndlich gerne zur Verf\u00fcgung.</p>
+          <p>Vielen Dank f\u00fcr Ihre Mitwirkung \u2013 gemeinsam schaffen wir die Grundlage f\u00fcr fundierte Entscheidungen.</p>
+          ${signatureFormal}
+        </div>`;
 
       case 'rechnung':
-        return wrap(`
-          <p>Sehr geehrte/r ${customer.ansprechpartner},</p>
-          <p>anbei &uuml;bersenden wir Ihnen die Rechnung f&uuml;r den aktuellen Leistungsmonat unserer Zusammenarbeit.</p>
-          <p>Die Rechnung bezieht sich auf die vereinbarte Advisory-Leistung inklusive Zugang zum webbasierten Steuerungsdashboard sowie die laufende wirtschaftliche Analyse und Einordnung der Kennzahlen.</p>
-          <p>Bei R&uuml;ckfragen stehen wir selbstverst&auml;ndlich jederzeit gerne zur Verf&uuml;gung.</p>
-          ${signoff(true)}`);
+        return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
+          <p>${greeting},</p>
+          <p>anbei erhalten Sie die Rechnung f\u00fcr den aktuellen Leistungsmonat.</p>
+          <p>Die Rechnung umfasst die vereinbarte Advisory-Leistung einschlie\u00dflich des Zugangs zum webbasierten Steuerungsdashboard sowie der laufenden wirtschaftlichen Analyse und Auswertung Ihrer Kennzahlen.</p>
+          <p>Bei R\u00fcckfragen zur Rechnung stehen wir Ihnen selbstverst\u00e4ndlich jederzeit gerne zur Verf\u00fcgung.</p>
+          ${signatureFormal}
+        </div>`;
     }
   }
 
