@@ -62,17 +62,17 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
   let barColor = 'var(--border-color, #1E3350)', statusText = 'Keine Daten', statusBg = 'rgba(255,255,255,0.04)', statusColor = 'var(--text-secondary, #7B8FA8)';
   if (hasValue) {
     if (lowerIsBetter) {
-      if (current <= targetMin) { barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#1B5E20'; }
-      else if (current <= targetMid) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#2E7D32'; }
-      else if (current <= targetMax) { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = 'rgba(255,193,7,0.12)'; statusColor = '#E65100'; }
+      if (current <= targetMin) { barColor = '#5BA87C'; statusText = '★ Übertrifft'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#5BA87C'; }
+      else if (current <= targetMid) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#5BA87C'; }
+      else if (current <= targetMax) { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = 'rgba(255,193,7,0.12)'; statusColor = '#C9A44A'; }
       else { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = 'rgba(229,57,53,0.12)'; statusColor = '#C43830'; }
     } else {
-      if (current >= targetMid) { barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#1B5E20'; }
-      else if (current >= targetMin) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#2E7D32'; }
+      if (current >= targetMid) { barColor = '#5BA87C'; statusText = '★ Übertrifft'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#5BA87C'; }
+      else if (current >= targetMin) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = 'rgba(67,160,71,0.12)'; statusColor = '#5BA87C'; }
       else {
         const gap = targetMin > 0 ? (targetMin - current) / targetMin : 0;
         if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = 'rgba(229,57,53,0.12)'; statusColor = '#C43830'; }
-        else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = 'rgba(255,193,7,0.12)'; statusColor = '#E65100'; }
+        else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = 'rgba(255,193,7,0.12)'; statusColor = '#C9A44A'; }
       }
     }
   }
@@ -164,9 +164,9 @@ const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius:
 // ─── Status Badge Component ──────────────────────────────────────────────────
 function StatusBadge({ status, carryOver }: { status: MassnahmeStatus; carryOver: number }) {
   const config: Record<MassnahmeStatus, { bg: string; color: string; dot: string; label: string }> = {
-    OPEN: { bg: 'rgba(255,193,7,0.12)', color: '#E65100', dot: '#F59E0B', label: 'Offen' },
+    OPEN: { bg: 'rgba(255,193,7,0.12)', color: '#C9A44A', dot: '#F59E0B', label: 'Offen' },
     IN_PROGRESS: { bg: 'rgba(33,150,243,0.12)', color: '#1565C0', dot: '#2196F3', label: 'In Arbeit' },
-    DONE: { bg: 'rgba(67,160,71,0.12)', color: '#2E7D32', dot: '#4CAF50', label: 'Umgesetzt' },
+    DONE: { bg: 'rgba(67,160,71,0.12)', color: '#5BA87C', dot: '#4CAF50', label: 'Umgesetzt' },
   };
   const c = config[status] || config.OPEN;
   return (
@@ -185,9 +185,9 @@ function StatusBadge({ status, carryOver }: { status: MassnahmeStatus; carryOver
 // ─── Urgency Badge ───────────────────────────────────────────────────────────
 function UrgencyBadge({ urgency }: { urgency: 'KRITISCH' | 'HOCH' | 'MITTEL' }) {
   const conf = {
-    KRITISCH: { bg: 'rgba(229,57,53,0.12)', color: '#C62828', icon: '🔴' },
-    HOCH: { bg: 'rgba(255,152,0,0.12)', color: '#E65100', icon: '🟠' },
-    MITTEL: { bg: 'rgba(255,193,7,0.12)', color: '#F57F17', icon: '🟡' },
+    KRITISCH: { bg: 'rgba(229,57,53,0.12)', color: '#C06060', icon: '🔴' },
+    HOCH: { bg: 'rgba(255,152,0,0.12)', color: '#C9A44A', icon: '🟠' },
+    MITTEL: { bg: 'rgba(255,193,7,0.12)', color: '#C9A44A', icon: '🟡' },
   };
   const c = conf[urgency];
   return (
@@ -428,7 +428,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
     const m = Number(action.margin_pct ?? 0);
     if (m < 0 || Number(action.profit ?? 0) < 0) return { text: 'Kritisch', color: '#E53935', bg: 'rgba(229,57,53,0.12)' };
     if (rank <= 2) return { text: 'Handlungsbedarf', color: '#E53935', bg: 'rgba(229,57,53,0.12)' };
-    return { text: 'Optimieren', color: '#E65100', bg: 'rgba(255,193,7,0.12)' };
+    return { text: 'Optimieren', color: '#C9A44A', bg: 'rgba(255,193,7,0.12)' };
   };
 
   const tabBtn = (active: boolean) => active
@@ -458,10 +458,10 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           {[
             { label: 'AKTIV', value: String(kpis.active_count), color: 'var(--text-primary)', sub: `${kpis.carry_over_count} Carry-Over` },
             { label: 'UMGESETZT', value: String(kpis.done_count), color: '#2E8B57', sub: '' },
-            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#E65100', sub: 'Offenes Potenzial' },
-            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100', sub: 'Realisierter EBIT' },
+            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#C9A44A', sub: 'Offenes Potenzial' },
+            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#C9A44A', sub: 'Realisierter EBIT' },
             { label: 'POTENZIAL TOTAL', value: fmtEur(kpis.total_potenzial), color: 'var(--text-primary)', sub: 'Alle Maßnahmen' },
-            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#E65100', sub: 'Realisierung %' },
+            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#C9A44A', sub: 'Realisierung %' },
             { label: 'NEU DIESEN MONAT', value: String(kpis.new_this_month), color: '#1565C0', sub: `von ${allCurrentItems.length} gesamt` },
           ].map((kpi, i) => (
             <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #0B1526)', border: '1px solid var(--border-color)' }}>
@@ -479,7 +479,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           <span style={DOT} />
           <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
           {rawBenchmarks.length === 0 && (
-            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,193,7,0.12)', color: '#E65100' }}>Branchenzielwerte</span>
+            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,193,7,0.12)', color: '#C9A44A' }}>Branchenzielwerte</span>
           )}
         </div>
         <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
@@ -596,7 +596,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             <div className="flex items-center gap-2">
               <span style={{ ...DOT, background: '#C8A96E', width: 10, height: 10 }} />
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>EMPFOHLENE MAẞNAHMEN</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,152,0,0.12)', color: '#E65100' }}>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,152,0,0.12)', color: '#C9A44A' }}>
                 {visibleRecs.length} Vorschläge
               </span>
             </div>
@@ -612,10 +612,10 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {visibleRecs.map((rec) => {
               const catBadge = rec.category === 'BENCHMARK'
-                ? { bg: 'rgba(67,160,71,0.12)', color: '#2E7D32', text: 'BM' }
+                ? { bg: 'rgba(67,160,71,0.12)', color: '#5BA87C', text: 'BM' }
                 : rec.category === 'LIQUIDITAET'
                 ? { bg: 'rgba(33,150,243,0.12)', color: '#1565C0', text: 'LIQ' }
-                : { bg: 'rgba(255,152,0,0.12)', color: '#E65100', text: 'VTR' };
+                : { bg: 'rgba(255,152,0,0.12)', color: '#C9A44A', text: 'VTR' };
               return (
                 <div key={rec.action_key} className="p-4 rounded-xl" style={{ border: '1.5px solid rgba(200,169,110,0.4)', background: 'linear-gradient(135deg, rgba(200,169,110,0.04) 0%, rgba(255,255,255,1) 100%)' }}>
                   <div className="flex items-start justify-between mb-2">
@@ -684,8 +684,8 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             const badgeStyle = isLiq
               ? { background: 'rgba(33,150,243,0.12)', color: '#1565C0' }
               : isBench
-              ? { background: 'rgba(67,160,71,0.12)', color: '#2E7D32' }
-              : { background: 'rgba(255,152,0,0.12)', color: '#E65100' };
+              ? { background: 'rgba(67,160,71,0.12)', color: '#5BA87C' }
+              : { background: 'rgba(255,152,0,0.12)', color: '#C9A44A' };
             const badgeText = isLiq ? 'LIQ' : isBench ? 'BM' : 'VTR';
 
             return (
@@ -705,7 +705,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                 </div>
                 <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
                   {isBench ? (
-                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(67,160,71,0.12)', color: '#2E7D32' }}>BENCHMARK</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(67,160,71,0.12)', color: '#5BA87C' }}>BENCHMARK</span>
                   ) : isLiq ? (
                     <>
                       <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(33,150,243,0.12)', color: '#1565C0' }}>LIQUIDITÄT</span>
@@ -713,7 +713,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                     </>
                   ) : (
                     <>
-                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: 'rgba(255,193,7,0.12)', color: '#E65100' } : { background: 'rgba(67,160,71,0.12)', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: 'rgba(255,193,7,0.12)', color: '#C9A44A' } : { background: 'rgba(67,160,71,0.12)', color: '#5BA87C' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
                       <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
                     </>
                   )}
@@ -813,7 +813,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                         <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                           {item.label}
                           {item.is_recommendation && (
-                            <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,152,0,0.12)', color: '#E65100', verticalAlign: 'middle' }}>AI</span>
+                            <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,152,0,0.12)', color: '#C9A44A', verticalAlign: 'middle' }}>AI</span>
                           )}
                         </div>
                         {item.description && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.description}</div>}
@@ -853,7 +853,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                               <div className="absolute h-2.5 rounded-full transition-all" style={{ width: `${item.realization}%`, background: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E8A76A' : '#E0E0E0' }} />
                             </div>
                           )}
-                          <span className="text-sm font-bold w-10 text-right" style={{ color: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E65100' : 'var(--text-secondary)' }}>
+                          <span className="text-sm font-bold w-10 text-right" style={{ color: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#C9A44A' : 'var(--text-secondary)' }}>
                             {item.realization}%
                           </span>
                         </div>
@@ -878,7 +878,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                     <td className="py-3 px-3" />
                     <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtEur(activeItems.reduce((s, t) => s + t.potenzial, 0))}</td>
                     <td className="py-3 px-3 text-center text-sm font-semibold" style={{ color: '#C8A96E' }}>Ø {kpis.capture_rate.toFixed(0)}%</td>
-                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100' }}>{fmtEur(kpis.realized_ebit)}</td>
+                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: kpis.realized_ebit > 0 ? '#2E8B57' : '#C9A44A' }}>{fmtEur(kpis.realized_ebit)}</td>
                     <td className="py-3 px-3" /><td className="py-3" />
                   </tr>
                 )}
@@ -960,20 +960,20 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
   const pctMax = Math.min((scMax / scaleMax) * 100, 100);
   const pctMid = (scMid / scaleMax) * 100;
 
-  let barColor = '#ccc', statusText = 'Keine Daten', statusBg = '#F5F5F5', statusColor = '#999';
+  let barColor = 'var(--border-color, rgba(254,253,251,0.08))', statusText = 'Keine Daten', statusBg = 'rgba(255,255,255,0.06)', statusColor = 'var(--text-secondary, rgba(254,253,251,0.55))';
   if (hasValue) {
     if (lowerIsBetter) {
-      if (current <= targetMin) { barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20'; }
-      else if (current <= targetMid) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32'; }
-      else if (current <= targetMax) { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
-      else { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
+      if (current <= targetMin) { barColor = '#5BA87C'; statusText = '★ Übertrifft'; statusBg = 'rgba(91,168,124,0.15)'; statusColor = '#5BA87C'; }
+      else if (current <= targetMid) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = 'rgba(91,168,124,0.15)'; statusColor = '#5BA87C'; }
+      else if (current <= targetMax) { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = 'rgba(201,164,74,0.15)'; statusColor = '#C9A44A'; }
+      else { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = 'rgba(192,96,96,0.15)'; statusColor = '#C43830'; }
     } else {
-      if (current >= targetMid) { barColor = '#1B5E20'; statusText = '★ Übertrifft'; statusBg = '#E8F5E9'; statusColor = '#1B5E20'; }
-      else if (current >= targetMin) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = '#E8F5E9'; statusColor = '#2E7D32'; }
+      if (current >= targetMid) { barColor = '#5BA87C'; statusText = '★ Übertrifft'; statusBg = 'rgba(91,168,124,0.15)'; statusColor = '#5BA87C'; }
+      else if (current >= targetMin) { barColor = '#2E8B57'; statusText = '✓ Im Ziel'; statusBg = 'rgba(91,168,124,0.15)'; statusColor = '#5BA87C'; }
       else {
         const gap = targetMin > 0 ? (targetMin - current) / targetMin : 0;
-        if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = '#FFEBEE'; statusColor = '#C43830'; }
-        else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = '#FFF8E1'; statusColor = '#E65100'; }
+        if (gap > 0.2) { barColor = '#C43830'; statusText = 'Kritisch'; statusBg = 'rgba(192,96,96,0.15)'; statusColor = '#C43830'; }
+        else { barColor = '#E8A76A'; statusText = 'Optimierbar'; statusBg = 'rgba(201,164,74,0.15)'; statusColor = '#C9A44A'; }
       }
     }
   }
@@ -996,10 +996,10 @@ function BenchmarkGauge({ label, current, targetMin, targetMid, targetMax, isPro
         <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ background: statusBg, color: statusColor }}>{statusText}</span>
       </div>
       {explanation && <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>{explanation}</div>}
-      <div className="relative h-4 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+      <div className="relative h-4 rounded-full" style={{ backgroundColor: 'var(--background-card, rgba(255,255,255,0.035))' }}>
         <div className="absolute h-4 rounded" style={{ left: `${pctMin}%`, width: `${Math.max(0, pctMax - pctMin)}%`, backgroundColor: 'rgba(46,139,87,0.15)', borderLeft: '2px solid rgba(46,139,87,0.4)', borderRight: '2px solid rgba(46,139,87,0.4)' }} />
         {hasValue && <div className="absolute h-4 rounded-full transition-all" style={{ width: `${pctCurrent}%`, backgroundColor: barColor, opacity: 0.85 }} />}
-        <div className="absolute top-0 h-4" style={{ left: `${pctMid}%`, width: 2, backgroundColor: '#333', borderRadius: 1 }} />
+        <div className="absolute top-0 h-4" style={{ left: `${pctMid}%`, width: 2, backgroundColor: 'var(--text-primary, #FEFDFB)', borderRadius: 1 }} />
       </div>
       <div className="flex justify-between text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
         <span>{isAbsScale ? '0 €' : '0'}</span>
@@ -1065,9 +1065,9 @@ const COPPER_LINE = { width: 32, height: 2, background: '#C8A96E', borderRadius:
 // ─── Status Badge Component ──────────────────────────────────────────────────
 function StatusBadge({ status, carryOver }: { status: MassnahmeStatus; carryOver: number }) {
   const config: Record<MassnahmeStatus, { bg: string; color: string; dot: string; label: string }> = {
-    OPEN: { bg: '#FFF8E1', color: '#E65100', dot: '#F59E0B', label: 'Offen' },
-    IN_PROGRESS: { bg: '#E3F2FD', color: '#1565C0', dot: '#2196F3', label: 'In Arbeit' },
-    DONE: { bg: '#E8F5E9', color: '#2E7D32', dot: '#4CAF50', label: 'Umgesetzt' },
+    OPEN: { bg: 'rgba(201,164,74,0.15)', color: '#C9A44A', dot: '#F59E0B', label: 'Offen' },
+    IN_PROGRESS: { bg: 'rgba(100,160,220,0.15)', color: '#1565C0', dot: '#2196F3', label: 'In Arbeit' },
+    DONE: { bg: 'rgba(91,168,124,0.15)', color: '#5BA87C', dot: '#4CAF50', label: 'Umgesetzt' },
   };
   const c = config[status] || config.OPEN;
   return (
@@ -1086,9 +1086,9 @@ function StatusBadge({ status, carryOver }: { status: MassnahmeStatus; carryOver
 // ─── Urgency Badge ───────────────────────────────────────────────────────────
 function UrgencyBadge({ urgency }: { urgency: 'KRITISCH' | 'HOCH' | 'MITTEL' }) {
   const conf = {
-    KRITISCH: { bg: '#FFEBEE', color: '#C62828', icon: '🔴' },
-    HOCH: { bg: '#FFF3E0', color: '#E65100', icon: '🟠' },
-    MITTEL: { bg: '#FFF8E1', color: '#F57F17', icon: '🟡' },
+    KRITISCH: { bg: 'rgba(192,96,96,0.15)', color: '#C06060', icon: '🔴' },
+    HOCH: { bg: 'rgba(176,138,106,0.15)', color: '#C9A44A', icon: '🟠' },
+    MITTEL: { bg: 'rgba(201,164,74,0.15)', color: '#C9A44A', icon: '🟡' },
   };
   const c = conf[urgency];
   return (
@@ -1327,9 +1327,9 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
 
   const getEbitBadge = (action: any, rank: number) => {
     const m = Number(action.margin_pct ?? 0);
-    if (m < 0 || Number(action.profit ?? 0) < 0) return { text: 'Kritisch', color: '#E53935', bg: '#FFEBEE' };
-    if (rank <= 2) return { text: 'Handlungsbedarf', color: '#E53935', bg: '#FFEBEE' };
-    return { text: 'Optimieren', color: '#E65100', bg: '#FFF8E1' };
+    if (m < 0 || Number(action.profit ?? 0) < 0) return { text: 'Kritisch', color: '#E53935', bg: 'rgba(192,96,96,0.15)' };
+    if (rank <= 2) return { text: 'Handlungsbedarf', color: '#E53935', bg: 'rgba(192,96,96,0.15)' };
+    return { text: 'Optimieren', color: '#C9A44A', bg: 'rgba(201,164,74,0.15)' };
   };
 
   const tabBtn = (active: boolean) => active
@@ -1344,7 +1344,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
     <div>
       <div style={{ padding: '1.75rem 2rem 1.25rem', maxWidth: 1400, margin: 0 }}>
         <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.35rem', letterSpacing: '0.3px' }}>Maßnahmen</h2>
-        <p style={{ fontSize: '0.95rem', color: '#888', margin: 0, fontWeight: 400 }}>Steuerungs-Cockpit — Optimierungspotenziale erkennen, priorisieren und umsetzen</p>
+        <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary, rgba(254,253,251,0.55))', margin: 0, fontWeight: 400 }}>Steuerungs-Cockpit — Optimierungspotenziale erkennen, priorisieren und umsetzen</p>
       </div>
       <div className="space-y-6" style={{ maxWidth: 1400, margin: '0 auto', padding: '0 2rem' }}>
 
@@ -1359,13 +1359,13 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           {[
             { label: 'AKTIV', value: String(kpis.active_count), color: 'var(--text-primary)', sub: `${kpis.carry_over_count} Carry-Over` },
             { label: 'UMGESETZT', value: String(kpis.done_count), color: '#2E8B57', sub: '' },
-            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#E65100', sub: 'Offenes Potenzial' },
-            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100', sub: 'Realisierter EBIT' },
+            { label: 'PIPELINE OFFEN', value: fmtEur(kpis.open_pipeline), color: '#C9A44A', sub: 'Offenes Potenzial' },
+            { label: 'REALISIERT', value: fmtEur(kpis.realized_ebit), color: kpis.realized_ebit > 0 ? '#2E8B57' : '#C9A44A', sub: 'Realisierter EBIT' },
             { label: 'POTENZIAL TOTAL', value: fmtEur(kpis.total_potenzial), color: 'var(--text-primary)', sub: 'Alle Maßnahmen' },
-            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#E65100', sub: 'Realisierung %' },
+            { label: 'CAPTURE RATE', value: `${kpis.capture_rate.toFixed(0)}%`, color: kpis.capture_rate >= 50 ? '#2E8B57' : '#C9A44A', sub: 'Realisierung %' },
             { label: 'NEU DIESEN MONAT', value: String(kpis.new_this_month), color: '#1565C0', sub: `von ${allCurrentItems.length} gesamt` },
           ].map((kpi, i) => (
-            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, #F7F5F2)', border: '1px solid var(--border-color)' }}>
+            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'var(--background, var(--background, #192231))', border: '1px solid var(--border-color)' }}>
               <div className="text-xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
               <div className="text-xs mt-0.5 uppercase tracking-wide font-semibold" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</div>
               {kpi.sub && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>{kpi.sub}</div>}
@@ -1380,7 +1380,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           <span style={DOT} />
           <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>BENCHMARKVERGLEICH</h3>
           {rawBenchmarks.length === 0 && (
-            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: '#FFF8E1', color: '#E65100' }}>Branchenzielwerte</span>
+            <span className="ml-2 text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(201,164,74,0.15)', color: '#C9A44A' }}>Branchenzielwerte</span>
           )}
         </div>
         <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
@@ -1416,7 +1416,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             const leverKey = `liq_${i}`;
             if (!!liqLeversArchived[leverKey]) return null;
             return (
-              <div key={i} className="p-4 rounded-xl relative" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: '#fff', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
+              <div key={i} className="p-4 rounded-xl relative" style={{ border: lever.biggest ? '2px solid #C8A96E' : '1px solid var(--border-color)', background: 'var(--background-card, rgba(255,255,255,0.035))', paddingTop: lever.biggest ? '1.5rem' : '1rem' }}>
                 {lever.biggest && <span className="absolute text-xs font-bold rounded px-2 py-0.5" style={{ top: -11, left: 16, background: '#C8A96E', color: '#fff' }}>GRÖSSTER HEBEL</span>}
                 <div className="flex justify-between items-start mb-2">
                   <div className="font-bold text-sm pr-3 flex-1" style={{ color: 'var(--text-primary)' }}>{lever.title}</div>
@@ -1468,7 +1468,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
               const impact = getImpact(action);
               const badge = getEbitBadge(action, rank);
               return (
-                <div key={action.action_key || idx} className="p-3.5 rounded-xl" style={{ border: '1px solid var(--border-color)', background: '#fff' }}>
+                <div key={action.action_key || idx} className="p-3.5 rounded-xl" style={{ border: '1px solid var(--border-color)', background: 'var(--background-card, rgba(255,255,255,0.035))' }}>
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ background: '#C8A96E', color: '#fff' }}>{rank}</div>
                     <div className="flex-1 min-w-0">
@@ -1497,7 +1497,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             <div className="flex items-center gap-2">
               <span style={{ ...DOT, background: '#C8A96E', width: 10, height: 10 }} />
               <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>EMPFOHLENE MAẞNAHMEN</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#FFF3E0', color: '#E65100' }}>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(176,138,106,0.15)', color: '#C9A44A' }}>
                 {visibleRecs.length} Vorschläge
               </span>
             </div>
@@ -1513,10 +1513,10 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {visibleRecs.map((rec) => {
               const catBadge = rec.category === 'BENCHMARK'
-                ? { bg: '#E8F5E9', color: '#2E7D32', text: 'BM' }
+                ? { bg: 'rgba(91,168,124,0.15)', color: '#5BA87C', text: 'BM' }
                 : rec.category === 'LIQUIDITAET'
-                ? { bg: '#E3F2FD', color: '#1565C0', text: 'LIQ' }
-                : { bg: '#FFF3E0', color: '#E65100', text: 'VTR' };
+                ? { bg: 'rgba(100,160,220,0.15)', color: '#1565C0', text: 'LIQ' }
+                : { bg: 'rgba(176,138,106,0.15)', color: '#C9A44A', text: 'VTR' };
               return (
                 <div key={rec.action_key} className="p-4 rounded-xl" style={{ border: '1.5px solid rgba(200,169,110,0.4)', background: 'linear-gradient(135deg, rgba(200,169,110,0.04) 0%, rgba(255,255,255,1) 100%)' }}>
                   <div className="flex items-start justify-between mb-2">
@@ -1583,15 +1583,15 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             const isLiq = !!action.isLiquidity;
             // Badge styling per type
             const badgeStyle = isLiq
-              ? { background: '#E3F2FD', color: '#1565C0' }
+              ? { background: 'rgba(100,160,220,0.15)', color: '#1565C0' }
               : isBench
-              ? { background: '#E8F5E9', color: '#2E7D32' }
-              : { background: '#FFF3E0', color: '#E65100' };
+              ? { background: 'rgba(91,168,124,0.15)', color: '#5BA87C' }
+              : { background: 'rgba(176,138,106,0.15)', color: '#C9A44A' };
             const badgeText = isLiq ? 'LIQ' : isBench ? 'BM' : 'VTR';
 
             return (
               <div key={key} onClick={() => handleTogglePool(action)} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ border: `1px solid ${selected ? '#C8A96E' : action.isBiggest ? '#C8A96E' : 'var(--border-color)'}`, background: selected ? 'rgba(200,169,110,0.05)' : '#fff' }}>
-                <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : '#ccc', background: selected ? '#C8A96E' : '#fff' }}>
+                <div className="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all" style={{ borderColor: selected ? '#C8A96E' : 'var(--border-color, rgba(254,253,251,0.08))', background: selected ? '#C8A96E' : '#fff' }}>
                   {selected && <span style={{ color: '#fff', fontSize: 10, fontWeight: 800 }}>✓</span>}
                 </div>
                 <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={badgeStyle}>
@@ -1606,15 +1606,15 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                 </div>
                 <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
                   {isBench ? (
-                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: '#E8F5E9', color: '#2E7D32' }}>BENCHMARK</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(91,168,124,0.15)', color: '#5BA87C' }}>BENCHMARK</span>
                   ) : isLiq ? (
                     <>
-                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: '#E3F2FD', color: '#1565C0' }}>LIQUIDITÄT</span>
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(100,160,220,0.15)', color: '#1565C0' }}>LIQUIDITÄT</span>
                       {impact > 0 && <div className="text-xs font-bold" style={{ color: '#1565C0' }}>+{fmtEur(impact)}/M</div>}
                     </>
                   ) : (
                     <>
-                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: '#FFF8E1', color: '#E65100' } : { background: '#E8F5E9', color: '#2E7D32' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
+                      <span className="px-2 py-0.5 rounded text-xs font-bold" style={isTop ? { background: 'rgba(201,164,74,0.15)', color: '#C9A44A' } : { background: 'rgba(91,168,124,0.15)', color: '#5BA87C' }}>{isTop ? 'TOP HEBEL' : 'ZUSATZ'}</span>
                       <div className="text-xs font-bold" style={{ color: '#2E8B57' }}>+{fmtEur(impact)}</div>
                     </>
                   )}
@@ -1635,7 +1635,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                   if (!liqLeversArchived[leverKey]) return null;
                   return (
                     <div key={leverKey} className="flex items-center gap-3 p-3 rounded-xl" style={{ border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.02)', opacity: 0.7 }}>
-                      <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: '#E3F2FD', color: '#1565C0' }}>LIQ</span>
+                      <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: 'rgba(100,160,220,0.15)', color: '#1565C0' }}>LIQ</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm line-through" style={{ color: 'var(--text-secondary)' }}>{lever.title}</div>
                         <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lever.items.join(' · ')}</div>
@@ -1662,7 +1662,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
           <span style={DOT} />
           <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)', letterSpacing: '1.2px' }}>REALISIERUNGSTRACKER</span>
           {kpis.carry_over_count > 0 && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: '#E3F2FD', color: '#1565C0' }}>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(100,160,220,0.15)', color: '#1565C0' }}>
               {kpis.carry_over_count} Carry-Over
             </span>
           )}
@@ -1714,7 +1714,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                         <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                           {item.label}
                           {item.is_recommendation && (
-                            <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded" style={{ background: '#FFF3E0', color: '#E65100', verticalAlign: 'middle' }}>AI</span>
+                            <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(176,138,106,0.15)', color: '#C9A44A', verticalAlign: 'middle' }}>AI</span>
                           )}
                         </div>
                         {item.description && <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.description}</div>}
@@ -1730,7 +1730,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                             value={item.status}
                             onChange={e => handleUpdateStatus(item.action_key, { status: e.target.value as MassnahmeStatus })}
                             className="text-xs rounded-lg px-2 py-1.5 border"
-                            style={{ background: '#fff', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}
+                            style={{ background: 'var(--background-card, rgba(255,255,255,0.035))', color: 'var(--text-primary)', borderColor: 'var(--border-color)', cursor: 'pointer' }}
                           >
                             <option value="OPEN">Offen</option>
                             <option value="IN_PROGRESS">In Arbeit</option>
@@ -1748,13 +1748,13 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                           {trackerTab === 'aktiv' ? (
                             <input type="range" min={0} max={100} step={5} value={item.realization}
                               onChange={e => handleUpdateStatus(item.action_key, { realization: Number(e.target.value) })}
-                              className="flex-1" style={{ accentColor: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#C8A96E' : '#999', height: 6 }} />
+                              className="flex-1" style={{ accentColor: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#C8A96E' : 'var(--text-secondary, rgba(254,253,251,0.55))', height: 6 }} />
                           ) : (
-                            <div className="flex-1 relative h-2.5 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+                            <div className="flex-1 relative h-2.5 rounded-full" style={{ backgroundColor: 'var(--background-card, rgba(255,255,255,0.035))' }}>
                               <div className="absolute h-2.5 rounded-full transition-all" style={{ width: `${item.realization}%`, background: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E8A76A' : '#E0E0E0' }} />
                             </div>
                           )}
-                          <span className="text-sm font-bold w-10 text-right" style={{ color: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#E65100' : 'var(--text-secondary)' }}>
+                          <span className="text-sm font-bold w-10 text-right" style={{ color: item.realization >= 80 ? '#2E8B57' : item.realization >= 40 ? '#C9A44A' : 'var(--text-secondary)' }}>
                             {item.realization}%
                           </span>
                         </div>
@@ -1764,7 +1764,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                       </td>
                       <td className="py-3 px-3">
                         <input type="text" value={item.note} onChange={e => handleUpdateStatus(item.action_key, { note: e.target.value })} placeholder="–"
-                          className="text-xs border rounded px-2 py-1" style={{ width: 80, borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: '#fff' }} />
+                          className="text-xs border rounded px-2 py-1" style={{ width: 80, borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--background-card, rgba(255,255,255,0.035))' }} />
                       </td>
                       <td className="py-3 pl-1">
                         <button onClick={() => handleRemove(item.action_key)} title="Entfernen" className="w-6 h-6 flex items-center justify-center rounded-full transition-all hover:bg-red-50" style={{ color: '#E53935', fontSize: 16, fontWeight: 700 }}>×</button>
@@ -1779,7 +1779,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
                     <td className="py-3 px-3" />
                     <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtEur(activeItems.reduce((s, t) => s + t.potenzial, 0))}</td>
                     <td className="py-3 px-3 text-center text-sm font-semibold" style={{ color: '#C8A96E' }}>Ø {kpis.capture_rate.toFixed(0)}%</td>
-                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: kpis.realized_ebit > 0 ? '#2E8B57' : '#E65100' }}>{fmtEur(kpis.realized_ebit)}</td>
+                    <td className="py-3 px-3 text-right font-bold text-sm" style={{ color: kpis.realized_ebit > 0 ? '#2E8B57' : '#C9A44A' }}>{fmtEur(kpis.realized_ebit)}</td>
                     <td className="py-3 px-3" /><td className="py-3" />
                   </tr>
                 )}
@@ -1787,7 +1787,7 @@ export default function Page4Massnahmen({ data, customer, period, industrySegmen
             </table>
           </div>
         ) : (
-          <div className="text-center py-8 rounded-xl" style={{ background: 'var(--background, #F7F5F2)', border: '1px dashed var(--border-color)' }}>
+          <div className="text-center py-8 rounded-xl" style={{ background: 'var(--background, var(--background, #192231))', border: '1px dashed var(--border-color)' }}>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {trackerTab === 'aktiv'
                 ? 'Noch keine aktiven Maßnahmen — Empfehlungen übernehmen oder aus dem Pool auswählen.'
