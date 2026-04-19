@@ -419,21 +419,22 @@ export default function OperationsPage() {
         </div>`;
 
       case 'termin':
-        return wrap(`
-          <p>Sehr geehrte/r ${customer.ansprechpartner},</p>
-          <p>wir freuen uns, Ihnen mitteilen zu k&ouml;nnen, dass Ihre Daten erfolgreich angebunden wurden und Ihr Steuerungssystem eingerichtet ist.</p>
-          <p>Als n&auml;chsten Schritt m&ouml;chten wir gemeinsam mit Ihnen das erste Managementgespr&auml;ch durchf&uuml;hren &ndash; um das Dashboard vorzustellen, die Ergebnisse einzuordnen und konkrete Ma&szlig;nahmen zu besprechen.</p>
-          ${heading('Termin vereinbaren')}
-          <p>Bitte w&auml;hlen Sie &uuml;ber den folgenden Link einen Termin aus, der f&uuml;r Sie passt:</p>
+        return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
+          <p>${greeting},</p>
+          <p>wir freuen uns, Ihnen mitteilen zu k\u00f6nnen, dass Ihre Daten erfolgreich angebunden wurden und Ihr Steuerungssystem eingerichtet ist.</p>
+          <p>Als n\u00e4chsten Schritt m\u00f6chten wir gemeinsam mit Ihnen das erste Managementgespr\u00e4ch durchf\u00fchren \u2013 um das Dashboard vorzustellen, die Ergebnisse einzuordnen und konkrete Ma\u00dfnahmen zu besprechen.</p>
+          <p><strong>Termin vereinbaren</strong></p>
+          <p>Bitte w\u00e4hlen Sie \u00fcber den folgenden Link einen Termin aus, der f\u00fcr Sie passt:</p>
           <p style="margin:12px 0;">
-            <a href="https://calendly.com/nhi-meyerdecision/30min" style="display:inline-block;background:#192231;color:#F7F5F2;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:13px;font-weight:600;letter-spacing:0.5px;">
-              &rarr; Termin vereinbaren &ndash; Meyer Decision
+            <a href="https://calendly.com/nhi-meyerdecision/30min" style="display:inline-block;background:#192231;color:#f7f5f2;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:13px;font-weight:600;">
+              \u2192 Termin vereinbaren \u2013 Meyer Decision
             </a>
           </p>
-          <p style="font-size:12px;color:#9A9490;">Alternativ: <a href="https://calendly.com/nhi-meyerdecision/30min" style="color:#B08A6A;">https://calendly.com/nhi-meyerdecision/30min</a></p>
-          <p>Das Gespr&auml;ch dauert ca. 60 Minuten und findet per Videokonferenz statt. Den Einladungslink erhalten Sie automatisch nach der Buchung.</p>
-          <p>Wir freuen uns auf das Gespr&auml;ch.</p>
-          ${signoff(true)}`);
+          <p style="font-size:12px;color:#888;"><a href="https://calendly.com/nhi-meyerdecision/30min" style="color:#B08A6A;">https://calendly.com/nhi-meyerdecision/30min</a></p>
+          <p>Das Gespr\u00e4ch dauert ca. 60 Minuten und findet per Videokonferenz statt. Den Einladungslink erhalten Sie automatisch nach der Buchung.</p>
+          <p>Wir freuen uns auf das Gespr\u00e4ch.</p>
+          ${signatureFormal}
+        </div>`;
 
       case 'reminder':
         return `<div style="font-family:Arial,sans-serif;color:#192231;line-height:1.6;">
