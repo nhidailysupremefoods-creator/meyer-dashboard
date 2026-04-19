@@ -58,6 +58,8 @@ export interface MandateTracking {
 export interface MonthlyOperationsData {
   reminder_sent: boolean;
   rechnung_sent: boolean;
+  rechnung_bezahlt?: boolean;       // wurde die Rechnung bezahlt?
+  rechnung_bezahlt_am?: string | null; // ISO timestamp der Zahlung
   daten_erhalten: boolean;
   daten_valide: boolean;
   call_durchgefuehrt: boolean;

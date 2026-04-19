@@ -42,7 +42,7 @@ const SENDERS = [
 ];
 
 const OPS_STORAGE_KEY = 'meyer-internal-os-operations';
-const OPS_STORAGE_VERSION = '3'; // bump to reset stored data
+const OPS_STORAGE_VERSION = '4'; // bump to reset stored data
 const OPS_VERSION_KEY = 'meyer-internal-os-operations-version';
 const CRM_SYNC_KEY = 'meyer-crm-sync';
 
@@ -660,6 +660,23 @@ export default function OperationsPage() {
     }));
   }
 
+  // ── Mark invoice as paid ────────────────────────────────
+  function markRechnungBezahlt(customerId: string, bezahlt: boolean) {
+    setCustomers(prev => prev.map(c => {
+      if (c.customer_id !== customerId) return c;
+      const monthData = getMonthData(c, selectedMonth);
+      const updatedMonth: MonthlyOperationsData = {
+        ...monthData,
+        rechnung_bezahlt: bezahlt,
+        rechnung_bezahlt_am: bezahlt ? new Date().toISOString() : null,
+      };
+      return {
+        ...c,
+        monthly_data: { ...c.monthly_data, [selectedMonth]: updatedMonth },
+      };
+    }));
+  }
+
   // Reset manual override (let auto-check take over again)
   function resetOverride(customerId: string, field: 'override_daten_erhalten' | 'override_daten_valide') {
     setCustomers(prev => prev.map(c => {
@@ -680,6 +697,13 @@ export default function OperationsPage() {
   const gruen = customers.filter(c => computeAmpel(getMonthData(c, selectedMonth)) === 'GRUEN').length;
   const gelb  = customers.filter(c => computeAmpel(getMonthData(c, selectedMonth)) === 'GELB').length;
   const rot   = customers.filter(c => computeAmpel(getMonthData(c, selectedMonth)) === 'ROT').length;
+  // Invoice KPIs
+  const offeneRechnungen = customers.filter(c => {
+    const md = getMonthData(c, selectedMonth);
+    return md.rechnung_sent && !md.rechnung_bezahlt;
+  });
+  const offenerBetrag = offeneRechnungen.reduce((sum, c) => sum + (c.monatliches_honorar || 0), 0);
+  const bezahlteRechnungen = customers.filter(c => getMonthData(c, selectedMonth).rechnung_bezahlt).length;
   // Check upload deadline relative to selected month
   const today = new Date();
   const [selYear, selMonthNum] = selectedMonth.split('-').map(Number);
@@ -798,7 +822,7 @@ export default function OperationsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-lg">{gruen}</div>
           <div>
@@ -818,6 +842,28 @@ export default function OperationsPage() {
           <div>
             <div className="font-manrope text-xl font-bold text-navy">Aktion nötig</div>
             <div className="text-xs text-gray-400">Keine Daten</div>
+          </div>
+        </div>
+        {/* Invoice KPI */}
+        <div className={`rounded-2xl border shadow-sm p-5 flex items-center gap-4 ${
+          offeneRechnungen.length > 0
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-white border-gray-100'
+        }`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg ${
+            offeneRechnungen.length > 0 ? 'bg-amber-400' : 'bg-green-500'
+          }`}>
+            {offeneRechnungen.length > 0 ? offeneRechnungen.length : '✓'}
+          </div>
+          <div>
+            <div className="font-manrope text-xl font-bold text-navy">
+              {offeneRechnungen.length > 0 ? 'Offen' : 'Alles bezahlt'}
+            </div>
+            <div className="text-xs text-gray-400">
+              {offeneRechnungen.length > 0
+                ? `€\u00a0${offenerBetrag.toLocaleString('de-DE')} ausstehend`
+                : `${bezahlteRechnungen} Rechnung${bezahlteRechnungen !== 1 ? 'en' : ''} bezahlt`}
+            </div>
           </div>
         </div>
       </div>
@@ -1045,35 +1091,66 @@ export default function OperationsPage() {
                       Gmail-Status verifiziert
                     </div>
                   )}
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-6 gap-3">
                     {WORKFLOW_STEPS.map(step => {
                       const md = getMonthData(customer, selectedMonth);
                       const isSent = step.monthly
                         ? (md[step.type === 'reminder' ? 'reminder_sent' : 'rechnung_sent'] as boolean)
                         : customer[step.sentKey] as boolean;
                       const isPreparing = preparing === `${step.type}-${customer.customer_id}`;
+                      const isRechnung = step.type === 'rechnung';
+                      const isBezahlt = isRechnung && md.rechnung_bezahlt === true;
 
                       return (
                         <div key={step.type} className={`rounded-xl border text-center transition-all ${
-                          isSent
-                            ? 'border-green-100 bg-green-50/60 py-3 px-2'
-                            : 'border-gray-100 bg-white py-4 px-2'
+                          isRechnung && isSent
+                            ? isBezahlt
+                              ? 'border-green-200 bg-green-50 py-3 px-2'
+                              : 'border-amber-200 bg-amber-50/60 py-3 px-2'
+                            : isSent
+                              ? 'border-green-100 bg-green-50/60 py-3 px-2'
+                              : 'border-gray-100 bg-white py-4 px-2'
                         }`}>
                           <div className="text-xl mb-1">{step.icon}</div>
                           <div className="text-[11px] font-semibold text-gray-500 mb-2">{step.label}</div>
 
                           {isSent ? (
-                            // Already sent: compact confirmation + small re-send link
                             <div>
-                              {gmailStatus[customer.customer_id]?.[step.type] === true && (
-                                <div className="text-[11px] font-semibold text-green-600 mb-2">✓ Gesendet</div>
+                              {/* Sent status line */}
+                              {gmailStatus[customer.customer_id]?.[step.type] === false ? (
+                                <div className="text-[11px] text-amber-600 font-medium mb-1.5" title="Entwurf – noch nicht abgesendet">⚠ Entwurf</div>
+                              ) : (
+                                <div className="text-[11px] font-semibold text-green-600 mb-1.5">✓ Gesendet</div>
                               )}
-                              {gmailStatus[customer.customer_id]?.[step.type] === false && (
-                                <div className="text-[11px] text-amber-600 font-medium mb-2" title="Entwurf – noch nicht abgesendet">⚠ Entwurf – nicht gesendet</div>
+
+                              {/* Rechnung: Bezahlt-Status */}
+                              {isRechnung && (
+                                isBezahlt ? (
+                                  <div className="mb-1.5">
+                                    <div className="text-[11px] font-bold text-green-700">💚 Bezahlt</div>
+                                    {md.rechnung_bezahlt_am && (
+                                      <div className="text-[9px] text-gray-400 mt-0.5">{formatDate(md.rechnung_bezahlt_am)}</div>
+                                    )}
+                                    <button
+                                      onClick={() => markRechnungBezahlt(customer.customer_id, false)}
+                                      className="mt-1 text-[9px] text-gray-300 hover:text-red-400 underline underline-offset-1 transition-colors"
+                                    >
+                                      Rückgängig
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="mb-1.5">
+                                    <div className="text-[11px] font-semibold text-amber-600 mb-1">💶 Offen</div>
+                                    <button
+                                      onClick={() => markRechnungBezahlt(customer.customer_id, true)}
+                                      className="w-full px-1.5 py-1.5 rounded-lg text-[10px] font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
+                                    >
+                                      Bezahlt ✓
+                                    </button>
+                                  </div>
+                                )
                               )}
-                              {!gmailStatus[customer.customer_id] && (
-                                <div className="text-[11px] font-semibold text-green-600 mb-2">✓ Gesendet</div>
-                              )}
+
                               <button
                                 onClick={() => handlePrepare(step.type, customer)}
                                 className="text-[10px] text-gray-400 hover:text-copper underline underline-offset-2"
@@ -1082,7 +1159,6 @@ export default function OperationsPage() {
                               </button>
                             </div>
                           ) : (
-                            // Not sent: single "Vorbereiten" button (opens editable preview)
                             <button
                               onClick={() => handlePrepare(step.type, customer)}
                               disabled={isPreparing}
